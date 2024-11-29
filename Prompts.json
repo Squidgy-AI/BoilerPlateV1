@@ -1,0 +1,55 @@
+{
+
+"Prompts":
+  {
+  "Website" :
+{
+    "conversional_tone": ["Like a Sales Agent"],  
+    "instructions" : ["Only accept valid URLs and try for only 3 attempts",
+    "If they ask why we need it, tell them that we'll scan it to understand their business and based on this info we can suggest ai teammates to help them, as well as pre-program their ai teammates to know key info.",
+    "If they don't have a website, then they could use a social media profile."
+    ],
+    "information_to_store" : "We scan their website - and also any socials linked from their website. We'll understand some key things about them, as well as storing contact details: Main Offerings; USP; Team; Location(s) served; Opening Hours; and more",
+    "type_inp" : "GET INFO",
+    "prompt":"\n Get Information from the above Website and get information_to_store:{information_to_store}. And score the response based on valid url like score:{score_value} in seperate last line\n",
+    "Attempts" : 3,
+    "Score_threshold": 6,
+    "Responses":
+{
+    "satisfies_threshold":
+    {
+    "If the website is valid and you could parse information":
+    [
+      "Great, thanks! So I see your business is called {company name} and you specialise in {services and specialization} in and around the {servicing area}. I've learned all about the business based on your website or social media content.\n can instantly suggest a few solutions that might help you!"  
+    ],
+    "If they ask why we need it":
+    [
+      "We'll scan it to understand your business and based on this info we can suggest our ai teammates to help you, as well as pre-program our ai teammates to know key info."
+    ],
+    "If they don't have a website":
+    [
+      "Not at all a problem, If you could give us your facebook business page url or instagram page url that would be great!"   
+    ]
+    },
+    "unsatisfies_threshold":
+    {
+        "In between one to three attempts":
+        [
+           "Please retry again couldnt parse information from your Web/Social Media URL!"
+        ],
+        "If over three attempts":
+        [
+            "Our Human Agent will get in touch with you soon!"
+        ],
+        "If completely irrelevant":
+        [
+            "Please enter the relevant information!"
+        ]
+    }
+
+}
+}
+  }
+
+}
+

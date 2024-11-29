@@ -1,0 +1,275 @@
+{
+    "Intro":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Explain_help":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Suggest_sols":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Business_model":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Digital_ads":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Same_other_related_services":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Set_Expectations":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Check_info":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Correct_info":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Summarize_services":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Unique_selling_tags":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Ask_incomplete_info_suggest":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+   
+    "Pricing":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Configure_setup_and_specifications":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Contact_convo_follow_up":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "App_watch_convo_with_lead":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Meeting_calender_setup":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Ask_others_details_for_contact":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Ask_times_Avaliability_for_contact":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Ask_days_Avaliability_for_contact":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Interact_with_bot_change_details":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    }
+
+}
