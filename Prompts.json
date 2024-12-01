@@ -13,6 +13,7 @@
     "type_inp" : "GET INFO",
     "prompt":"\n Get Information from the above Website and get information_to_store:{information_to_store}. And score the response based on valid url like score:{score_value} in seperate last line\n",
     "Attempts" : 3,
+    "LLM" : "Perplexity",
     "Score_threshold": 6,
     "Responses":
 {
