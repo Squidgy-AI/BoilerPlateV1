@@ -4,7 +4,7 @@
   {
   "Website" :
 {
-    "conversional_tone": ["Like a Sales Agent"],  
+    "conversional_tone": ["Like a Sales Agent"],   
     "instructions" : ["Only accept valid URLs and try for only 3 attempts",
     "If they ask why we need it, tell them that we'll scan it to understand their business and based on this info we can suggest ai teammates to help them, as well as pre-program their ai teammates to know key info.",
     "If they don't have a website, then they could use a social media profile."
