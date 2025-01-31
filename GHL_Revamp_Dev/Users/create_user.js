@@ -1,17 +1,17 @@
 const axios = require('axios');
-
-const url = "https://services.leadconnectorhq.com/users/";
+const config = require('../env/config');
+const constant = require('../env/constant');
 
 const sub_account_id = 'lBPqgBowX1CsjHay12LY';
 const companyId = 'lp2p1q27DrdGta1qGDJd';
 const Agency_Access_Key = 'pit-ad700aa3-8481-4cff-b555-bcaac7532592';
-const firstName = 'GRAPE LLC';
-const lastName = 'Soma -Test';
-const email = 'GRAPE LLC';
-const password = '';
-const phoneNumber = 'Soma -Test';
-const accountType = 'GRAPE LLC';
-const role = 'Soma -Test';
+const firstName = 'Mohnishkumar';
+const lastName = 'Rajkumar';
+const email = 'mkr@gmail.com';
+const password = 'Mohnishkumar$123';
+const phoneNumber = '+44123456789';
+const accountType = 'account';
+const role = 'user';
 
 const CAMPAIGNS_ENABLED = true;
 const CAMPAIGNS_READ_ONLY = false;
@@ -56,56 +56,56 @@ const EXPORT_PAYMENTS_ENABLED = true;
 
 
 const payload = {
-    companyId: companyId,
-    firstName: firstName,
-    lastName: lastName,
-    email: email,
-    password: password,
-    phone: phoneNumber,
-    type:accountType,
-    role: role,
-    locationIds: [sub_account_id],
-    permissions: {
-        campaignsEnabled: CAMPAIGNS_ENABLED,
-        campaignsReadOnly: CAMPAIGNS_READ_ONLY,
-        contactsEnabled: CONTACTS_ENABLED,
-        workflowsEnabled: WORKFLOWS_ENABLED,
-        workflowsReadOnly: WORKFLOWS_READ_ONLY,
-        triggersEnabled: TRIGGERS_ENABLED,
-        funnelsEnabled: FUNNELS_ENABLED,
-        websitesEnabled: WEBSITES_ENABLED,
-        opportunitiesEnabled: OPPORTUNITIES_ENABLED,
-        dashboardStatsEnabled: DASHBOARD_STATS_ENABLED,
-        bulkRequestsEnabled: BULK_REQUESTS_ENABLED,
-        appointmentsEnabled: APPOINTMENTS_ENABLED,
-        reviewsEnabled: REVIEWS_ENABLED,
-        onlineListingsEnabled: ONLINE_LISTINGS_ENABLED,
-        phoneCallEnabled: PHONE_CALL_ENABLED,
-        conversationsEnabled: CONVERSATIONS_ENABLED,
-        assignedDataOnly: ASSIGNED_DATA_ONLY,
-        adwordsReportingEnabled: ADWORDS_REPORTING_ENABLED,
-        membershipEnabled: MEMBERSHIP_ENABLED,
-        facebookAdsReportingEnabled: FACEBOOK_ADS_REPORTING_ENABLED,
-        attributionsReportingEnabled: ATTRIBUTIONS_REPORTING_ENABLED,
-        settingsEnabled: SETTINGS_ENABLED,
-        tagsEnabled: TAGS_ENABLED,
-        leadValueEnabled: LEAD_VALUE_ENABLED,
-        marketingEnabled: MARKETING_ENABLED,
-        agentReportingEnabled: AGENT_REPORTING_ENABLED,
-        botService: BOT_SERVICE,
-        socialPlanner: SOCIAL_PLANNER,
-        bloggingEnabled: BLOGGING_ENABLED,
-        invoiceEnabled: INVOICE_ENABLED,
-        affiliateManagerEnabled: AFFILIATE_MANAGER_ENABLED,
-        contentAiEnabled: CONTENT_AI_ENABLED,
-        refundsEnabled: REFUNDS_ENABLED,
-        recordPaymentEnabled: RECORD_PAYMENT_ENABLED,
-        cancelSubscriptionEnabled: CANCEL_SUBSCRIPTION_ENABLED,
-        paymentsEnabled: PAYMENTS_ENABLED,
-        communitiesEnabled: COMMUNITIES_ENABLED,
-        exportPaymentsEnabled: EXPORT_PAYMENTS_ENABLED
+    "companyId": companyId,
+    "firstName": firstName,
+    "lastName": lastName,
+    "email": email,
+    "password": password,
+    "phone": phoneNumber,
+    "type":accountType,
+    "role": role,
+    "locationIds": [sub_account_id],
+    "permissions": {
+        "campaignsEnabled": CAMPAIGNS_ENABLED,
+        "campaignsReadOnly": CAMPAIGNS_READ_ONLY,
+        "contactsEnabled": CONTACTS_ENABLED,
+        "workflowsEnabled": WORKFLOWS_ENABLED,
+        "workflowsReadOnly": WORKFLOWS_READ_ONLY,
+        "triggersEnabled": TRIGGERS_ENABLED,
+        "funnelsEnabled": FUNNELS_ENABLED,
+        "websitesEnabled": WEBSITES_ENABLED,
+        "opportunitiesEnabled": OPPORTUNITIES_ENABLED,
+        "dashboardStatsEnabled": DASHBOARD_STATS_ENABLED,
+        "bulkRequestsEnabled": BULK_REQUESTS_ENABLED,
+        "appointmentsEnabled": APPOINTMENTS_ENABLED,
+        "reviewsEnabled": REVIEWS_ENABLED,
+        "onlineListingsEnabled": ONLINE_LISTINGS_ENABLED,
+        "phoneCallEnabled": PHONE_CALL_ENABLED,
+        "conversationsEnabled": CONVERSATIONS_ENABLED,
+        "assignedDataOnly": ASSIGNED_DATA_ONLY,
+        "adwordsReportingEnabled": ADWORDS_REPORTING_ENABLED,
+        "membershipEnabled": MEMBERSHIP_ENABLED,
+        "facebookAdsReportingEnabled": FACEBOOK_ADS_REPORTING_ENABLED,
+        "attributionsReportingEnabled": ATTRIBUTIONS_REPORTING_ENABLED,
+        "settingsEnabled": SETTINGS_ENABLED,
+        "tagsEnabled": TAGS_ENABLED,
+        "leadValueEnabled": LEAD_VALUE_ENABLED,
+        "marketingEnabled": MARKETING_ENABLED,
+        "agentReportingEnabled": AGENT_REPORTING_ENABLED,
+        "botService": BOT_SERVICE,
+        "socialPlanner": SOCIAL_PLANNER,
+        "bloggingEnabled": BLOGGING_ENABLED,
+        "invoiceEnabled": INVOICE_ENABLED,
+        "affiliateManagerEnabled": AFFILIATE_MANAGER_ENABLED,
+        "contentAiEnabled": CONTENT_AI_ENABLED,
+        "refundsEnabled": REFUNDS_ENABLED,
+        "recordPaymentEnabled": RECORD_PAYMENT_ENABLED,
+        "cancelSubscriptionEnabled": CANCEL_SUBSCRIPTION_ENABLED,
+        "paymentsEnabled": PAYMENTS_ENABLED,
+        "communitiesEnabled": COMMUNITIES_ENABLED,
+        "exportPaymentsEnabled": EXPORT_PAYMENTS_ENABLED
     },
-    scopes: [
+    "scopes": [
         "campaigns.readonly",
         "campaigns.write",
         "calendars/events.write",
@@ -158,7 +158,7 @@ const payload = {
         "adPublishing.write",
         "adPublishing.readonly"
     ],
-    scopesAssignedToOnly: [
+    "scopesAssignedToOnly": [
         "campaigns.readonly",
         "campaigns.write",
         "calendars/events.write",
@@ -213,19 +213,27 @@ const payload = {
     ]
 };
 
-// Define headers
 const headers = {
-    Authorization: `Bearer ${Agency_Access_Key}`,
-    Version: "2021-07-28",
+    "Authorization": `Bearer ${Agency_Access_Key}`,
+    "Version": "2021-07-28",
     "Content-Type": "application/json",
-    Accept: "application/json"
+    "Accept": "application/json"
 };
 
-// Send POST request
-axios.post(url, payload, { headers })
+axios.post(config.users_url, payload, { headers })
     .then(response => {
         console.log("Response Data:", response.data);
     })
     .catch(error => {
-        console.error("Error:", error.response ? error.response.data : error.message);
+        if (error.response) {
+            console.error('Error Response:', {
+                status: error.response.status,
+                statusText: error.response.statusText,
+                data: error.response.data,
+            });
+        } else if (error.request) {
+            console.error('No Response Received:', error.request);
+        } else {
+            console.error('Request Error:', error.message);
+        }
     });

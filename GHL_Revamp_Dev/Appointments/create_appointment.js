@@ -1,4 +1,7 @@
 const axios = require('axios');
+const config = require('../env/config');
+const constant = require('../env/constant');
+
 
 const Company_Id = 'lp2p1q27DrdGta1qGDJd';
 const Agency_Api_Key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb21wYW55X2lkIjoibHAycDFxMjdEcmRHdGExcUdESmQiLCJ2ZXJzaW9uIjoxLCJpYXQiOjE3MzE3NzMzOTIzNTgsInN1YiI6Ik11VklrS3NEVm12YnRTUlliTzRiIn0.2PIUrvtQYpmKxQXoss1IV9vdIU1VnmbDHcpFw2dodLo';
@@ -21,34 +24,43 @@ const IGNORE_DATE_RANGE = false;
 const TO_NOTIFY = false;
 const appointmentStatus = "new";
 
-const url = "https://services.leadconnectorhq.com/calendars/events/appointments";
 
 const payload = {
-  calendarId: calendar_id1,
-  locationId: sub_account_id,
-  contactId: contact_id,
-  startTime: startTime,
-  endTime: endTime,
-  title: title,
-  meetingLocationType: "default",
-  appointmentStatus: appointmentStatus,
-  assignedUserId: kitkat_id,
-  address: address,
-  ignoreDateRange: IGNORE_DATE_RANGE,
-  toNotify: TO_NOTIFY
+  "calendarId": calendar_id1,
+  "locationId": sub_account_id,
+  "contactId": contact_id,
+  "startTime": startTime,
+  "endTime": endTime,
+  "title": title,
+  "meetingLocationType": "default",
+  "appointmentStatus": appointmentStatus,
+  "assignedUserId": kitkat_id,
+  "address": address,
+  "ignoreDateRange": IGNORE_DATE_RANGE,
+  "toNotify": TO_NOTIFY
 };
 
 const headers = {
-  Authorization: `Bearer ${Nestle_access_token}`,
-  Version: "2021-04-15",
+  "Authorization": `Bearer ${Nestle_access_token}`,
+  "Version": "2021-04-15",
   "Content-Type": "application/json",
-  Accept: "application/json"
+  "Accept": "application/json"
 };
 
-axios.post(url, payload, { headers })
+axios.post(config.appointment_url, payload, { headers })
   .then(response => {
     console.log(response.data);
   })
   .catch(error => {
-    console.error(error.response ? error.response.data : error.message);
-  });
+    if (error.response) {
+        console.error('Error Response:', {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data,
+        });
+    } else if (error.request) {
+        console.error('No Response Received:', error.request);
+    } else {
+        console.error('Request Error:', error.message);
+    }
+});

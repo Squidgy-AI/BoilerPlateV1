@@ -6,10 +6,10 @@ const client_secret = "56468d3d-6927-48ab-8adc-0d8f22b4da90";
 const code_value = "7187472f087eec96654a9ae8cee06d017ad972b8"
 
 const payload = {
-    client_id: client_id,
-    client_secret: client_secret,
-    grant_type: "authorization_code",
-    code: code_value
+    "client_id": client_id,
+    "client_secret": client_secret,
+    "grant_type": "authorization_code",
+    "code": code_value
 };
 
 const headers = {
@@ -23,5 +23,15 @@ axios.post(url, payload, { headers })
         console.log(response.data);
     })
     .catch(error => {
-        console.error(error.response ? error.response.data : error.message);
+        if (error.response) {
+            console.error('Error Response:', {
+                status: error.response.status,
+                statusText: error.response.statusText,
+                data: error.response.data,
+            });
+        } else if (error.request) {
+            console.error('No Response Received:', error.request);
+        } else {
+            console.error('Request Error:', error.message);
+        }
     });
