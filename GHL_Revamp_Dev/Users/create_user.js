@@ -2,9 +2,6 @@ const axios = require('axios');
 const config = require('../environment/config');
 const constant = require('../environment/constant');
 
-const sub_account_id = 'lBPqgBowX1CsjHay12LY';
-const companyId = 'lp2p1q27DrdGta1qGDJd';
-const Agency_Access_Key = 'pit-ad700aa3-8481-4cff-b555-bcaac7532592';
 const firstName = 'Mohnishkumar';
 const lastName = 'Rajkumar';
 const email = 'mkr@gmail.com';
@@ -56,7 +53,7 @@ const EXPORT_PAYMENTS_ENABLED = true;
 
 
 const payload = {
-    "companyId": companyId,
+    "companyId": constant.CompanyId,
     "firstName": firstName,
     "lastName": lastName,
     "email": email,
@@ -64,7 +61,7 @@ const payload = {
     "phone": phoneNumber,
     "type":accountType,
     "role": role,
-    "locationIds": [sub_account_id],
+    "locationIds": [contsant.location_id],
     "permissions": {
         "campaignsEnabled": CAMPAIGNS_ENABLED,
         "campaignsReadOnly": CAMPAIGNS_READ_ONLY,
@@ -214,7 +211,7 @@ const payload = {
 };
 
 const headers = {
-    "Authorization": `Bearer ${Agency_Access_Key}`,
+    "Authorization": `Bearer ${constant.Agency_Access_Key}`,
     "Version": "2021-07-28",
     "Content-Type": "application/json",
     "Accept": "application/json"

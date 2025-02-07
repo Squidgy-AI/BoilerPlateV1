@@ -2,10 +2,6 @@ const axios = require('axios');
 const config = require("../environment/config");
 const constant = require("../environment/constant");
 
-const Company_Id = 'lp2p1q27DrdGta1qGDJd';
-const Agency_Api_Key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb21wYW55X2lkIjoibHAycDFxMjdEcmRHdGExcUdESmQiLCJ2ZXJzaW9uIjoxLCJpYXQiOjE3MzE3NzMzOTIzNTgsInN1YiI6Ik11VklrS3NEVm12YnRTUlliTzRiIn0.2PIUrvtQYpmKxQXoss1IV9vdIU1VnmbDHcpFw2dodLo';
-const Relationship_Id = '0-099-130';
-const Agency_Access_Key = 'pit-ad700aa3-8481-4cff-b555-bcaac7532592';
 
 
 
@@ -47,7 +43,7 @@ const GOOGLE_PLACES_ID = "ChIJJGPdVbQTrjsRGUkefteUeFk";
 const create_payload = {
     "name": clientName,
     "phone": phoneNumber,
-    "companyId": Company_Id,
+    "companyId": constant.Company_Id,
     "address": address,
     "city": city,
     "state": state,
@@ -82,7 +78,7 @@ const create_payload = {
 };
 
 const headers = {
-    "Authorization": `Bearer ${Agency_Access_Key}`,
+    "Authorization": `Bearer ${constant.Agency_Access_Key}`,
     "Version": "2021-07-28",
     "Content-Type": "application/json",
     "Accept": "application/json"

@@ -2,18 +2,16 @@ const axios = require('axios');
 const config = require("../environment/config");
 const constant = require("../environment/constant");
 
-const NestleAccessToken = 'pit-98e16ccd-8c1e-4e6f-a96d-57ef6cb2cf62';
-const calendar_id = 'nNKMeKxstubPEDQHnOW7';
 
 
 const headers = {
-    "Authorization": `Bearer ${NestleAccessToken}`,
+    "Authorization": `Bearer ${config.NestleAccessToken}`,
     "Version": "2021-07-28",
     "Content-Type": "application/json",
     "Accept": "application/json"
 };
 
-axios.get(config.calendars_url+calendar_id,{ headers })
+axios.get(config.calendars_url+constant.calendar_id1,{ headers })
 .then(response => {
     console.log(response.data)
 })

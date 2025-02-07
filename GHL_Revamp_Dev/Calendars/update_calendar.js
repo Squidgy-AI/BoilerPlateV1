@@ -2,19 +2,15 @@ const axios = require('axios');
 const constant = require('../environment/config');
 const config = require('../environment/config');
 
-const NestleAccessToken = 'pit-98e16ccd-8c1e-4e6f-a96d-57ef6cb2cf62';
-const nescafe_id = '6ZHPyo1FRlZNBGzH5szG';
-const kitkat_id = 'kmfwpeEjk5QjgGVdD4Su';
-const sub_account_id = 'lBPqgBowX1CsjHay12LY';
 
 const eventType = "RoundRobin_OptimizeForAvailability";
-const eventName = `calendar for ${kitkat_id} and ${nescafe_id}`;
+const eventName = `calendar for ${constant.kitkat_id} and ${constant.nescafe_id}`;
 const description = "this is used for testing";
 const slug = "test1";
 const widgetSlug = "test1";
 const calendarType = "round_robin";
 const widgetType = "classic";
-const eventTitle = `${nescafe_id} Calling in ${kitkat_id}`;
+const eventTitle = `${constant.nescafe_id} Calling in ${constant.kitkat_id}`;
 const eventColor = "#039be5";
 const slotDuration = 30;
 const slotBuffer = 0;
@@ -27,17 +23,17 @@ const daysOfTheWeek = [2];
 
 
 const payload = {
-    "locationId": sub_account_id,
+    "locationId": constant.location_id,
     "teamMembers": [
         {
-            "userId": nescafe_id,
+            "userId": constant.nescafe_id,
             "priority": 0.5,
             "meetingLocationType": "custom",
             "meetingLocation": "string",
             "isPrimary": true
         },
         {
-            "userId": kitkat_id,
+            "userId": constant.kitkat_id,
             "priority": 1,
             "meetingLocationType": "custom",
             "meetingLocation": "string",
@@ -128,15 +124,14 @@ const payload = {
 };
 
 const headers = {
-    "Authorization": `Bearer ${NestleAccessToken}`,
+    "Authorization": `Bearer ${config.NestleAccessToken}`,
     "Version": "2021-04-15",
     "Content-Type": "application/json",
     "Accept": "application/json"
 };
 
-const calendar_id = 'nNKMeKxstubPEDQHnOW7';
 
-axios.put(config.calendars_url+calendar_id, payload, { headers })
+axios.put(config.calendars_url+constant.calendar_id1, payload, { headers })
     .then(response => {
         console.log(response.data);
     })
