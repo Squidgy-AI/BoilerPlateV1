@@ -1,6 +1,6 @@
 const axios = require('axios');
-const config = require('../env/config');
-const constant = require('../env/constant');
+const config = require('../environment/config');
+const constant = require('../environment/constant');
 
 const sub_account_id = 'lBPqgBowX1CsjHay12LY';
 const companyId = 'lp2p1q27DrdGta1qGDJd';

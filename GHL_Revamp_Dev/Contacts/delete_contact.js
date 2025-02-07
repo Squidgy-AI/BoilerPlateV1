@@ -1,6 +1,6 @@
 const axios = require('axios');
-const config = require("../env/config");
-const constant = require("../env/constant");
+const config = require("../environment/config");
+const constant = require("../environment/constant");
 
 const Nestle_contacts_convo_token = 'pit-1fc00b1f-35e7-4a86-90c0-ccdeefd935b0';
 const contact_id = "UPCcdhjzBUVPcivkJ2vx";

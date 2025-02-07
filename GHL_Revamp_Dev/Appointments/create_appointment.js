@@ -1,6 +1,6 @@
 const axios = require('axios');
-const config = require('../env/config');
-const constant = require('../env/constant');
+const config = require('../environment/config');
+const constant = require('../environment/constant');
 
 
 const Company_Id = 'lp2p1q27DrdGta1qGDJd';
@@ -9,7 +9,7 @@ const Relationship_Id = '0-099-130';
 const Agency_Access_Key = 'pit-ad700aa3-8481-4cff-b555-bcaac7532592';
 const nescafe_id = '6ZHPyo1FRlZNBGzH5szG';
 const maggie_id = 'Fj1JPxueiId1Ki15fZZA';
-const kitkat_id = 'kmfwpeEjk5QjgGVdD4Su';
+
 const Nestle_Api_Key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6ImxCUHFnQm93WDFDc2pIYXkxMkxZIiwidmVyc2lvbiI6MSwiaWF0IjoxNzMxOTkyNDg3MDU0LCJzdWIiOiJhWjBuNGV0ck5DRUIyOXNvbmE4TSJ9.czCh27fEwqxW4KzDx0gVbYcpdtcChy_31h9SoQuptAA';
 const Nestle_access_token = 'pit-98e16ccd-8c1e-4e6f-a96d-57ef6cb2cf62';
 const sub_account_id = 'lBPqgBowX1CsjHay12LY';
@@ -34,7 +34,7 @@ const payload = {
   "title": title,
   "meetingLocationType": "default",
   "appointmentStatus": appointmentStatus,
-  "assignedUserId": kitkat_id,
+  "assignedUserId": constant.kitkat_id,
   "address": address,
   "ignoreDateRange": IGNORE_DATE_RANGE,
   "toNotify": TO_NOTIFY

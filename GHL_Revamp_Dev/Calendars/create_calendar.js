@@ -1,6 +1,6 @@
 const axios = require('axios');
-const constant = require('../env/config');
-const config = require('../env/config');
+const constant = require('../environment/config');
+const config = require('../environment/config');
 
 const NestleAccessToken = 'pit-98e16ccd-8c1e-4e6f-a96d-57ef6cb2cf62';
 const nescafe_id = '6ZHPyo1FRlZNBGzH5szG';

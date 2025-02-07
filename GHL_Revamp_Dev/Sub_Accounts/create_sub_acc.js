@@ -1,6 +1,6 @@
 const axios = require('axios');
-const config = require("../env/config");
-const constant = require("../env/constant");
+const config = require("../environment/config");
+const constant = require("../environment/constant");
 
 const Company_Id = 'lp2p1q27DrdGta1qGDJd';
 const Agency_Api_Key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb21wYW55X2lkIjoibHAycDFxMjdEcmRHdGExcUdESmQiLCJ2ZXJzaW9uIjoxLCJpYXQiOjE3MzE3NzMzOTIzNTgsInN1YiI6Ik11VklrS3NEVm12YnRTUlliTzRiIn0.2PIUrvtQYpmKxQXoss1IV9vdIU1VnmbDHcpFw2dodLo';
