@@ -100,7 +100,8 @@ def vector_setup_sys_mesage(role_descriptions, role):
         
     templates = vector_store.get_all_templates_for_role(role)
     
-    message = f"{role_descriptions.get(role, f'You are a member of Squidgy\'s team working as {role}.')}\n\n"
+    temp= f'You are a member of Squidgy\'s team working as {role}.'
+    message = f"{role_descriptions.get(role,temp )}\n\n"
     message += "Use these conversation patterns:\n\n"
     
     for template in templates:
