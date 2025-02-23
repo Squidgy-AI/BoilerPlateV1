@@ -5,7 +5,7 @@ const constant = require("../environment/constant");
 
 
 const headers = {
-    "Authorization": `Bearer ${config.NestleAccessToken}`,
+    "Authorization": `Bearer ${config.Nestle_access_token}`,
     "Version": "2021-07-28",
     "Content-Type": "application/json",
     "Accept": "application/json"

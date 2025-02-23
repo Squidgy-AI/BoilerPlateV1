@@ -61,7 +61,7 @@ const payload = {
     "phone": phoneNumber,
     "type":accountType,
     "role": role,
-    "locationIds": [contsant.location_id],
+    "locationIds": [constant.location_id],
     "permissions": {
         "campaignsEnabled": CAMPAIGNS_ENABLED,
         "campaignsReadOnly": CAMPAIGNS_READ_ONLY,

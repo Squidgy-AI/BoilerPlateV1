@@ -11,7 +11,7 @@ const headers = {
 };
 
 const params = {
-    "locationId":constantlocation_id,
+    "locationId":constant.location_id,
 }
 
 axios.get(config.users_url,{ headers, params })

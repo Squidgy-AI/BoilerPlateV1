@@ -1,6 +1,7 @@
 const axios = require('axios');
+const config = require('./environment/config')
 
-const url = "https://services.leadconnectorhq.com/oauth/token";
+
 const client_id = "673feeff6d29e38a913dc2b7-m3s5b8mt";
 const client_secret = "56468d3d-6927-48ab-8adc-0d8f22b4da90";
 const code_value = "7187472f087eec96654a9ae8cee06d017ad972b8"
@@ -17,7 +18,7 @@ const headers = {
     "Accept": "application/json"
 };
 
-axios.post(url, payload, { headers })
+axios.post(config.auth_token_url, payload, { headers })
 
     .then(response => {
         console.log(response.data);
