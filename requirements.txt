@@ -1,3 +1,13 @@
+langchain-huggingface
+langgraph
+langchain_anthropic
+tavily-python
+langchain_community
+langchain_openai
+langchain-apify
+langdetect
+duckduckgo-search
+faiss-cpu==1.7.4
 apify_client==1.9.2
 autogen==0.7.5
 Flask==3.1.0

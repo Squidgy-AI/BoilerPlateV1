@@ -1,7 +1,11 @@
 # Byte-compiled / optimized / DLL files
+.ipynb_checkpoints
 __pycache__/
 *.py[cod]
 *$py.class
+config.toml
+knowledge_base.xlsx
+faiss_index/
 
 # C extensions
 *.so
