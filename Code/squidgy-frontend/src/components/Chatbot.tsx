@@ -16,8 +16,10 @@ const Chatbot = () => {
   const [loading, setLoading] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
   const [userId] = useState(Math.random().toString(36).substring(7));
+  const [avatarEnabled, setAvatarEnabled] = useState(true);
   const avatarRef = useRef<StreamingAvatar | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const initialMessageSent = useRef<boolean>(false);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -26,7 +28,14 @@ const Chatbot = () => {
   }, [chatHistory]);
 
   const startChat = async () => {
+    // Only get the initial message if we haven't already
+    if (initialMessageSent.current) {
+      return;
+    }
+    
     setChatStarted(true);
+    initialMessageSent.current = true;
+    
     try {
       const response = await fetch("http://127.0.0.1:8000/chat", {
         method: 'POST',
@@ -41,7 +50,7 @@ const Chatbot = () => {
       const data = await response.json();
       setChatHistory([{ sender: "AI", message: data.agent }]);
       
-      if (avatarRef.current) {
+      if (avatarRef.current && avatarEnabled) {
         await avatarRef.current.speak({
           text: data.agent,
           taskType: TaskType.REPEAT,
@@ -73,7 +82,7 @@ const Chatbot = () => {
 
       setChatHistory((prevHistory) => [...prevHistory, { sender: "AI", message: data.agent }]);
       
-      if (avatarRef.current) {
+      if (avatarRef.current && avatarEnabled) {
         await avatarRef.current.speak({
           text: data.agent,
           taskType: TaskType.REPEAT,
@@ -96,15 +105,34 @@ const Chatbot = () => {
     }
   };
 
+  const toggleAvatar = () => {
+    setAvatarEnabled(!avatarEnabled);
+  };
+
   return (
     <div className="w-1/2 bg-[#1E2A3B] h-screen overflow-hidden fixed right-0 top-0">
       <div className="h-full flex flex-col p-6">
-        {/* Avatar Video Section */}
-        <div className="h-[500px] mb-4">
+        {/* Avatar Video Section with Toggle Button */}
+        <div className="relative h-[500px] mb-4">
           <InteractiveAvatar
             onAvatarReady={handleAvatarReady}
             avatarRef={avatarRef}
+            enabled={avatarEnabled}
           />
+          
+          {/* Avatar Toggle Button */}
+          <div className="absolute top-4 right-4 z-10">
+            <button
+              onClick={toggleAvatar}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                avatarEnabled 
+                  ? "bg-red-600 text-white" 
+                  : "bg-green-600 text-white"
+              }`}
+            >
+              {avatarEnabled ? "Disable Avatar" : "Enable Avatar"}
+            </button>
+          </div>
         </div>
 
         {/* Chat History and Input Section */}

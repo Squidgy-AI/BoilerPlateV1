@@ -12,15 +12,21 @@ import StreamingAvatar, {
 interface InteractiveAvatarProps {
   onAvatarReady?: () => void;
   avatarRef?: React.MutableRefObject<StreamingAvatar | null>;
+  enabled?: boolean;
 }
 
-const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ onAvatarReady, avatarRef }) => {
+const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ 
+  onAvatarReady, 
+  avatarRef, 
+  enabled = true
+}) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [avatarId] = useState<string>('Anna_public_3_20240108');
   const mediaStream = useRef<HTMLVideoElement>(null);
   const localAvatarRef = useRef<StreamingAvatar | null>(null);
-  const [debug, setDebug] = useState<string>("");
+  const [sessionActive, setSessionActive] = useState(false);
+  const tokenRef = useRef<string>("");
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
@@ -30,6 +36,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ onAvatarReady, av
         method: "POST",
       });
       const token = await response.text();
+      tokenRef.current = token;
       return token;
     } catch (error) {
       console.error("Error fetching access token:", error);
@@ -38,14 +45,22 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ onAvatarReady, av
   }
 
   async function startAvatarSession() {
+    if (!enabled) return;
+    
     setIsLoadingSession(true);
-    const newToken = await fetchAccessToken();
+    
+    // Only fetch a new token if we don't have one
+    if (!tokenRef.current) {
+      await fetchAccessToken();
+    }
 
-    actualAvatarRef.current = new StreamingAvatar({
-      token: newToken,
-    });
-
-    setupAvatarEventListeners();
+    // Create a new StreamingAvatar instance only if needed
+    if (!actualAvatarRef.current) {
+      actualAvatarRef.current = new StreamingAvatar({
+        token: tokenRef.current,
+      });
+      setupAvatarEventListeners();
+    }
 
     try {
       const res = await actualAvatarRef.current.createStartAvatar({
@@ -62,6 +77,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ onAvatarReady, av
       await actualAvatarRef.current?.startVoiceChat({
         useSilencePrompt: false
       });
+
+      setSessionActive(true);
 
       if (onAvatarReady) {
         onAvatarReady();
@@ -91,46 +108,77 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ onAvatarReady, av
 
     actualAvatarRef.current.on(StreamingEvents.STREAM_DISCONNECTED, () => {
       console.log("Stream disconnected");
-      endSession();
+      setSessionActive(false);
+      setStream(undefined);
     });
   }
 
+  async function pauseSession() {
+    if (actualAvatarRef.current) {
+      await actualAvatarRef.current.stopAvatar();
+      setSessionActive(false);
+      setStream(undefined);
+      // Don't destroy the instance, just stop the avatar
+    }
+  }
+  
   async function endSession() {
-    await actualAvatarRef.current?.stopAvatar();
-    setStream(undefined);
+    if (actualAvatarRef.current) {
+      await actualAvatarRef.current.stopAvatar();
+      actualAvatarRef.current = null;
+      setSessionActive(false);
+      setStream(undefined);
+    }
   }
 
+  // Effect to start session initially if enabled
   useEffect(() => {
-    startAvatarSession();
+    if (enabled) {
+      startAvatarSession();
+    }
     return () => {
       endSession();
     };
   }, []);
+
+  // Effect to handle enabled/disabled state changes
+  useEffect(() => {
+    if (enabled && !sessionActive) {
+      startAvatarSession();
+    } else if (!enabled && sessionActive) {
+      pauseSession(); // Just pause instead of completely ending
+    }
+  }, [enabled, sessionActive]);
 
   useEffect(() => {
     if (stream && mediaStream.current) {
       mediaStream.current.srcObject = stream;
       mediaStream.current.onloadedmetadata = () => {
         mediaStream.current!.play();
-        setDebug("Playing");
       };
     }
   }, [stream, mediaStream]);
 
   return (
     <div className="w-full h-full bg-[#2D3B4F] rounded-lg overflow-hidden">
-      {stream ? (
-        <video
-          ref={mediaStream}
-          autoPlay
-          playsInline
-          className="w-full h-full object-cover scale-100"
-        >
-          <track kind="captions" />
-        </video>
+      {enabled ? (
+        stream ? (
+          <video
+            ref={mediaStream}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover scale-100"
+          >
+            <track kind="captions" />
+          </video>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-white">
+            {isLoadingSession ? "Loading avatar..." : "Avatar will appear here"}
+          </div>
+        )
       ) : (
         <div className="w-full h-full flex items-center justify-center text-white">
-          {isLoadingSession ? "Loading avatar..." : "Avatar will appear here"}
+          <p className="text-xl">Avatar is disabled</p>
         </div>
       )}
     </div>
