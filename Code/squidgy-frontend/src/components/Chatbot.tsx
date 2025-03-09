@@ -37,7 +37,7 @@ const Chatbot = () => {
     initialMessageSent.current = true;
     
     try {
-      const response = await fetch("http://127.0.0.1:8000/chat", {
+      const response = await fetch("http://localhost:8000/chat", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -68,7 +68,7 @@ const Chatbot = () => {
     setChatHistory([...chatHistory, { sender: "User", message: userInput }]);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/chat", {
+      const response = await fetch("http://localhost:8000/chat", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
