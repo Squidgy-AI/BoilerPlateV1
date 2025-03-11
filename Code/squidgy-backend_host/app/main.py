@@ -152,6 +152,8 @@ llm_config = {
 }
 
 # Role descriptions
+# Session or User ID Based change !!!!
+# TODO: UserID multiple session ID
 
 # Global variable to store message history
 message_history = {

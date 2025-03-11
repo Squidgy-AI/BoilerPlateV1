@@ -20,4 +20,4 @@ COPY . .
 EXPOSE 3000
 
 # Command to run the app
-CMD ["yarn", "dev"]
+CMD ["yarn", "dev", "--hostname", "0.0.0.0"]

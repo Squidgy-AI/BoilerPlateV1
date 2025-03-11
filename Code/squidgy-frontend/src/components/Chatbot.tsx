@@ -37,7 +37,7 @@ const Chatbot = () => {
     initialMessageSent.current = true;
     
     try {
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch("http://20.236.251.118/chat", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,9 +66,9 @@ const Chatbot = () => {
     if (!userInput.trim()) return;
     setLoading(true);
     setChatHistory([...chatHistory, { sender: "User", message: userInput }]);
-
+    // http://localhost:8000
     try {
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch("http://20.236.251.118/chat", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
