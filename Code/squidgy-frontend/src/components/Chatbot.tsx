@@ -10,12 +10,15 @@ interface ChatMessage {
   message: string;
 }
 
-const Chatbot = () => {
+interface ChatbotProps {
+  userId: string;
+}
+
+const Chatbot: React.FC<ChatbotProps> = ({ userId }) => {
   const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
-  const [userId] = useState(Math.random().toString(36).substring(7));
   const [avatarEnabled, setAvatarEnabled] = useState(true);
   const avatarRef = useRef<StreamingAvatar | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
