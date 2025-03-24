@@ -1,6 +1,6 @@
 'use client';
 
-import WelcomeScreen from '@/components/WelcomeScreen';
+import WelcomeScreen from '@/components/Auth/WelcomeScreen';
 
 export default function Home() {
   return (

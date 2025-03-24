@@ -27,6 +27,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const localAvatarRef = useRef<StreamingAvatar | null>(null);
   const [sessionActive, setSessionActive] = useState(false);
   const tokenRef = useRef<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<string | null>(null);
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
@@ -48,43 +50,77 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     if (!enabled) return;
     
     setIsLoadingSession(true);
+    setError(null);
+    setErrorType(null);
     
-    // Only fetch a new token if we don't have one
-    if (!tokenRef.current) {
-      await fetchAccessToken();
-    }
-
-    // Create a new StreamingAvatar instance only if needed
-    if (!actualAvatarRef.current) {
-      actualAvatarRef.current = new StreamingAvatar({
-        token: tokenRef.current,
-      });
-      setupAvatarEventListeners();
-    }
-
     try {
-      const res = await actualAvatarRef.current.createStartAvatar({
-        quality: AvatarQuality.Low,
-        avatarName: avatarId,
-        voice: {
-          rate: 1.2,
-          emotion: VoiceEmotion.NEUTRAL,
-        },
-        language: "en",
-        disableIdleTimeout: true,
-      });
-
-      await actualAvatarRef.current?.startVoiceChat({
-        useSilencePrompt: false
-      });
-
-      setSessionActive(true);
-
-      if (onAvatarReady) {
-        onAvatarReady();
+      // Only fetch a new token if we don't have one
+      if (!tokenRef.current) {
+        const token = await fetchAccessToken();
+        if (!token) {
+          throw new Error("Failed to obtain access token");
+        }
+      }
+  
+      // Create a new StreamingAvatar instance only if needed
+      if (!actualAvatarRef.current) {
+        try {
+          actualAvatarRef.current = new StreamingAvatar({
+            token: tokenRef.current,
+          });
+          setupAvatarEventListeners();
+        } catch (initError) {
+          console.error("Avatar initialization error:", initError);
+          setError("Failed to initialize avatar");
+          setErrorType("INIT_ERROR");
+          throw initError;
+        }
+      }
+  
+      try {
+        const res = await actualAvatarRef.current.createStartAvatar({
+          quality: AvatarQuality.Low,
+          avatarName: avatarId,
+          voice: {
+            rate: 1.2,
+            emotion: VoiceEmotion.NEUTRAL,
+          },
+          language: "en",
+          disableIdleTimeout: true,
+        });
+  
+        await actualAvatarRef.current?.startVoiceChat({
+          useSilencePrompt: false
+        });
+  
+        setSessionActive(true);
+  
+        if (onAvatarReady) {
+          onAvatarReady();
+        }
+      } catch (avatarError: any) {
+        console.error("Error starting avatar session:", avatarError);
+        
+        // Categorize errors by checking error messages
+        if (avatarError.message?.includes("quota exceeded")) {
+          setErrorType("QUOTA_EXCEEDED");
+          setError("API quota exceeded. Try again later.");
+        } else if (avatarError.message?.includes("concurrent")) {
+          setErrorType("CONCURRENT_SESSION");
+          setError("Another session is active. Please wait.");
+        } else if (avatarError.message?.includes("WebRTC")) {
+          setErrorType("WEBRTC_ERROR");
+          setError("WebRTC connection failed. Check your network.");
+        } else {
+          setErrorType("UNKNOWN_ERROR");
+          setError("Failed to start avatar session.");
+        }
+        
+        throw avatarError;
       }
     } catch (error) {
-      console.error("Error starting avatar session:", error);
+      console.error("Avatar session error:", error);
+      // Don't rethrow - we've handled it already
     } finally {
       setIsLoadingSession(false);
     }
@@ -115,10 +151,15 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
 
   async function pauseSession() {
     if (actualAvatarRef.current) {
-      await actualAvatarRef.current.stopAvatar();
-      setSessionActive(false);
-      setStream(undefined);
-      // Don't destroy the instance, just stop the avatar
+      try {
+        await actualAvatarRef.current.stopAvatar();
+        console.log("Avatar session paused successfully");
+      } catch (error) {
+        console.error("Error pausing avatar session:", error);
+      } finally {
+        setSessionActive(false);
+        setStream(undefined);
+      }
     }
   }
   
@@ -172,8 +213,24 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
             <track kind="captions" />
           </video>
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-white">
-            {isLoadingSession ? "Loading avatar..." : "Avatar will appear here"}
+          <div className="w-full h-full flex flex-col items-center justify-center text-white">
+            <div className="text-xl mb-2">
+              {isLoadingSession ? "Loading avatar..." : "Avatar will appear here"}
+            </div>
+            
+            {error && (
+              <div className="text-red-400 text-sm mt-2 max-w-xs text-center">
+                {error}
+                {errorType === "WEBRTC_ERROR" && (
+                  <button 
+                    onClick={() => startAvatarSession()}
+                    className="mt-2 bg-blue-500 px-4 py-1 rounded-lg"
+                  >
+                    Retry Connection
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )
       ) : (
