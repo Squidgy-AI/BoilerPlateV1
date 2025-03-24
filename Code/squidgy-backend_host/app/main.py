@@ -190,7 +190,7 @@ def vector_setup_sys_mesage(role_descriptions, role):
         if template["template"]:
             message += f"Respond with something like:\n'{template['template']}'\n\n"
     
-    message += "\nAdapt these templates to the conversation while maintaining Squidgy's tone and style."
+    message += "\nAdapt these templates to the conversation while maintaining Squidgy's tone and style. Remove '*' from response"
     return message
 
 def save_history(history):
