@@ -1,10 +1,17 @@
-################################################################
-## ADD REST ALL FILES SAME AS SIMPLE CHAT UI BACKEND
-################################################################
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import asyncio
+import json
+import logging
+import uuid
+from typing import Dict, List, Any, Optional
+from pydantic import BaseModel
+import uvicorn
+
+# from fastapi import FastAPI, HTTPException
+# from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.responses import JSONResponse
 from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
 import requests
 from apify_client import ApifyClient
@@ -74,6 +81,39 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class ChatRequest(BaseModel):
+    user_id: str
+    session_id: str
+    user_input: str
+
+class ChatMessage(BaseModel):
+    sender: str
+    message: str
+    timestamp: Optional[str] = None
+
+class ChatHistoryResponse(BaseModel):
+    history: List[ChatMessage]
+    session_id: str
+
+class ChatResponse(BaseModel):
+    agent: str
+    session_id: str
+
+# In-memory chat history store (replace with database in production)
+chat_histories: Dict[str, List[ChatMessage]] = {}
+
+def save_message_to_history(session_id: str, sender: str, message: str):
+    """Save a message to the chat history for a specific session"""
+    if session_id not in chat_histories:
+        chat_histories[session_id] = []
+    
+    from datetime import datetime
+    timestamp = datetime.now().isoformat()
+    
+    chat_histories[session_id].append(
+        ChatMessage(sender=sender, message=message, timestamp=timestamp)
+    )
 
 def get_insights(address: str) -> Dict[str, Any]:
     base_url = "https://api.realwave.com/googleSolar"
@@ -456,72 +496,302 @@ def create_agents():
 
     return ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent
 
-class ChatRequest(BaseModel):
-    user_id: str
-    user_input: str
+# Store active WebSocket connections
+active_connections: Dict[str, WebSocket] = {}
 
-class ChatResponse(BaseModel):
-    agent: str
+# Store ongoing chat processes and their status
+ongoing_chats: Dict[str, Dict[str, Any]] = {}
 
-# @app.get("/")
-# async def home():
-#     return {"message": "Welcome to Squidgy AI"}
-
-@app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    user_id = request.user_id
-    user_input = request.user_input.strip()
-
-    if not user_input:
-        initial_greeting = """Hi! I'm Squidgy and I'm here to help you win back time and make more money. Think of me as like a consultant who can instantly build you a solution to a bunch of your problems
-        To get started, could you tell me your website?"""
-        return ChatResponse(agent=initial_greeting)
-
-    # message = request.json["message"]
+@app.websocket("/ws/{user_id}/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str):
+    connection_id = f"{user_id}_{session_id}"
+    await websocket.accept()
+    active_connections[connection_id] = websocket
     
-    # Create agents and group chat
-    ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents()
+    try:
+        while True:
+            # Wait for messages from the client
+            data = await websocket.receive_text()
+            message_data = json.loads(data)
+            user_input = message_data.get("message", "").strip()
+            
+            # Generate a unique ID for this chat request
+            request_id = str(uuid.uuid4())
+            
+            # Send acknowledgment back to client
+            await websocket.send_json({
+                "type": "ack",
+                "requestId": request_id,
+                "message": "Message received, processing..."
+            })
+            
+            # Start a background task to process the chat
+            asyncio.create_task(
+                process_chat(user_id, session_id, user_input, request_id, connection_id)
+            )
+            
+    except WebSocketDisconnect:
+        if connection_id in active_connections:
+            del active_connections[connection_id]
+        logger.info(f"Client disconnected: {connection_id}")
+
+async def process_chat(user_id: str, session_id: str, user_input: str, request_id: str, connection_id: str):
+    """Process a chat message in the background and send results via WebSocket"""
+    ongoing_chats[request_id] = {"status": "processing", "connection_id": connection_id}
     
-    # group_chat = EnforcedFlowGroupChat(
-    #     agents=[user_agent, ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist],
-    #     messages=[{"role": "assistant", "content": "Hi! I'm Squidgy and I'm here to help you win back time and make more money."}],
-    #     max_round=120
-    # )
+    try:
+        websocket = active_connections.get(connection_id)
+        if not websocket:
+            logger.error(f"WebSocket connection not found for {connection_id}")
+            return
+            
+        # Initial message if empty input
+        if not user_input:
+            initial_greeting = """Hi! I'm Squidgy and I'm here to help you win back time and make more money. Think of me as like a consultant who can instantly build you a solution to a bunch of your problems. To get started, could you tell me your website?"""
+            await websocket.send_json({
+                "type": "agent_response",
+                "requestId": request_id,
+                "message": initial_greeting,
+                "final": True
+            })
+            ongoing_chats[request_id]["status"] = "completed"
+            return
+            
+        # Create agents and group chat
+        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents()
+        
+        # Create a custom callback to send intermediate responses
+        async def send_update(agent_name, message):
+            if websocket and connection_id in active_connections:
+                await websocket.send_json({
+                    "type": "agent_thinking",
+                    "requestId": request_id,
+                    "agent": agent_name,
+                    "message": message,
+                    "final": False
+                })
+        
+        # Configure group chat with callback for progress updates
+        group_chat = GroupChat(
+            agents=[user_agent, ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist],
+            messages=[{"role": "assistant", "content": "Hi! I'm Squidgy and I'm here to help you win back time and make more money."}],
+            max_round=120,
+            on_new_agent_response=send_update  # This would need to be implemented in your GroupChat class
+        )
 
-    group_chat = GroupChat(
-        agents=[user_agent, ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist],
-        messages=[{"role": "assistant", "content": "Hi! I'm Squidgy and I'm here to help you win back time and make more money."}],
-        max_round=120,
-        # speaker_selection_method="round_robin"
-    )
+        group_manager = GroupChatManager(
+            groupchat=group_chat,
+            llm_config=llm_config,
+            human_input_mode="NEVER"
+        )
 
-    group_manager = GroupChatManager(
-        groupchat=group_chat,
-        llm_config=llm_config,
-        human_input_mode="NEVER"
-    )
+        # Get and restore history
+        history = get_history()
+        ProductManager._oai_messages = {group_manager: history["ProductManager"]}
+        PreSalesConsultant._oai_messages = {group_manager: history["PreSalesConsultant"]}
+        SocialMediaManager._oai_messages = {group_manager: history["SocialMediaManager"]}
+        LeadGenSpecialist._oai_messages = {group_manager: history["LeadGenSpecialist"]}
+        user_agent._oai_messages = {group_manager: history["user_agent"]}
+        
+        # Run the chat with progress updates
+        await websocket.send_json({
+            "type": "processing_start",
+            "requestId": request_id,
+            "message": "Agents are now thinking..."
+        })
+        
+        # Initiate chat (this would need to be modified to be non-blocking/async)
+        # We'll run this in an executor to not block the event loop
+        final_response = await asyncio.to_thread(
+            run_agent_chat, user_agent, group_manager, user_input
+        )
+        
+        # Save conversation history
+        save_history({
+            "ProductManager": ProductManager.chat_messages.get(group_manager),
+            "PreSalesConsultant": PreSalesConsultant.chat_messages.get(group_manager),
+            "SocialMediaManager": SocialMediaManager.chat_messages.get(group_manager),
+            "LeadGenSpecialist": LeadGenSpecialist.chat_messages.get(group_manager),
+            "user_agent": user_agent.chat_messages.get(group_manager)
+        })
+        
+        # Send final response
+        await websocket.send_json({
+            "type": "agent_response",
+            "requestId": request_id,
+            "message": final_response,
+            "final": True
+        })
+        
+        ongoing_chats[request_id]["status"] = "completed"
+        
+    except Exception as e:
+        logger.exception(f"Error processing chat: {str(e)}")
+        try:
+            if connection_id in active_connections:
+                websocket = active_connections[connection_id]
+                await websocket.send_json({
+                    "type": "error",
+                    "requestId": request_id,
+                    "message": f"An error occurred: {str(e)}",
+                    "final": True
+                })
+        except Exception as send_error:
+            logger.exception(f"Error sending error message: {str(send_error)}")
+        
+        ongoing_chats[request_id]["status"] = "error"
 
-    # Get and restore history
-    history = get_history()
-    ProductManager._oai_messages = {group_manager: history["ProductManager"]}
-    PreSalesConsultant._oai_messages = {group_manager: history["PreSalesConsultant"]}
-    SocialMediaManager._oai_messages = {group_manager: history["SocialMediaManager"]}
-    LeadGenSpecialist._oai_messages = {group_manager: history["LeadGenSpecialist"]}
-    user_agent._oai_messages = {group_manager: history["user_agent"]}
-    
-    # Initiate chat
+def run_agent_chat(user_agent, group_manager, user_input):
+    """Run the agent chat synchronously and return the final response"""
     user_agent.initiate_chat(group_manager, message=user_input, clear_history=False)
+    return group_manager.groupchat.messages[-1]['content']
+
+# Add a health check endpoint
+@app.get("/")
+async def health_check():
+    return {"status": "healthy", "message": "Squidgy AI WebSocket Server is running"}
+
+# Add an endpoint to get chat history (keep your existing endpoint)
+@app.get("/chat-history", response_model=ChatHistoryResponse)
+async def get_chat_history(session_id: str):
+    """Retrieve chat history for a specific session"""
+    if session_id not in chat_histories:
+        # Return empty history if no messages for this session
+        return ChatHistoryResponse(history=[], session_id=session_id)
     
-    # Save conversation history
-    save_history({
-        "ProductManager": ProductManager.chat_messages.get(group_manager),
-        "PreSalesConsultant": PreSalesConsultant.chat_messages.get(group_manager),
-        "SocialMediaManager": SocialMediaManager.chat_messages.get(group_manager),
-        "LeadGenSpecialist": LeadGenSpecialist.chat_messages.get(group_manager),
-        "user_agent": user_agent.chat_messages.get(group_manager)
-    })
+    return ChatHistoryResponse(
+        history=chat_histories[session_id],
+        session_id=session_id
+    )
+
+# You might want to keep your traditional REST endpoint for compatibility
+@app.post("/chat", response_model=ChatResponse)
+async def chat_rest(request: ChatRequest):
+    """Traditional REST endpoint for chat (less efficient than WebSocket)"""
+    user_id = request.user_id
+    session_id = request.session_id
+    user_input = request.user_input.strip()
     
-    return ChatResponse(agent=group_chat.messages[-1]['content'])
+    # Log the incoming request
+    logger.info(f"REST chat request received from {user_id} in session {session_id}")
+    
+    if not user_input:
+        initial_greeting = """Hi! I'm Squidgy and I'm here to help you win back time and make more money. Think of me as like a consultant who can instantly build you a solution to a bunch of your problems. To get started, could you tell me your website?"""
+        
+        # Save the initial greeting to chat history
+        save_message_to_history(session_id, "AI", initial_greeting)
+        
+        return ChatResponse(agent=initial_greeting, session_id=session_id)
+    
+    # Save user input to chat history
+    save_message_to_history(session_id, "User", user_input)
+    
+    try:
+        # Create agents and group chat
+        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents()
+        
+        group_chat = GroupChat(
+            agents=[user_agent, ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist],
+            messages=[{"role": "assistant", "content": "Hi! I'm Squidgy and I'm here to help you win back time and make more money."}],
+            max_round=120
+        )
+
+        group_manager = GroupChatManager(
+            groupchat=group_chat,
+            llm_config=llm_config,
+            human_input_mode="NEVER"
+        )
+
+        # Get and restore history
+        history = get_history()
+        ProductManager._oai_messages = {group_manager: history["ProductManager"]}
+        PreSalesConsultant._oai_messages = {group_manager: history["PreSalesConsultant"]}
+        SocialMediaManager._oai_messages = {group_manager: history["SocialMediaManager"]}
+        LeadGenSpecialist._oai_messages = {group_manager: history["LeadGenSpecialist"]}
+        user_agent._oai_messages = {group_manager: history["user_agent"]}
+        
+        # Initiate chat
+        user_agent.initiate_chat(group_manager, message=user_input, clear_history=False)
+        
+        # Get the response
+        agent_response = group_chat.messages[-1]['content']
+        
+        # Save agent response to chat history
+        save_message_to_history(session_id, "AI", agent_response)
+        
+        # Save conversation history
+        save_history({
+            "ProductManager": ProductManager.chat_messages.get(group_manager),
+            "PreSalesConsultant": PreSalesConsultant.chat_messages.get(group_manager),
+            "SocialMediaManager": SocialMediaManager.chat_messages.get(group_manager),
+            "LeadGenSpecialist": LeadGenSpecialist.chat_messages.get(group_manager),
+            "user_agent": user_agent.chat_messages.get(group_manager)
+        })
+        
+        return ChatResponse(agent=agent_response, session_id=session_id)
+        
+    except Exception as e:
+        error_msg = f"Error processing chat: {str(e)}"
+        logger.exception(error_msg)
+        
+        # Save error message to chat history
+        save_message_to_history(session_id, "System", error_msg)
+        
+        return ChatResponse(
+            agent="I'm sorry, an error occurred while processing your request. Please try again.",
+            session_id=session_id
+        )
+    
+class ProgressUpdate(BaseModel):
+    agent_name: str
+    status: str
+    message: str
+
+@app.post("/agent-progress-webhook")
+async def agent_progress_webhook(update: ProgressUpdate):
+    """Webhook endpoint to receive progress updates from agents"""
+    agent_name = update.agent_name
+    status = update.status
+    message = update.message
+    
+    logger.info(f"Agent progress update: {agent_name} - {status}")
+    
+    # Here you would broadcast this update to any connected WebSockets
+    # This is a simplified example
+    for connection_id, websocket in active_connections.items():
+        try:
+            await websocket.send_json({
+                "type": "agent_update",
+                "agent": agent_name,
+                "status": status,
+                "message": message
+            })
+        except Exception as e:
+            logger.error(f"Error sending update to {connection_id}: {str(e)}")
+    
+    return {"status": "received"}
+
+# Add endpoint to check status of ongoing chats
+@app.get("/chat-status/{request_id}")
+async def get_chat_status(request_id: str):
+    """Check the status of an ongoing chat request"""
+    if request_id not in ongoing_chats:
+        raise HTTPException(status_code=404, detail="Chat request not found")
+    
+    return ongoing_chats[request_id]
+
+# Add endpoint to cancel an ongoing chat
+@app.post("/cancel-chat/{request_id}")
+async def cancel_chat(request_id: str):
+    """Cancel an ongoing chat request"""
+    if request_id not in ongoing_chats:
+        raise HTTPException(status_code=404, detail="Chat request not found")
+    
+    ongoing_chats[request_id]["status"] = "cancelled"
+    # You would need additional logic to actually stop the processing
+    
+    return {"status": "cancelled", "request_id": request_id}
+
 
 if __name__ == '__main__':
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

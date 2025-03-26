@@ -13,12 +13,14 @@ interface InteractiveAvatarProps {
   onAvatarReady?: () => void;
   avatarRef?: React.MutableRefObject<StreamingAvatar | null>;
   enabled?: boolean;
+  sessionId?: string; // Add session ID to manage avatar lifecycle with session changes
 }
 
 const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ 
   onAvatarReady, 
   avatarRef, 
-  enabled = true
+  enabled = true,
+  sessionId
 }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -29,6 +31,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const tokenRef = useRef<string>("");
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<string | null>(null);
+  const currentSessionIdRef = useRef<string | undefined>(sessionId);
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
@@ -94,6 +97,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         });
   
         setSessionActive(true);
+        currentSessionIdRef.current = sessionId;
   
         if (onAvatarReady) {
           onAvatarReady();
@@ -177,6 +181,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     if (enabled) {
       startAvatarSession();
     }
+    
     return () => {
       endSession();
     };
@@ -190,6 +195,16 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       pauseSession(); // Just pause instead of completely ending
     }
   }, [enabled, sessionActive]);
+
+  // Effect to handle session changes
+  useEffect(() => {
+    if (sessionId !== currentSessionIdRef.current && enabled) {
+      // Reset avatar when session changes
+      endSession().then(() => {
+        startAvatarSession();
+      });
+    }
+  }, [sessionId, enabled]);
 
   useEffect(() => {
     if (stream && mediaStream.current) {
