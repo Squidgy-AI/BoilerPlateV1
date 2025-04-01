@@ -1,0 +1,94 @@
+{
+    "Website":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Which_soln":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Demo":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Business_model_feasible":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Custom_work_feasible":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Lockin_feasible":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    },
+
+    "Digital_ads_proceed":
+    {
+        "Attempts" : 0,
+        "Score": 0,
+        "Is_present": true,
+        "Responses":
+        {
+            "Satisfied": [],
+            "Unsatisfied": []
+        }
+
+    }
+
+
+}
