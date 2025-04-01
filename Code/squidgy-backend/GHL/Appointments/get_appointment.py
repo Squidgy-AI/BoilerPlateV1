@@ -1,7 +1,7 @@
 def get_appointment(
-    event_id,
-    access_key=None,
-    api_version="2021-07-28"
+    event_id: str,
+    access_key: str = None,
+    api_version: str = "2021-07-28"
 ):
     """
     Retrieve appointment details using the GHL API.
@@ -41,12 +41,3 @@ def get_appointment(
         raise requests.exceptions.RequestException(
             f"Failed to retrieve appointment. Status code: {response.status_code}, Response: {response.json()}"
         )
-
-# Example usage:
-"""
-try:
-    appointment = get_appointment("123")
-    print(appointment)
-except requests.exceptions.RequestException as e:
-    print(f"Error: {e}")
-"""

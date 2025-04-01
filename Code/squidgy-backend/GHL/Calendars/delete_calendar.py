@@ -1,7 +1,7 @@
 def delete_calendar(
-    calendar_id,
-    access_token=None,
-    api_version="2021-07-28"
+    calendar_id: str,
+    access_token: str = None,
+    api_version: str = "2021-07-28"
 ):
     """
     Delete a calendar configuration using the GHL API.
@@ -41,12 +41,3 @@ def delete_calendar(
         raise requests.exceptions.RequestException(
             f"Failed to delete calendar. Status code: {response.status_code}, Response: {response.json()}"
         )
-
-# Example usage:
-"""
-try:
-    result = delete_calendar(constant.constant.calendar_id1)
-    print(result)
-except requests.exceptions.RequestException as e:
-    print(f"Error: {e}")
-"""

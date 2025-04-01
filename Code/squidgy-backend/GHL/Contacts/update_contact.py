@@ -1,24 +1,24 @@
 def update_contact(
-    contact_id,
-    first_name,
-    last_name,
-    email,
-    phone,
-    location_id=None,
-    gender=None,
-    address1=None,
-    city=None,
-    state=None,
-    postal_code=None,
-    website=None,
-    timezone="America/Chihuahua",
-    dnd=True,
-    country="US",
-    company_name=None,
-    assigned_to=None,
-    tags=None,
-    source="public api",
-    access_token=None
+    contact_id: str,
+    first_name: str,
+    last_name: str,
+    email: str,
+    phone: str,
+    location_id: str = None,
+    gender: str = None,
+    address1: str = None,
+    city: str = None,
+    state: str = None,
+    postal_code: str = None,
+    website: str = None,
+    timezone: str = "America/Chihuahua",
+    dnd: bool = True,
+    country: str = "US",
+    company_name: str = None,
+    assigned_to: str = None,
+    tags: list = None,
+    source: str = "public api",
+    access_token: str = None
 ):
     """
     Update an existing contact using the GHL API.
@@ -138,24 +138,3 @@ def update_contact(
         raise requests.exceptions.RequestException(
             f"Failed to update contact. Status code: {response.status_code}, Response: {response.json()}"
         )
-
-# Example usage:
-"""
-try:
-    result = update_contact(
-        contact_id="UPCcdhjzBUVPcivkJ2vx",
-        first_name="Mohnishkumar",
-        last_name="Rajkumar",
-        email="mohnish123@email.com",
-        phone="+4412344578",
-        address1="3535 1st St N",
-        city="Chicago",
-        state="US",
-        postal_code="35061",
-        website="https://www.tesla.com",
-        company_name="DGS VolMAX"
-    )
-    print(result)
-except requests.exceptions.RequestException as e:
-    print(f"Error: {e}")
-"""

@@ -1,17 +1,17 @@
 def create_user(
-    first_name,
-    last_name,
-    email,
-    password,
-    phone_number,
-    account_type="account",
-    role="user",
-    company_id=None,
-    location_ids=None,
-    permissions=None,
-    scopes=None,
-    scopes_assigned_to_only=None,
-    access_token=None
+    first_name: str,
+    last_name: str,
+    email: str,
+    password: str,
+    phone_number: str,
+    account_type: str = "account",
+    role: str = "user",
+    company_id: str = None,
+    location_ids: list = None,
+    permissions: dict = None,
+    scopes: list = None,
+    scopes_assigned_to_only: list = None,
+    access_token: str = None
 ):
     """
     Create a new user using the GHL API.

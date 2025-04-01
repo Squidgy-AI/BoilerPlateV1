@@ -1,6 +1,6 @@
 def delete_sub_acc(
-    location_id=None,
-    access_token=None
+    location_id: str = None,
+    access_token: str = None
 ):
     """
     Delete a sub-account using the GHL API.

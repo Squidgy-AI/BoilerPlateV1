@@ -576,7 +576,7 @@ async def process_chat(user_id: str, session_id: str, user_input: str, request_i
             agents=[user_agent, ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist],
             messages=[{"role": "assistant", "content": "Hi! I'm Squidgy and I'm here to help you win back time and make more money."}],
             max_round=120,
-            on_new_agent_response=send_update  # This would need to be implemented in your GroupChat class
+            #on_new_agent_response=send_update  # This would need to be implemented in your GroupChat class
         )
 
         group_manager = GroupChatManager(
@@ -794,4 +794,4 @@ async def cancel_chat(request_id: str):
 
 
 if __name__ == '__main__':
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8080, reload=True, log_level="debug")

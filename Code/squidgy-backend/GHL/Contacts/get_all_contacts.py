@@ -1,7 +1,7 @@
 def get_all_contacts(
-    location_id=None,
-    access_token=None,
-    api_version="2021-07-28"
+    location_id: str = None,
+    access_token: str = None,
+    api_version: str = "2021-07-28"
 ):
     """
     Retrieve all contacts for a specific location using the GHL API.
@@ -59,12 +59,3 @@ def get_all_contacts(
         raise requests.exceptions.RequestException(
             f"Failed to retrieve contacts. Status code: {response.status_code}, Response: {response.json()}"
         )
-
-# Example usage:
-"""
-try:
-    contacts = get_all_contacts()
-    print(contacts)
-except (requests.exceptions.RequestException, ValueError) as e:
-    print(f"Error: {e}")
-"""

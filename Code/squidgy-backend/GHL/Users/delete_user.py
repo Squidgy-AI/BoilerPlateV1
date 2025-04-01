@@ -1,6 +1,6 @@
 def delete_user(
-    user_id=None,
-    access_token=None
+    user_id: str = None,
+    access_token: str = None
 ):
     """
     Delete a user using the GHL API.

@@ -1,17 +1,17 @@
 def create_appointment(
-    start_time,
-    end_time,
-    calendar_id=None,
-    location_id=None,
-    contact_id=None,
-    assigned_user_id=None,
-    title=None,
-    address="Zoom",
-    meeting_location_type="default",
-    appointment_status="new",
-    ignore_date_range=False,
-    to_notify=False,
-    access_token=None
+    start_time: str,
+    end_time: str,
+    calendar_id: str = None,
+    location_id: str = None,
+    contact_id: str = None,
+    assigned_user_id: str = None,
+    title: str = None,
+    address: str = "Zoom",
+    meeting_location_type: str = "default",
+    appointment_status: str = "new",
+    ignore_date_range: bool = False,
+    to_notify: bool = False,
+    access_token: str = None
 ):
     """
     Create an appointment using the GHL API.
@@ -83,16 +83,3 @@ def create_appointment(
         raise requests.exceptions.RequestException(
             f"Failed to create appointment. Status code: {response.status_code}, Response: {response.json()}"
         )
-
-# Example usage:
-"""
-try:
-    result = create_appointment(
-        start_time="2024-11-27T05:30:00+05:30",
-        end_time="2024-11-27T06:30:00+05:30"
-        # All other parameters will use default values from constant
-    )
-    print(result)
-except requests.exceptions.RequestException as e:
-    print(f"Error: {e}")
-"""

@@ -1,7 +1,7 @@
 def get_contact(
-    contact_id,
-    access_token=None,
-    api_version="2021-07-28"
+    contact_id: str,
+    access_token: str = None,
+    api_version: str = "2021-07-28"
 ):
     """
     Retrieve details for a specific contact using the GHL API.
@@ -49,12 +49,3 @@ def get_contact(
         raise requests.exceptions.RequestException(
             f"Failed to retrieve contact. Status code: {response.status_code}, Response: {response.json()}"
         )
-
-# Example usage:
-"""
-try:
-    contact = get_contact(constant.constant.contact_id)
-    print(contact)
-except (requests.exceptions.RequestException, ValueError) as e:
-    print(f"Error: {e}")
-"""

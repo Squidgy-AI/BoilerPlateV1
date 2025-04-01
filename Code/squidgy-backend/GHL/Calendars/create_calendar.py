@@ -1,25 +1,25 @@
 def create_calendar(
-    location_id,
-    team_members,
-    event_name=None,
-    description="this is used for testing",
-    event_type="RoundRobin_OptimizeForAvailability",
-    slug="test1",
-    widget_slug="test1",
-    calendar_type="round_robin",
-    widget_type="classic",
-    event_title=None,
-    event_color="#039be5",
-    slot_duration=30,
-    slot_buffer=0,
-    slot_interval=30,
-    pre_buffer=0,
-    appointment_per_slot=1,
-    appointment_per_day=0,
-    allow_booking_after=0,
-    days_of_week=None,
-    custom_availabilities=None,
-    access_token=None
+    location_id: str,
+    team_members: list,
+    event_name: str = None,
+    description: str = "this is used for testing",
+    event_type: str = "RoundRobin_OptimizeForAvailability",
+    slug: str = "test1",
+    widget_slug: str = "test1",
+    calendar_type: str = "round_robin",
+    widget_type: str = "classic",
+    event_title: str = None,
+    event_color: str = "#039be5",
+    slot_duration: int = 30,
+    slot_buffer: int = 0,
+    slot_interval: int = 30,
+    pre_buffer: int = 0,
+    appointment_per_slot: int = 1,
+    appointment_per_day: int = 0,
+    allow_booking_after: int = 0,
+    days_of_week: list = None,
+    custom_availabilities: list = None,
+    access_token: str = None
 ):
     """
     Create a calendar configuration with team members and availability settings.
@@ -161,44 +161,3 @@ def create_calendar(
         raise requests.exceptions.RequestException(
             f"Failed to create calendar configuration. Status code: {response.status_code}, Response: {response.json()}"
         )
-
-# Example usage:
-"""
-try:
-    team_members = [
-        {
-            "userId": constant.constant.nescafe_id,
-            "priority": 0.5,
-            "meetingLocationType": "custom",
-            "meetingLocation": "string",
-            "isPrimary": True
-        },
-        {
-            "userId": constant.constant.kitkat_id,
-            "priority": 1,
-            "meetingLocationType": "custom",
-            "meetingLocation": "string",
-            "isPrimary": True
-        }
-    ]
-    
-    custom_availabilities = [{
-        "date": "2024-11-23T00:00:00.000Z",
-        "hours": [{
-            "openHour": 11,
-            "openMinute": 30,
-            "closeHour": 12,
-            "closeMinute": 30
-        }],
-        "deleted": False
-    }]
-    
-    result = create_calendar_config(
-        location_id=constant.constant.location_id,
-        team_members=team_members,
-        custom_availabilities=custom_availabilities
-    )
-    print(result)
-except requests.exceptions.RequestException as e:
-    print(f"Error: {e}")
-"""
