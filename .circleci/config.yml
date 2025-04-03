@@ -1,0 +1,37 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@2.1.1
+
+jobs:
+  build-app:
+    docker:
+      - image: cimg/python:3.10.16
+    steps:
+      - checkout
+      - run:
+          name: Install Dependencies
+          command: |
+            python -m venv venv
+            source venv/bin/activate
+            pip install -r requirements.txt
+      - run:
+          name: Run Flask Evaluations
+          command: |
+            source venv/bin/activate
+            pytest tests/test_app.py --junitxml=test-results/assistant-evaluations.xml
+      - store_test_results:
+          path: test-results/assistant-evaluations.xml 
+      - run:
+          name: Run Model Response Tests
+          command: |
+            sourc venv/bin/activate
+            pytest tests/test_model_responses.py --junitxml=test-results/model-response-tests.xml
+      - store_test_results:
+          path: test-results/model-response-tests.xml 
+
+workflows:
+  build-test-deploy:
+    jobs:
+      - build-app:
+          context: cci-last-mile-example

@@ -1,11 +1,26 @@
+import os
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter("ignore", DeprecationWarning)
+os.environ["PYTHONWARNINGS"]= "ignore::DeprecationWarning"
+
 from flask import Flask, render_template, request, jsonify
 from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
 import requests
 from apify_client import ApifyClient
 from vector_store import VectorStore 
-import os
 
 # Configuration
+import tomli
+
+try:  
+    with open("config.toml", "rb") as f:
+        toml_dict = tomli.load(f)
+    os.environ["OPENAI_API_KEY"] = toml_dict["tokens"]["OPENAI_API_KEY"]
+    os.environ["APIFY_API_TOKEN"] = toml_dict["tokens"]["APIFY_API_KEY"]
+except:
+    pass
+
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY') or "<<OpenAI Key>>"
 WEATHER_API_KEY = os.getenv('WEATHER_API_KEY') or None
 
@@ -31,10 +46,23 @@ def initialize_vector_store():
 initialize_vector_store()
 
 # LLM Configuration
-llm_config = {
-    "model": "gpt-4o",
-    "api_key": OPENAI_API_KEY
-}
+def load_llm_config(test=False):
+    """Load LLM configuration from environment variables or use default values"""
+    # LLM Configuration
+    if test:
+        print("Loading test mode...")
+        llm_config = {
+            "model": "gpt-4o",
+            "api_key": OPENAI_API_KEY,
+            "temperature": 0.1  # Set temperature low for deterministic responses
+        }
+    else:
+        llm_config = {
+            "model": "gpt-4o",
+            "api_key": OPENAI_API_KEY
+        }
+    return llm_config
+
 
 # Role descriptions
 role_descriptions = {
@@ -122,8 +150,7 @@ def get_history():
     return message_history
 
 def scrape_page(url: str) -> str:
-    apify_api_key = "<<Apify Key>>"
-    client = ApifyClient(token=apify_api_key)
+    client = ApifyClient(token=os.getenv('APIFY_API_TOKEN'))
 
     # Prepare the Actor input
     run_input = {
@@ -179,6 +206,45 @@ def scrape_page(url: str) -> str:
     max_tokens = 20000  # slightly less than max to be safe 32k
     text_data = text_data[: int(average_token * max_tokens)]
     return text_data
+
+def CheckModelPerformance(message):
+    # Create agents and group chat
+    ProductManager, PreSalesConsultant, BusinessManager, DomainExpert, LeadGenSpecialist, user_agent = create_agents()
+    
+    group_chat = GroupChat(
+        agents=[user_agent, ProductManager, PreSalesConsultant, BusinessManager, DomainExpert, LeadGenSpecialist],
+        messages=[{"role": "assistant", "content": "Hi! I'm Squidgy and I'm here to help you win back time and make more money."}],
+        max_round=120
+    )
+    group_manager = GroupChatManager(
+        groupchat=group_chat,
+        llm_config=llm_config,
+        human_input_mode="NEVER"
+    )
+
+    # Get and restore history
+    history = get_history()
+    ProductManager._oai_messages = {group_manager: history["ProductManager"]}
+    PreSalesConsultant._oai_messages = {group_manager: history["PreSalesConsultant"]}
+    BusinessManager._oai_messages = {group_manager: history["BusinessManager"]}
+    DomainExpert._oai_messages = {group_manager: history["DomainExpert"]}
+    LeadGenSpecialist._oai_messages = {group_manager: history["LeadGenSpecialist"]}
+    user_agent._oai_messages = {group_manager: history["user_agent"]}
+    
+    # Initiate chat
+    user_agent.initiate_chat(group_manager, message=message, clear_history=False)
+    
+    # Save conversation history
+    save_history({
+        "ProductManager": ProductManager.chat_messages.get(group_manager),
+        "PreSalesConsultant": PreSalesConsultant.chat_messages.get(group_manager),
+        "BusinessManager": BusinessManager.chat_messages.get(group_manager),
+        "DomainExpert": DomainExpert.chat_messages.get(group_manager),
+        "LeadGenSpecialist": LeadGenSpecialist.chat_messages.get(group_manager),
+        "user_agent": user_agent.chat_messages.get(group_manager)
+    })
+
+    return group_chat.messages[-1]["content"]
 
 # Create Agents
 def create_agents():
@@ -291,4 +357,7 @@ def chat():
     return jsonify(group_chat.messages[-1])
 
 if __name__ == '__main__':
+    llm_config=load_llm_config()
     app.run(debug=True)
+else:
+    llm_config=load_llm_config(True)

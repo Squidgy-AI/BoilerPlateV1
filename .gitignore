@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+config.toml
+knowledge_base.xlsx
+faiss_index/
+test-results/
 
 # C extensions
 *.so
