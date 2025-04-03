@@ -1,7 +1,7 @@
 def get_calendar(
-    calendar_id,
-    access_token=None,
-    api_version="2021-07-28"
+    calendar_id: str,
+    access_token: str = None,
+    api_version: str = "2021-07-28"
 ):
     """
     Retrieve a specific calendar configuration using the GHL API.
@@ -41,12 +41,3 @@ def get_calendar(
         raise requests.exceptions.RequestException(
             f"Failed to retrieve calendar. Status code: {response.status_code}, Response: {response.json()}"
         )
-
-# Example usage:
-"""
-try:
-    calendar = get_calendar(constant.constant.calendar_id1)
-    print(calendar)
-except requests.exceptions.RequestException as e:
-    print(f"Error: {e}")
-"""

@@ -1,18 +1,18 @@
 def update_appointment(
-    event_id,
-    start_time,
-    end_time,
-    calendar_id=None,
-    assigned_user_id=None,
-    title=None,
-    address="Zoom",
-    meeting_location_type="default",
-    appointment_status="new",
-    ignore_date_range=False,
-    to_notify=False,
-    ignore_free_slot_validation=True,
-    rrule=None,
-    access_token=None
+    event_id: str,
+    start_time: str,
+    end_time: str,
+    calendar_id: str = None,
+    assigned_user_id: str = None,
+    title: str = None,
+    address: str = "Zoom",
+    meeting_location_type: str = "default",
+    appointment_status: str = "new",
+    ignore_date_range: bool = False,
+    to_notify: bool = False,
+    ignore_free_slot_validation: bool = True,
+    rrule: str = None,
+    access_token: str = None
 ):
     """
     Update an existing appointment using the GHL API.
@@ -87,17 +87,3 @@ def update_appointment(
         raise requests.exceptions.RequestException(
             f"Failed to update appointment. Status code: {response.status_code}, Response: {response.json()}"
         )
-
-# Example usage:
-"""
-try:
-    result = update_appointment(
-        event_id="123",
-        start_time="2024-11-27T05:30:00+05:30",
-        end_time="2024-11-27T06:30:00+05:30",
-        rrule="RRULE:FREQ=DAILY;INTERVAL=1;COUNT=5"  # Optional recurring event rule
-    )
-    print(result)
-except requests.exceptions.RequestException as e:
-    print(f"Error: {e}")
-"""

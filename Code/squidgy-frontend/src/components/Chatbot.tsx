@@ -71,7 +71,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       reconnectTimeoutRef.current = null;
     }
     
-    loadChatHistory();
+    //loadChatHistory();
     connectWebSocket();
   }, [sessionId]);
 
@@ -118,7 +118,8 @@ useEffect(() => {
     
     // Use dynamic URL based on environment
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsBase = process.env.NEXT_PUBLIC_API_BASE || '20.236.251.118';
+    const wsBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080' ;
+    // '20.236.251.118';
     const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
     
     const ws = new WebSocket(wsUrl);
@@ -238,9 +239,12 @@ useEffect(() => {
   // Function to load chat history
   const loadChatHistory = async () => {
     setLoading(true);
+
+    //http://0.0.0.0:8000
+    // http://20.236.251.118
     
     try {
-      const response = await fetch(`http://20.236.251.118/chat-history?session_id=${sessionId}`);
+      const response = await fetch(`http://127.0.0.1:8080/chat-history?session_id=${sessionId}`);
       
       if (!response.ok) {
         throw new Error(`Server responded with status: ${response.status}`);

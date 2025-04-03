@@ -1,6 +1,6 @@
 def get_sub_acc(
-    location_id=None,
-    access_token=None
+    location_id: str = None,
+    access_token: str = None
 ):
     """
     Retrieve a sub-account details using the GHL API.

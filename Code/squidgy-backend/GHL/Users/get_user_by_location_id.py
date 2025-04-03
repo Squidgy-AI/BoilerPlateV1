@@ -1,6 +1,6 @@
 def get_user_by_location_id(
-    location_id=None,
-    access_token=None
+    location_id: str = None,
+    access_token: str = None
 ):
     """
     Retrieve users for a specific location using the GHL API.

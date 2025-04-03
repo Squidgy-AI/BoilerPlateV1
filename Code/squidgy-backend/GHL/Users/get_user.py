@@ -1,6 +1,6 @@
 def get_user(
-    user_id=None,
-    access_token=None
+    user_id: str = None,
+    access_token: str = None
 ):
     """
     Retrieve a specific user's details using the GHL API.
