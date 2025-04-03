@@ -14,13 +14,15 @@ interface InteractiveAvatarProps {
   avatarRef?: React.MutableRefObject<StreamingAvatar | null>;
   enabled?: boolean;
   sessionId?: string; // Add session ID to manage avatar lifecycle with session changes
+  voiceEnabled?: boolean; // New prop for voice toggle
 }
 
 const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ 
   onAvatarReady, 
   avatarRef, 
   enabled = true,
-  sessionId
+  sessionId,
+  voiceEnabled = true
 }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -32,6 +34,9 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<string | null>(null);
   const currentSessionIdRef = useRef<string | undefined>(sessionId);
+
+  // Define fallback image path from public folder
+  const fallbackImagePath = "/seth.JPG"; // This assumes the image is copied to public folder
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
@@ -92,9 +97,12 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           disableIdleTimeout: true,
         });
   
-        await actualAvatarRef.current?.startVoiceChat({
-          useSilencePrompt: false
-        });
+        // Only start voice chat if voice is enabled
+        if (voiceEnabled) {
+          await actualAvatarRef.current?.startVoiceChat({
+            useSilencePrompt: false
+          });
+        }
   
         setSessionActive(true);
         currentSessionIdRef.current = sessionId;
@@ -196,6 +204,23 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     }
   }, [enabled, sessionActive]);
 
+  // Effect to handle voice enabled/disabled changes
+  useEffect(() => {
+    // If session is active and avatar exists, update voice settings
+    if (sessionActive && actualAvatarRef.current) {
+      // If voice was disabled but now enabled
+      if (voiceEnabled && actualAvatarRef.current) {
+        actualAvatarRef.current.startVoiceChat({
+          useSilencePrompt: false
+        }).catch(error => {
+          console.error("Error starting voice chat:", error);
+        });
+      }
+      // If voice was enabled but now disabled, we don't need to do anything special
+      // as the voice will only be used when speakWithAvatar is called
+    }
+  }, [voiceEnabled, sessionActive]);
+
   // Effect to handle session changes
   useEffect(() => {
     if (sessionId !== currentSessionIdRef.current && enabled) {
@@ -216,38 +241,51 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   }, [stream, mediaStream]);
 
   return (
-    <div className="w-full h-full bg-[#2D3B4F] rounded-lg overflow-hidden">
+    <div className="w-full h-full bg-[#2D3B4F] rounded-lg overflow-hidden relative">
       {enabled ? (
-        stream ? (
-          <video
-            ref={mediaStream}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover scale-100"
-          >
-            <track kind="captions" />
-          </video>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-white">
-            <div className="text-xl mb-2">
-              {isLoadingSession ? "Loading avatar..." : "Avatar will appear here"}
-            </div>
-            
-            {error && (
-              <div className="text-red-400 text-sm mt-2 max-w-xs text-center">
-                {error}
-                {errorType === "WEBRTC_ERROR" && (
-                  <button 
-                    onClick={() => startAvatarSession()}
-                    className="mt-2 bg-blue-500 px-4 py-1 rounded-lg"
-                  >
-                    Retry Connection
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )
+        <>
+          {stream ? (
+            <video
+              ref={mediaStream}
+              autoPlay
+              playsInline
+              className="w-full h-full object-contain scale-90"
+            >
+              <track kind="captions" />
+            </video>
+          ) : (
+            <>
+              {/* Fallback image when avatar fails to load */}
+              {!isLoadingSession && error && (
+                <div className="w-full h-full">
+                  <img 
+                    src={fallbackImagePath} 
+                    alt="Avatar fallback" 
+                    className="w-full h-full object-contain scale-90"
+                  />
+                  <div className="absolute bottom-4 left-0 right-0 text-red-400 text-sm bg-black bg-opacity-70 p-2 text-center">
+                    {error}
+                    {errorType === "WEBRTC_ERROR" && (
+                      <button 
+                        onClick={() => startAvatarSession()}
+                        className="ml-2 bg-blue-500 px-4 py-1 rounded-lg"
+                      >
+                        Retry Connection
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Loading indicator */}
+              {isLoadingSession && (
+                <div className="w-full h-full flex flex-col items-center justify-center text-white">
+                  <div className="text-xl mb-2">Loading avatar...</div>
+                </div>
+              )}
+            </>
+          )}
+        </>
       ) : (
         <div className="w-full h-full flex items-center justify-center text-white">
           <p className="text-xl">Avatar is disabled</p>

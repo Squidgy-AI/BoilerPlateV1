@@ -11,11 +11,39 @@ interface SuggestedTopic {
   selected: boolean;
 }
 
+// Interface for website data
+interface WebsiteData {
+  url?: string;
+  favicon?: string;
+  screenshot?: string;
+}
+
 const WelcomeScreen: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState('');
   const [currentSessionId, setCurrentSessionId] = useState('');
   const [suggestedTopic, setSuggestedTopic] = useState<string | null>(null);
+  const [websiteData, setWebsiteData] = useState<WebsiteData | null>(null);
+  
+  // Function to fetch session data including website info
+  // Update the fetchSessionData function
+const fetchSessionData = useCallback(async (sessionId: string) => {
+  try {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
+    const response = await fetch(`http://${apiBase}/chat-history?session_id=${sessionId}`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.websiteData) {
+        setWebsiteData(data.websiteData);
+      } else {
+        setWebsiteData(null);
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching session data:", error);
+  }
+}, []);
   
   // Effect to retrieve previous authentication from localStorage (if available)
   useEffect(() => {
@@ -28,6 +56,7 @@ const WelcomeScreen: React.FC = () => {
       
       if (savedSessionId) {
         setCurrentSessionId(savedSessionId);
+        fetchSessionData(savedSessionId); // Fetch session data for existing session
       } else {
         // Create a new session if user is authenticated but no session exists
         const newSessionId = `${savedUserId}_${Date.now()}`;
@@ -35,7 +64,7 @@ const WelcomeScreen: React.FC = () => {
         localStorage.setItem('squidgy_session_id', newSessionId);
       }
     }
-  }, []);
+  }, [fetchSessionData]);
 
   const handleAuthenticated = useCallback((newUserId: string) => {
     setUserId(newUserId);
@@ -55,14 +84,17 @@ const WelcomeScreen: React.FC = () => {
     localStorage.setItem('squidgy_session_id', sessionId);
     // Clear any selected topic when switching sessions
     setSuggestedTopic(null);
-  }, []);
+    // Fetch session data for the selected session
+    fetchSessionData(sessionId);
+  }, [fetchSessionData]);
 
   const handleNewSession = useCallback(() => {
     const newSessionId = `${userId}_${Date.now()}`;
     setCurrentSessionId(newSessionId);
     localStorage.setItem('squidgy_session_id', newSessionId);
-    // Clear any selected topic when creating a new session
+    // Clear any selected topic and website data when creating a new session
     setSuggestedTopic(null);
+    setWebsiteData(null);
   }, [userId]);
   
   const handleTopicSelect = useCallback((topic: string) => {
@@ -76,11 +108,28 @@ const WelcomeScreen: React.FC = () => {
     setUserId('');
     setCurrentSessionId('');
     setSuggestedTopic(null);
+    setWebsiteData(null);
     
     // Clear localStorage
     localStorage.removeItem('squidgy_user_id');
     localStorage.removeItem('squidgy_session_id');
   }, []);
+
+  // Set up a periodic refresh of website data
+  useEffect(() => {
+    if (currentSessionId) {
+      // Initial fetch
+      fetchSessionData(currentSessionId);
+      
+      // Set up interval to refresh data every 30 seconds
+      const intervalId = setInterval(() => {
+        fetchSessionData(currentSessionId);
+      }, 30000);
+      
+      // Clean up interval on component unmount or when session changes
+      return () => clearInterval(intervalId);
+    }
+  }, [currentSessionId, fetchSessionData]);
 
   // For the login view
   if (!isAuthenticated) {
@@ -94,13 +143,6 @@ const WelcomeScreen: React.FC = () => {
   // For the post-login view
   return (
     <div className="flex w-full h-screen overflow-hidden relative">
-      {/* Logout button in the top-right corner */}
-      <button 
-        onClick={handleLogout}
-        className="absolute top-4 right-4 z-50 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-      >
-        Logout
-      </button>
       
       <div className="w-[45%] bg-[#1B2431]">
         <UserDashboard 
@@ -109,6 +151,7 @@ const WelcomeScreen: React.FC = () => {
           onSessionSelect={handleSessionSelect}
           onNewSession={handleNewSession}
           onTopicSelect={handleTopicSelect}
+          websiteData={websiteData}
         />
       </div>
       

@@ -9,6 +9,16 @@ from typing import Dict, List, Any, Optional
 from pydantic import BaseModel
 import uvicorn
 
+from fastapi.staticfiles import StaticFiles
+from fastapi import File, UploadFile
+import os
+
+# Create directories for storing images if they don't exist
+os.makedirs("static/screenshots", exist_ok=True)
+os.makedirs("static/favicons", exist_ok=True)
+
+
+
 # from fastapi import FastAPI, HTTPException
 # from fastapi.middleware.cors import CORSMiddleware
 # from fastapi.responses import JSONResponse
@@ -60,6 +70,9 @@ from GHL.Users.get_user_by_location_id import get_user_by_location_id
 from GHL.Users.get_user import get_user
 from GHL.Users.update_user import update_user
 
+# Website Related
+# from Website.web_scrape import capture_website_screenshot, get_website_favicon
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -81,6 +94,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 class ChatRequest(BaseModel):
     user_id: str
@@ -95,6 +110,7 @@ class ChatMessage(BaseModel):
 class ChatHistoryResponse(BaseModel):
     history: List[ChatMessage]
     session_id: str
+    websiteData: Optional[Dict[str, str]] = None
 
 class ChatResponse(BaseModel):
     agent: str
@@ -102,6 +118,196 @@ class ChatResponse(BaseModel):
 
 # In-memory chat history store (replace with database in production)
 chat_histories: Dict[str, List[ChatMessage]] = {}
+
+def capture_website_screenshot(url: str) -> str:
+    """
+    Captures a screenshot of the entire website using headless browser.
+    
+    Args:
+        url (str): URL of the website to capture
+        
+    Returns:
+        str: URL path to the saved screenshot
+    """
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from bs4 import BeautifulSoup
+    import requests
+    import os
+    import time
+
+    filename = None
+    try:
+        if not filename:
+            # if session_id:
+            #     filename = f"static/screenshots/{session_id}_screenshot.png"
+            # else:
+            filename = f"static/screenshots/screenshot_{int(time.time())}.png"
+        
+        # Set up Chrome options for headless mode
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--window-size=1920,1080")
+        
+        # Initialize driver with options
+        driver = webdriver.Chrome(options=chrome_options)
+        driver.get(url)
+        driver.save_screenshot(filename)
+        driver.quit()
+        
+        # Return the URL path
+        return f"/{filename}"
+    except Exception as e:
+        print(f"Error capturing screenshot: {e}")
+        return None
+    
+def get_website_favicon(url: str) -> str:
+    """
+    Gets the favicon from a website and saves it.
+    
+    Args:
+        url (str): URL of the website to scrape
+        
+    Returns:
+        str: URL path to the saved favicon
+    """
+    from bs4 import BeautifulSoup
+    import requests
+    import time
+    import os
+    
+    try:
+        # Create filename with timestamp
+        filename = f"static/favicons/favicon_{int(time.time())}.ico"
+        
+        # Get the website's HTML
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Look for favicon in link tags
+        favicon_url = None
+        
+        # Check for standard favicon link tags
+        for link in soup.find_all('link'):
+            rel = link.get('rel', [])
+            # Handle both string and list formats for rel attribute
+            if isinstance(rel, list):
+                rel = ' '.join(rel).lower()
+            else:
+                rel = rel.lower()
+                
+            if 'icon' in rel or 'shortcut icon' in rel:
+                favicon_url = link.get('href')
+                break
+        
+        # If no favicon found, try default location
+        if not favicon_url:
+            favicon_url = f"{url}/favicon.ico"
+        
+        # Fix relative URLs
+        if favicon_url and not favicon_url.startswith('http'):
+            if favicon_url.startswith('//'):
+                favicon_url = 'https:' + favicon_url
+            elif favicon_url.startswith('/'):
+                favicon_url = url.rstrip('/') + favicon_url
+            else:
+                favicon_url = f"{url.rstrip('/')}/{favicon_url}"
+        
+        # Download the favicon and save it
+        if favicon_url:
+            favicon_response = requests.get(favicon_url, stream=True)
+            if favicon_response.status_code == 200:
+                # Make sure the directory exists
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+                
+                # Save favicon
+                with open(filename, 'wb') as f:
+                    f.write(favicon_response.content)
+                
+                # Return the URL path
+                return f"/{filename}"
+        
+        return None
+    
+    except Exception as e:
+        print(f"Error fetching favicon: {e}")
+        return None
+
+# def get_website_favicon(
+#     url: str
+    
+# ):
+#     """
+#     Gets the favicon from a website and saves it.
+    
+#     Args:
+#         url (str): URL of the website to scrape
+        
+#     Returns:
+#         str: URL path to the saved favicon
+#     """
+#     from selenium import webdriver
+#     from selenium.webdriver.chrome.options import Options
+#     from bs4 import BeautifulSoup
+#     import requests
+#     import os
+#     import time
+
+#     try:
+#         # Get the website's HTML
+#         response = requests.get(url)
+#         soup = BeautifulSoup(response.text, 'html.parser')
+        
+#         # Look for favicon in link tags
+#         favicon_url = None
+        
+#         # Check for standard favicon link tags
+#         for link in soup.find_all('link'):
+#             rel = link.get('rel', [])
+#             # Handle both string and list formats for rel attribute
+#             if isinstance(rel, list):
+#                 rel = ' '.join(rel).lower()
+#             else:
+#                 rel = rel.lower()
+                
+#             if 'icon' in rel or 'shortcut icon' in rel:
+#                 favicon_url = link.get('href')
+#                 break
+        
+#         # If no favicon found, try default location
+#         if not favicon_url:
+#             favicon_url = f"{url}/favicon.ico"
+        
+#         # Fix relative URLs
+#         if favicon_url and not favicon_url.startswith('http'):
+#             if favicon_url.startswith('//'):
+#                 favicon_url = 'https:' + favicon_url
+#             elif favicon_url.startswith('/'):
+#                 favicon_url = url.rstrip('/') + favicon_url
+#             else:
+#                 favicon_url = f"{url.rstrip('/')}/{favicon_url}"
+        
+#         # # Download the favicon and save it twice (once as favicon.ico and once as logo.png)
+#         # if favicon_url:
+#         #     favicon_response = requests.get(favicon_url, stream=True)
+#         #     if favicon_response.status_code == 200:
+#         #         # Save as favicon.ico
+#         #         with open(favicon_filename, 'wb') as f:
+#         #             f.write(favicon_response.content)
+#         #         print(f"Favicon downloaded as {favicon_filename}")
+                
+#         #         # Also save as logo.png
+#         #         with open(logo_filename, 'wb') as f:
+#         #             f.write(favicon_response.content)
+#         #         print(f"Favicon also saved as {logo_filename}")
+                
+#         #         return favicon_url
+        
+#         print("Favicon not found or couldn't be downloaded")
+#         return favicon_url
+#     except Exception as e:
+#         print(f"Error fetching favicon: {e}")
+#         return None
 
 def save_message_to_history(session_id: str, sender: str, message: str):
     """Save a message to the chat history for a specific session"""
@@ -379,7 +585,7 @@ class EnforcedFlowGroupChat(GroupChat):
 
 
 # Create Agents
-def create_agents():
+def create_agents(user_id, session_id):
     # Create agents using vector_store for system messages
     ProductManager = AssistantAgent(
         name="ProductManager",
@@ -399,6 +605,8 @@ def create_agents():
 
     #PreSalesConsultant.register_for_llm(name="scrape_page")(scrape_page)
     PreSalesConsultant.register_for_llm(name="analyze_with_perplexity")(analyze_with_perplexity)
+    PreSalesConsultant.register_for_llm(name="capture_website_screenshot")(capture_website_screenshot)
+    PreSalesConsultant.register_for_llm(name="get_website_favicon")(get_website_favicon)
     PreSalesConsultant.register_for_llm(name="get_insights")(get_insights)
     PreSalesConsultant.register_for_llm(name="get_datalayers")(get_datalayers)
     PreSalesConsultant.register_for_llm(name="get_report")(get_report)
@@ -462,6 +670,8 @@ def create_agents():
     )
     # user_agent.register_for_execution(name="scrape_page")(scrape_page)
     user_agent.register_for_execution(name="analyze_with_perplexity")(analyze_with_perplexity)
+    user_agent.register_for_execution(name="capture_website_screenshot")(capture_website_screenshot)
+    user_agent.register_for_execution(name="get_website_favicon")(get_website_favicon)
     user_agent.register_for_execution(name="get_insights")(get_insights)
     user_agent.register_for_execution(name="get_datalayers")(get_datalayers)
     user_agent.register_for_execution(name="get_report")(get_report)
@@ -558,7 +768,7 @@ async def process_chat(user_id: str, session_id: str, user_input: str, request_i
             return
             
         # Create agents and group chat
-        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents()
+        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents(user_id,session_id)
         
         # Create a custom callback to send intermediate responses
         async def send_update(agent_name, message):
@@ -652,16 +862,49 @@ async def health_check():
     return {"status": "healthy", "message": "Squidgy AI WebSocket Server is running"}
 
 # Add an endpoint to get chat history (keep your existing endpoint)
+# @app.get("/chat-history", response_model=ChatHistoryResponse)
+# async def get_chat_history(session_id: str):
+#     """Retrieve chat history for a specific session"""
+#     if session_id not in chat_histories:
+#         # Return empty history if no messages for this session
+#         return ChatHistoryResponse(history=[], session_id=session_id)
+    
+#     return ChatHistoryResponse(
+#         history=chat_histories[session_id],
+#         session_id=session_id
+#     )
+# Update the get_chat_history endpoint in main.py
 @app.get("/chat-history", response_model=ChatHistoryResponse)
 async def get_chat_history(session_id: str):
     """Retrieve chat history for a specific session"""
+    session_id = 'dd'
     if session_id not in chat_histories:
         # Return empty history if no messages for this session
         return ChatHistoryResponse(history=[], session_id=session_id)
     
+    # Check if we have website data for this session
+    website_data = {}
+    screenshot_path = f"static/screenshots/{session_id}_screenshot.png"
+    favicon_path = f"static/favicons/{session_id}_logo.png"
+    
+    if os.path.exists(screenshot_path):
+        website_data["screenshot"] = f"/static/screenshots/{session_id}_screenshot.png"
+    
+    if os.path.exists(favicon_path):
+        website_data["favicon"] = f"/static/favicons/{session_id}_logo.png"
+    
+    # Extract website URL from chat history if available
+    for msg in chat_histories[session_id]:
+        if msg.sender == "User" and ("http://" in msg.message or "https://" in msg.message):
+            url_start = msg.message.find("http")
+            url_end = msg.message.find(" ", url_start) if " " in msg.message[url_start:] else len(msg.message)
+            website_data["url"] = msg.message[url_start:url_end]
+            break
+    
     return ChatHistoryResponse(
         history=chat_histories[session_id],
-        session_id=session_id
+        session_id=session_id,
+        websiteData=website_data if website_data else None
     )
 
 # You might want to keep your traditional REST endpoint for compatibility
@@ -688,7 +931,7 @@ async def chat_rest(request: ChatRequest):
     
     try:
         # Create agents and group chat
-        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents()
+        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents(user_id, session_id)
         
         group_chat = GroupChat(
             agents=[user_agent, ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist],

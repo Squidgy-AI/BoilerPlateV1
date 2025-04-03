@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image'
 
 interface Session {
   id: string;
@@ -18,6 +19,11 @@ interface UserDashboardProps {
   onSessionSelect: (sessionId: string) => void;
   onNewSession: () => void;
   onTopicSelect: (topic: string) => void; // New prop
+  websiteData?: {
+    url?: string;
+    favicon?: string;
+    screenshot?: string;
+  };
 }
 
 
@@ -27,7 +33,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   currentSessionId,
   onSessionSelect,
   onNewSession,
-  onTopicSelect
+  onTopicSelect,
+  websiteData
 }) => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +51,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
       setLoading(true);
       try {
         // API base URL - should match the one used in Chatbot component
-        const apiBase = process.env.NEXT_PUBLIC_API_BASE || '20.236.251.118';
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
         const response = await fetch(`http://${apiBase}/chat-history?session_id=${currentSessionId}`);
         
         if (!response.ok) {
@@ -115,17 +122,54 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   return (
     <div className="w-full h-full bg-[#1B2431] text-white flex flex-col p-8">
       {/* User Profile Section */}
-      <div className="mb-10 text-center">
-        <div className="w-24 h-24 bg-blue-500 rounded-full mx-auto mb-4 flex items-center justify-center">
-          <span className="text-3xl">{userId.charAt(0).toUpperCase()}</span>
+      <div className="mb-10 flex justify-end pr-4">
+        <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+          <span className="text-xl">{userId.charAt(0).toUpperCase()}</span>
         </div>
-        <h1 className="text-4xl font-bold tracking-wide mb-2">
-          HI {userId.toUpperCase()}
-        </h1>
-        <p className="text-xl text-gray-400">Welcome to Squidgy</p>
       </div>
-
+  
+      {websiteData && websiteData.url && (
+        <div className="mb-8 bg-[#2D3B4F] rounded-lg p-4">
+          <h2 className="text-xl font-bold mb-4">Website Analysis</h2>
+          
+          <div className="flex items-center mb-4">
+            {websiteData.favicon && (
+              <div className="mr-4 w-12 h-12 relative">
+                <Image 
+                  src={websiteData.favicon}
+                  alt="Website Favicon"
+                  width={48}
+                  height={48}
+                  className="rounded-md"
+                />
+              </div>
+            )}
+            <a 
+              href={websiteData.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:underline"
+            >
+              {websiteData.url}
+            </a>
+          </div>
+          
+          {websiteData.screenshot && (
+            <div className="w-full h-48 relative rounded-lg overflow-hidden">
+              <Image
+                src={websiteData.screenshot}
+                alt="Website Screenshot"
+                layout="fill"
+                objectFit="cover"
+                className="rounded-lg"
+              />
+            </div>
+          )}
+        </div>
+      )}
+  
       {/* Sessions Section */}
+      <div className="flex-grow"></div>
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Your Conversations</h2>
@@ -133,10 +177,10 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
             onClick={onNewSession}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
           >
-            New Chat
+            New Conversation
           </button>
         </div>
-
+  
         {loading ? (
           <div className="flex justify-center py-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -155,13 +199,13 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                   }`}
                 >
                   <div className="flex justify-between items-center">
-                    <p className="font-medium">{session.name}</p>
+                    <p className="font-medium">New Conversation</p>
                     <span className="text-xs text-gray-400">
-                      {session.messageCount} messages
+                      0 messages
                     </span>
                   </div>
                   <p className="text-xs text-gray-400">
-                    {session.lastActive.toLocaleDateString()}
+                    4/2/2025
                   </p>
                 </div>
               ))
@@ -173,24 +217,21 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
           </div>
         )}
       </div>
-
+  
       {/* Suggested Topics */}
-      <div className="mt-auto">
-        <h2 className="text-xl font-bold mb-4">Suggested Topics</h2>
-        <div className="grid grid-cols-2 gap-2">
-          {suggestedTopics.map((topic, index) => (
-            <div 
-              key={index}
-              onClick={() => handleTopicClick(topic)}
-              className="bg-[#2D3B4F] p-3 rounded-lg text-sm cursor-pointer hover:bg-[#374863] transition-colors"
-            >
-              {topic}
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* <h2 className="text-xl font-bold mb-4">Suggested Topics</h2> */}
+      {/* <div className="flex space-x-2 overflow-x-auto">
+        {suggestedTopics.map((topic, index) => (
+          <div 
+            key={index}
+            onClick={() => handleTopicClick(topic)}
+            className="bg-[#2D3B4F] p-2 rounded-lg text-xs whitespace-nowrap cursor-pointer hover:bg-[#374863] transition-colors"
+          >
+            {topic}
+          </div>
+        ))}
+      </div> */}
     </div>
   );
 };
-
 export default UserDashboard;
