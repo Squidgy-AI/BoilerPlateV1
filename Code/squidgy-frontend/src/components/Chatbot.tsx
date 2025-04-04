@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type StreamingAvatar from "@heygen/streaming-avatar";
 import { TaskMode, TaskType } from "@heygen/streaming-avatar";
 import InteractiveAvatar from './InteractiveAvatar';
+import AvatarSelector from './AvatarSelector';
 
 interface ChatMessage {
   sender: string;
@@ -31,6 +32,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108'); // Default avatar ID
   
   const avatarRef = useRef<StreamingAvatar | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -40,6 +42,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const maxReconnectAttempts = 5;
   const currentRequestIdRef = useRef<string | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Handler for avatar change
+  const handleAvatarChange = (avatarId: string) => {
+    setSelectedAvatarId(avatarId);
+  };
 
   // Effect to scroll chat to bottom when messages change
   useEffect(() => {
@@ -361,11 +368,25 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
 
   // The return statement starts here
   return (
+    <>
+    {/* Avatar Selector - now floating and draggable */}
+    <AvatarSelector 
+      onAvatarChange={handleAvatarChange}
+      currentAvatarId={selectedAvatarId}
+    />
     <div className="w-[55%] bg-[#1E2A3B] h-screen overflow-hidden fixed right-0 top-0">
       <style>{switchStyles}</style>
       <div className="h-full flex flex-col p-6">
+        {/* Avatar Selector */}
+        {/* <AvatarSelector 
+          onAvatarChange={handleAvatarChange}
+          currentAvatarId={selectedAvatarId}
+        /> */}
+        {/* The AvatarSelector is now outside the layout and positioned absolutely */}
+        {/* No need to wrap it in additional positioning divs */}
+        
         {/* Connection Status Indicator */}
-        <div className="absolute top-2 left-2 z-10">
+        <div className="absolute top-2 left-20 z-10">
           <div className={`flex items-center px-3 py-1 rounded-full text-xs ${
             connectionStatus === 'connected' ? 'bg-green-600' : 
             connectionStatus === 'connecting' ? 'bg-yellow-600' : 'bg-red-600'
@@ -429,6 +450,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
             enabled={videoEnabled}
             sessionId={sessionId}
             voiceEnabled={voiceEnabled}
+            avatarId={selectedAvatarId}
           />
           
           {/* Avatar Error Message */}
@@ -517,6 +539,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         </div>
       </div>
     </div>
+    </>
   );
 };
 

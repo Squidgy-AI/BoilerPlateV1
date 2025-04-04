@@ -13,8 +13,9 @@ interface InteractiveAvatarProps {
   onAvatarReady?: () => void;
   avatarRef?: React.MutableRefObject<StreamingAvatar | null>;
   enabled?: boolean;
-  sessionId?: string; // Add session ID to manage avatar lifecycle with session changes
-  voiceEnabled?: boolean; // New prop for voice toggle
+  sessionId?: string;
+  voiceEnabled?: boolean;
+  avatarId?: string; // New prop to specify which avatar to use
 }
 
 const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ 
@@ -22,11 +23,11 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   avatarRef, 
   enabled = true,
   sessionId,
-  voiceEnabled = true
+  voiceEnabled = true,
+  avatarId = 'Anna_public_3_20240108' // Default value
 }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);
-  const [avatarId] = useState<string>('Anna_public_3_20240108');
   const mediaStream = useRef<HTMLVideoElement>(null);
   const localAvatarRef = useRef<StreamingAvatar | null>(null);
   const [sessionActive, setSessionActive] = useState(false);
@@ -34,9 +35,10 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<string | null>(null);
   const currentSessionIdRef = useRef<string | undefined>(sessionId);
+  const currentAvatarIdRef = useRef<string>(avatarId);
 
-  // Define fallback image path from public folder
-  const fallbackImagePath = "/seth.JPG"; // This assumes the image is copied to public folder
+  // Dynamic fallback image based on selected avatar
+  const fallbackImagePath = avatarId === 'sol' ? "/sol.jpg" : "/seth.JPG";
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
@@ -88,7 +90,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       try {
         const res = await actualAvatarRef.current.createStartAvatar({
           quality: AvatarQuality.Low,
-          avatarName: avatarId,
+          avatarName: avatarId, // Use the avatarId prop
           voice: {
             rate: 1.2,
             emotion: VoiceEmotion.NEUTRAL,
@@ -106,6 +108,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   
         setSessionActive(true);
         currentSessionIdRef.current = sessionId;
+        currentAvatarIdRef.current = avatarId;
   
         if (onAvatarReady) {
           onAvatarReady();
@@ -183,6 +186,19 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       setStream(undefined);
     }
   }
+
+  // Effect to handle avatar ID changes
+  useEffect(() => {
+    if (sessionActive && currentAvatarIdRef.current !== avatarId) {
+      // Need to reset the session when avatar changes
+      endSession().then(() => {
+        startAvatarSession();
+      });
+    } else if (!sessionActive && enabled) {
+      // Start session if not active but should be enabled
+      startAvatarSession();
+    }
+  }, [avatarId, enabled]);
 
   // Effect to start session initially if enabled
   useEffect(() => {
