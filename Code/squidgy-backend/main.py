@@ -8,14 +8,21 @@ import uuid
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel
 import uvicorn
+import time
 
 from fastapi.staticfiles import StaticFiles
 from fastapi import File, UploadFile
 import os
 
+from functools import wraps
+import uuid
+import time
+import asyncio
+from contextlib import suppress
+
 # Create directories for storing images if they don't exist
-os.makedirs("static/screenshots", exist_ok=True)
-os.makedirs("static/favicons", exist_ok=True)
+os.makedirs("E:/squidgy_images/screenshots", exist_ok=True)
+os.makedirs("E:/squidgy_images/favicons", exist_ok=True)
 
 
 
@@ -71,7 +78,7 @@ from GHL.Users.get_user import get_user
 from GHL.Users.update_user import update_user
 
 # Website Related
-# from Website.web_scrape import capture_website_screenshot, get_website_favicon
+from Website.web_scrape import capture_website_screenshot, get_website_favicon
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -94,7 +101,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Add this to your existing app configuration in main.py
+app.mount("/static/screenshots", StaticFiles(directory="E:/squidgy_images/screenshots"), name="screenshots")
+app.mount("/static/favicons", StaticFiles(directory="E:/squidgy_images/favicons"), name="favicons")
 
 
 class ChatRequest(BaseModel):
@@ -116,127 +125,233 @@ class ChatResponse(BaseModel):
     agent: str
     session_id: str
 
+# Example of integrating events within an AutoGen agent
+class EventStreamingAssistantAgent(AssistantAgent):
+    """Extended AssistantAgent that streams events during processing"""
+    
+    def __init__(self, websocket_handler=None, request_id=None, **kwargs):
+        super().__init__(**kwargs)
+        self.websocket_handler = websocket_handler
+        self.request_id = request_id
+    
+    async def _process_thinking(self, message):
+        """Hook to send thinking events during processing"""
+        if self.websocket_handler:
+            await self.websocket_handler(
+                "agent_thinking", 
+                self.name, 
+                message, 
+                self.request_id
+            )
+        
+        # Continue with normal processing
+        return await super()._process_thinking(message)
+
 # In-memory chat history store (replace with database in production)
 chat_histories: Dict[str, List[ChatMessage]] = {}
 
-def capture_website_screenshot(url: str) -> str:
-    """
-    Captures a screenshot of the entire website using headless browser.
-    
-    Args:
-        url (str): URL of the website to capture
-        
-    Returns:
-        str: URL path to the saved screenshot
-    """
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from bs4 import BeautifulSoup
-    import requests
-    import os
-    import time
+active_connections: Dict[str, WebSocket] = {}
 
-    filename = None
-    try:
-        if not filename:
-            # if session_id:
-            #     filename = f"static/screenshots/{session_id}_screenshot.png"
-            # else:
-            filename = f"static/screenshots/screenshot_{int(time.time())}.png"
-        
-        # Set up Chrome options for headless mode
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--window-size=1920,1080")
-        
-        # Initialize driver with options
-        driver = webdriver.Chrome(options=chrome_options)
-        driver.get(url)
-        driver.save_screenshot(filename)
-        driver.quit()
-        
-        # Return the URL path
-        return f"/{filename}"
-    except Exception as e:
-        print(f"Error capturing screenshot: {e}")
-        return None
-    
-def get_website_favicon(url: str) -> str:
-    """
-    Gets the favicon from a website and saves it.
-    
-    Args:
-        url (str): URL of the website to scrape
-        
-    Returns:
-        str: URL path to the saved favicon
-    """
-    from bs4 import BeautifulSoup
-    import requests
-    import time
-    import os
-    
-    try:
-        # Create filename with timestamp
-        filename = f"static/favicons/favicon_{int(time.time())}.ico"
-        
-        # Get the website's HTML
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Look for favicon in link tags
-        favicon_url = None
-        
-        # Check for standard favicon link tags
-        for link in soup.find_all('link'):
-            rel = link.get('rel', [])
-            # Handle both string and list formats for rel attribute
-            if isinstance(rel, list):
-                rel = ' '.join(rel).lower()
-            else:
-                rel = rel.lower()
-                
-            if 'icon' in rel or 'shortcut icon' in rel:
-                favicon_url = link.get('href')
-                break
-        
-        # If no favicon found, try default location
-        if not favicon_url:
-            favicon_url = f"{url}/favicon.ico"
-        
-        # Fix relative URLs
-        if favicon_url and not favicon_url.startswith('http'):
-            if favicon_url.startswith('//'):
-                favicon_url = 'https:' + favicon_url
-            elif favicon_url.startswith('/'):
-                favicon_url = url.rstrip('/') + favicon_url
-            else:
-                favicon_url = f"{url.rstrip('/')}/{favicon_url}"
-        
-        # Download the favicon and save it
-        if favicon_url:
-            favicon_response = requests.get(favicon_url, stream=True)
-            if favicon_response.status_code == 200:
-                # Make sure the directory exists
-                os.makedirs(os.path.dirname(filename), exist_ok=True)
-                
-                # Save favicon
-                with open(filename, 'wb') as f:
-                    f.write(favicon_response.content)
-                
-                # Return the URL path
-                return f"/{filename}"
-        
-        return None
-    
-    except Exception as e:
-        print(f"Error fetching favicon: {e}")
-        return None
 
-# def get_website_favicon(
-#     url: str
+# Event types to implement
+# EVENT_TYPES = {
+#     "processing_start": "Initial startup of processing pipeline",
+#     "agent_thinking": "Agent is actively thinking/processing",
+#     "agent_update": "Progress update from an agent",
+#     "agent_response": "Final response from an agent",
+#     "error": "Error in processing"
+# }
+
+EVENT_TYPES = {
+    "processing_start": "Initial startup of processing pipeline",
+    "agent_thinking": "Agent is actively thinking/processing",
+    "agent_update": "Progress update from an agent",
+    "agent_response": "Final response from an agent",
+    "error": "Error in processing",
+    # New event types for tool execution
+    "tool_execution": "Tool function execution starting",
+    "tool_result": "Tool function execution result",
+    "tool_progress": "Tool function execution progress"
+}
+
+
+def with_tool_visualization(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        # Extract connection_id and request_id from the context
+        connection_id = kwargs.pop('connection_id', None)
+        request_id = kwargs.pop('request_id', None)
+        
+        # If no connection info, just call the original function
+        if not connection_id or not request_id:
+            return await func(*args, **kwargs)
+        
+        # Get function name
+        tool_name = func.__name__
+        if tool_name.endswith('_visualized'):
+            tool_name = tool_name[:-11]
+        
+        # Get websocket connection
+        websocket = active_connections.get(connection_id)
+        if not websocket:
+            return await func(*args, **kwargs)
+        
+        try:
+            # Call the original function
+            result = await func(*args, **kwargs)
+            
+            # For screenshot and favicon, ensure paths are properly formatted
+            if tool_name in ['capture_website_screenshot', 'get_website_favicon']:
+                # If result is a string (path), wrap it in a dict
+                if isinstance(result, str):
+                    result = {"path": result}
+                    
+                # Make sure paths start with / for frontend use
+                if isinstance(result, dict) and 'path' in result and not result['path'].startswith('/'):
+                    result['path'] = '/' + result['path']
+                
+                # Log the processed result
+                print(f"Tool {tool_name} result: {result}")
+            
+            # Send tool result event with minimal information
+            if websocket.client_state != websocket.client_state.DISCONNECTED:
+                with suppress(RuntimeError, ConnectionError):
+                    await websocket.send_json({
+                        "type": "tool_result",
+                        "tool": tool_name,
+                        "result": result,
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+            
+            return result
+        except Exception as e:
+            # Log the error
+            print(f"Error in {tool_name}: {str(e)}")
+            
+            # Send error event with minimal information
+            if websocket.client_state != websocket.client_state.DISCONNECTED:
+                with suppress(RuntimeError, ConnectionError):
+                    await websocket.send_json({
+                        "type": "tool_result",
+                        "tool": tool_name,
+                        "error": str(e),
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+            
+            # Re-raise the exception
+            raise
     
-# ):
+    return wrapper
+
+# def with_tool_visualization(func):
+#     @wraps(func)
+#     async def wrapper(*args, **kwargs):
+#         # Extract connection_id and request_id from the context
+#         connection_id = kwargs.pop('connection_id', None)
+#         request_id = kwargs.pop('request_id', None)
+        
+#         # If no connection info, just call the original function
+#         if not connection_id or not request_id:
+#             return await func(*args, **kwargs)
+        
+#         # Get function name
+#         tool_name = func.__name__
+#         if tool_name.endswith('_visualized'):
+#             tool_name = tool_name[:-11]
+        
+#         # Get websocket connection
+#         websocket = active_connections.get(connection_id)
+#         if not websocket:
+#             return await func(*args, **kwargs)
+        
+#         try:
+#             # Call the original function
+#             result = await func(*args, **kwargs)
+            
+#             # For screenshot and favicon, ensure paths are properly formatted
+#             if tool_name in ['capture_website_screenshot', 'get_website_favicon']:
+#                 # If result is a string (path), wrap it in a dict
+#                 if isinstance(result, str):
+#                     result = {"path": result}
+                    
+#                 # Make sure paths start with / for frontend use
+#                 if isinstance(result, dict) and 'path' in result and not result['path'].startswith('/'):
+#                     result['path'] = '/' + result['path']
+            
+#             # Send tool result event with minimal information
+#             if websocket.client_state != websocket.client_state.DISCONNECTED:
+#                 with suppress(RuntimeError, ConnectionError):
+#                     await websocket.send_json({
+#                         "type": "tool_result",
+#                         "tool": tool_name,
+#                         "result": result,
+#                         "requestId": request_id,
+#                         "timestamp": int(time.time() * 1000)
+#                     })
+            
+#             return result
+#         except Exception as e:
+#             # Send error event with minimal information
+#             if websocket.client_state != websocket.client_state.DISCONNECTED:
+#                 with suppress(RuntimeError, ConnectionError):
+#                     await websocket.send_json({
+#                         "type": "tool_result",
+#                         "tool": tool_name,
+#                         "error": str(e),
+#                         "requestId": request_id,
+#                         "timestamp": int(time.time() * 1000)
+#                     })
+            
+#             # Re-raise the exception
+#             raise
+    
+#     return wrapper
+
+# def capture_website_screenshot(url: str) -> str:
+#     """
+#     Captures a screenshot of the entire website using headless browser.
+    
+#     Args:
+#         url (str): URL of the website to capture
+        
+#     Returns:
+#         str: URL path to the saved screenshot
+#     """
+#     from selenium import webdriver
+#     from selenium.webdriver.chrome.options import Options
+#     from bs4 import BeautifulSoup
+#     import requests
+#     import os
+#     import time
+
+#     filename = None
+#     try:
+#         if not filename:
+#             # if session_id:
+#             #     filename = f"static/screenshots/{session_id}_screenshot.png"
+#             # else:
+#             filename = f"static/screenshots/screenshot_{int(time.time())}.png"
+        
+#         # Set up Chrome options for headless mode
+#         chrome_options = Options()
+#         chrome_options.add_argument("--headless")
+#         chrome_options.add_argument("--window-size=1920,1080")
+        
+#         # Initialize driver with options
+#         driver = webdriver.Chrome(options=chrome_options)
+#         driver.get(url)
+#         driver.save_screenshot(filename)
+#         driver.quit()
+        
+#         # Return the URL path
+#         return f"/{filename}"
+#     except Exception as e:
+#         print(f"Error capturing screenshot: {e}")
+#         return None
+    
+# def get_website_favicon(url: str) -> str:
 #     """
 #     Gets the favicon from a website and saves it.
     
@@ -246,14 +361,15 @@ def get_website_favicon(url: str) -> str:
 #     Returns:
 #         str: URL path to the saved favicon
 #     """
-#     from selenium import webdriver
-#     from selenium.webdriver.chrome.options import Options
 #     from bs4 import BeautifulSoup
 #     import requests
-#     import os
 #     import time
-
+#     import os
+    
 #     try:
+#         # Create filename with timestamp
+#         filename = f"static/favicons/favicon_{int(time.time())}.ico"
+        
 #         # Get the website's HTML
 #         response = requests.get(url)
 #         soup = BeautifulSoup(response.text, 'html.parser')
@@ -287,27 +403,26 @@ def get_website_favicon(url: str) -> str:
 #             else:
 #                 favicon_url = f"{url.rstrip('/')}/{favicon_url}"
         
-#         # # Download the favicon and save it twice (once as favicon.ico and once as logo.png)
-#         # if favicon_url:
-#         #     favicon_response = requests.get(favicon_url, stream=True)
-#         #     if favicon_response.status_code == 200:
-#         #         # Save as favicon.ico
-#         #         with open(favicon_filename, 'wb') as f:
-#         #             f.write(favicon_response.content)
-#         #         print(f"Favicon downloaded as {favicon_filename}")
+#         # Download the favicon and save it
+#         if favicon_url:
+#             favicon_response = requests.get(favicon_url, stream=True)
+#             if favicon_response.status_code == 200:
+#                 # Make sure the directory exists
+#                 os.makedirs(os.path.dirname(filename), exist_ok=True)
                 
-#         #         # Also save as logo.png
-#         #         with open(logo_filename, 'wb') as f:
-#         #             f.write(favicon_response.content)
-#         #         print(f"Favicon also saved as {logo_filename}")
+#                 # Save favicon
+#                 with open(filename, 'wb') as f:
+#                     f.write(favicon_response.content)
                 
-#         #         return favicon_url
+#                 # Return the URL path
+#                 return f"/{filename}"
         
-#         print("Favicon not found or couldn't be downloaded")
-#         return favicon_url
+#         return None
+    
 #     except Exception as e:
 #         print(f"Error fetching favicon: {e}")
 #         return None
+
 
 def save_message_to_history(session_id: str, sender: str, message: str):
     """Save a message to the chat history for a specific session"""
@@ -488,63 +603,238 @@ def analyze_with_perplexity(url: str) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-def scrape_page(url: str) -> str:
-    client = ApifyClient(token=APIFY_API_KEY)
+# def scrape_page(url: str) -> str:
+#     client = ApifyClient(token=APIFY_API_KEY)
 
-    # Prepare the Actor input
-    run_input = {
-        "startUrls": [{"url": url}],
-        "useSitemaps": False,
-        "crawlerType": "playwright:firefox",
-        "includeUrlGlobs": [],
-        "excludeUrlGlobs": [],
-        "ignoreCanonicalUrl": False,
-        "maxCrawlDepth": 0,
-        "maxCrawlPages": 1,
-        "initialConcurrency": 0,
-        "maxConcurrency": 200,
-        "initialCookies": [],
-        "proxyConfiguration": {"useApifyProxy": True},
-        "maxSessionRotations": 10,
-        "maxRequestRetries": 5,
-        "requestTimeoutSecs": 60,
-        "dynamicContentWaitSecs": 10,
-        "maxScrollHeightPixels": 5000,
-        "removeElementsCssSelector": """nav, footer, script, style, noscript, svg,
-    [role=\"alert\"],
-    [role=\"banner\"],
-    [role=\"dialog\"],
-    [role=\"alertdialog\"],
-    [role=\"region\"][aria-label*=\"skip\" i],
-    [aria-modal=\"true\"]""",
-        "removeCookieWarnings": True,
-        "clickElementsCssSelector": '[aria-expanded="false"]',
-        "htmlTransformer": "readableText",
-        "readableTextCharThreshold": 100,
-        "aggressivePrune": False,
-        "debugMode": True,
-        "debugLog": True,
-        "saveHtml": True,
-        "saveMarkdown": True,
-        "saveFiles": False,
-        "saveScreenshots": False,
-        "maxResults": 9999999,
-        "clientSideMinChangePercentage": 15,
-        "renderingTypeDetectionPercentage": 10,
+#     # Prepare the Actor input
+#     run_input = {
+#         "startUrls": [{"url": url}],
+#         "useSitemaps": False,
+#         "crawlerType": "playwright:firefox",
+#         "includeUrlGlobs": [],
+#         "excludeUrlGlobs": [],
+#         "ignoreCanonicalUrl": False,
+#         "maxCrawlDepth": 0,
+#         "maxCrawlPages": 1,
+#         "initialConcurrency": 0,
+#         "maxConcurrency": 200,
+#         "initialCookies": [],
+#         "proxyConfiguration": {"useApifyProxy": True},
+#         "maxSessionRotations": 10,
+#         "maxRequestRetries": 5,
+#         "requestTimeoutSecs": 60,
+#         "dynamicContentWaitSecs": 10,
+#         "maxScrollHeightPixels": 5000,
+#         "removeElementsCssSelector": """nav, footer, script, style, noscript, svg,
+#     [role=\"alert\"],
+#     [role=\"banner\"],
+#     [role=\"dialog\"],
+#     [role=\"alertdialog\"],
+#     [role=\"region\"][aria-label*=\"skip\" i],
+#     [aria-modal=\"true\"]""",
+#         "removeCookieWarnings": True,
+#         "clickElementsCssSelector": '[aria-expanded="false"]',
+#         "htmlTransformer": "readableText",
+#         "readableTextCharThreshold": 100,
+#         "aggressivePrune": False,
+#         "debugMode": True,
+#         "debugLog": True,
+#         "saveHtml": True,
+#         "saveMarkdown": True,
+#         "saveFiles": False,
+#         "saveScreenshots": False,
+#         "maxResults": 9999999,
+#         "clientSideMinChangePercentage": 15,
+#         "renderingTypeDetectionPercentage": 10,
+#     }
+
+#     # Run the Actor and wait for it to finish
+#     run = client.actor("aYG0l9s7dbB7j3gbS").call(run_input=run_input)
+
+#     # Fetch and print Actor results from the run's dataset (if there are any)
+#     text_data = ""
+#     for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+#         text_data += item.get("text", "") + "\n"
+
+#     average_token = 0.75
+#     max_tokens = 20000  # slightly less than max to be safe 32k
+#     text_data = text_data[: int(average_token * max_tokens)]
+#     return text_data
+
+
+@with_tool_visualization
+async def analyze_with_perplexity_visualized(url: str, connection_id=None, request_id=None):
+    """Analyze a website using Perplexity API with visualization"""
+    print(f"Analyzing website with Perplexity: {url}")
+    
+    websocket = connection_id and active_connections.get(connection_id)
+    
+    if websocket and websocket.client_state != websocket.client_state.DISCONNECTED:
+        try:
+            # Send tool execution start event
+            await websocket.send_json({
+                "type": "tool_execution",
+                "tool": "analyze_with_perplexity",
+                "executionId": f"perplexity-{int(time.time())}",
+                "params": {"url": url},
+                "requestId": request_id,
+                "timestamp": int(time.time() * 1000)
+            })
+        except Exception as e:
+            print(f"Error sending tool execution event: {e}")
+    
+    # Perform the analysis
+    result = analyze_with_perplexity(url)
+    
+    # Log the result
+    if result and "analysis" in result:
+        print(f"Analysis completed successfully for {url}")
+    else:
+        print(f"Analysis failed or returned no data for {url}")
+        
+    return result
+
+@with_tool_visualization
+async def capture_website_screenshot_visualized(url: str, connection_id=None, request_id=None):
+    """Capture a website screenshot with visualization"""
+    print(f"Capturing website screenshot (visualized): {url}")
+    
+    websocket = connection_id and active_connections.get(connection_id)
+    
+    if websocket and websocket.client_state != websocket.client_state.DISCONNECTED:
+        try:
+            # Send tool execution start event
+            await websocket.send_json({
+                "type": "tool_execution",
+                "tool": "capture_website_screenshot",
+                "executionId": f"screenshot-{int(time.time())}",
+                "params": {"url": url},
+                "requestId": request_id,
+                "timestamp": int(time.time() * 1000)
+            })
+        except Exception as e:
+            print(f"Error sending tool execution event: {e}")
+    
+    # Capture the screenshot
+    screenshot_path = capture_website_screenshot(url)
+    
+    # Log the result
+    if screenshot_path:
+        print(f"Screenshot captured successfully: {screenshot_path}")
+    else:
+        print(f"Screenshot capture failed for {url}")
+    
+    return {"path": screenshot_path} if screenshot_path else None
+
+@with_tool_visualization
+async def get_website_favicon_visualized(url: str, connection_id=None, request_id=None):
+    """Get a website favicon with visualization"""
+    print(f"Getting website favicon (visualized): {url}")
+    
+    websocket = connection_id and active_connections.get(connection_id)
+    
+    if websocket and websocket.client_state != websocket.client_state.DISCONNECTED:
+        try:
+            # Send tool execution start event
+            await websocket.send_json({
+                "type": "tool_execution",
+                "tool": "get_website_favicon",
+                "executionId": f"favicon-{int(time.time())}",
+                "params": {"url": url},
+                "requestId": request_id,
+                "timestamp": int(time.time() * 1000)
+            })
+        except Exception as e:
+            print(f"Error sending tool execution event: {e}")
+    
+    # Get the favicon
+    favicon_path = get_website_favicon(url)
+    
+    # Log the result
+    if favicon_path:
+        print(f"Favicon retrieved successfully: {favicon_path}")
+    else:
+        print(f"Favicon retrieval failed for {url}")
+    
+    return {"path": favicon_path} if favicon_path else None
+
+@with_tool_visualization
+async def get_insights_visualized(address: str, connection_id=None, request_id=None):
+    return get_insights(address)
+
+@with_tool_visualization
+async def get_datalayers_visualized(address: str, connection_id=None, request_id=None):
+    return get_datalayers(address)
+
+# @with_tool_visualization
+# async def get_report_visualized(address: str, connection_id=None, request_id=None):
+#     return get_report(address)
+
+@with_tool_visualization
+async def get_report_visualized(address: str, connection_id=None, request_id=None):
+    """Generate a solar report with progress updates"""
+    # Get websocket connection
+    websocket = active_connections.get(connection_id)
+    
+    # Start the report generation
+    base_url = "https://api.realwave.com/googleSolar"
+    headers = {
+        "Authorization": f"Bearer {SOLAR_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
-
-    # Run the Actor and wait for it to finish
-    run = client.actor("aYG0l9s7dbB7j3gbS").call(run_input=run_input)
-
-    # Fetch and print Actor results from the run's dataset (if there are any)
-    text_data = ""
-    for item in client.dataset(run["defaultDatasetId"]).iterate_items():
-        text_data += item.get("text", "") + "\n"
-
-    average_token = 0.75
-    max_tokens = 20000  # slightly less than max to be safe 32k
-    text_data = text_data[: int(average_token * max_tokens)]
-    return text_data
+    url = f"{base_url}/report"
+    params = {
+        "address": address,
+        "organizationName": "Squidgy Solar",
+        "leadName": "Potential Client",
+        "demo": "true"
+    }
+    
+    # For long-running operations, send progress updates
+    if websocket and request_id and websocket.client_state != websocket.client_state.DISCONNECTED:
+        with suppress(RuntimeError, ConnectionError):
+            await websocket.send_json({
+                "type": "tool_progress",
+                "tool": "get_report",
+                "progress": 0.2,
+                "message": "Initializing report generation...",
+                "requestId": request_id,
+                "timestamp": int(time.time() * 1000)
+            })
+    
+    # Simulate processing time for demo purposes
+    await asyncio.sleep(1)
+    
+    # Send another progress update
+    if websocket and request_id and websocket.client_state != websocket.client_state.DISCONNECTED:
+        with suppress(RuntimeError, ConnectionError):
+            await websocket.send_json({
+                "type": "tool_progress",
+                "tool": "get_report",
+                "progress": 0.5,
+                "message": "Processing satellite imagery...",
+                "requestId": request_id,
+                "timestamp": int(time.time() * 1000)
+            })
+    
+    # Make the actual API call
+    response = requests.post(url, headers=headers, params=params)
+    
+    # Send final progress update
+    if websocket and request_id and websocket.client_state != websocket.client_state.DISCONNECTED:
+        with suppress(RuntimeError, ConnectionError):
+            await websocket.send_json({
+                "type": "tool_progress",
+                "tool": "get_report",
+                "progress": 0.9,
+                "message": "Finalizing report...",
+                "requestId": request_id,
+                "timestamp": int(time.time() * 1000)
+            })
+    
+    # Return the result
+    return response.json()
 
 class EnforcedFlowGroupChat(GroupChat):
    def __init__(self, agents, messages, max_round=100):
@@ -585,81 +875,141 @@ class EnforcedFlowGroupChat(GroupChat):
 
 
 # Create Agents
-def create_agents(user_id, session_id):
-    # Create agents using vector_store for system messages
-    ProductManager = AssistantAgent(
+# In your agent setup:
+def create_agents(user_id, session_id, request_id, connection_id):
+    """Create AutoGen agents with event streaming capabilities"""
+    
+        # Create the websocket handler
+    async def ws_handler(event_type, agent_name, message, req_id):
+        await agent_callback(agent_name, event_type, message, req_id, connection_id)
+    
+    # Create ProductManager agent with event streaming
+    ProductManager = EventStreamingAssistantAgent(
         name="ProductManager",
         llm_config=llm_config,
         system_message=vector_setup_sys_mesage(role_descriptions, "ProductManager"),
-        description="A product manager AI assistant capable of starting conversation and delegation to others",
-        human_input_mode="NEVER"
+        websocket_handler=ws_handler,
+        request_id=request_id
     )
-
-    PreSalesConsultant = AssistantAgent(
+    
+    # Create PreSalesConsultant agent with event streaming
+    PreSalesConsultant = EventStreamingAssistantAgent(
         name="PreSalesConsultant",
         llm_config=llm_config,
         system_message=vector_setup_sys_mesage(role_descriptions, "PreSalesConsultant"),
-        description="A pre-sales consultant AI assistant capable of understanding customer more ,handling sales, pricing, and technical analysis",
-        human_input_mode="NEVER"
+        description="A pre-sales consultant AI assistant capable of understanding customer more, handling sales, pricing, and technical analysis",
+        websocket_handler=ws_handler,
+        request_id=request_id
     )
+    
+    # Create wrapper functions that properly pass the parameters to tool functions
+    async def analyze_perplexity_tool(url: str) -> dict:
+        """Analyze website with perplexity with proper tool visualization"""
+        print(f"Calling perplexity analysis for URL: {url}")
+        return await analyze_with_perplexity_visualized(url, connection_id=connection_id, request_id=request_id)
+    
+    async def capture_screenshot_tool(url: str) -> str:
+        """Capture website screenshot with proper tool visualization"""
+        print(f"Capturing screenshot for URL: {url}")
+        return await capture_website_screenshot_visualized(url, connection_id=connection_id, request_id=request_id)
+    
+    async def get_favicon_tool(url: str) -> str:
+        """Get website favicon with proper tool visualization"""
+        print(f"Getting favicon for URL: {url}")
+        return await get_website_favicon_visualized(url, connection_id=connection_id, request_id=request_id)
+    
+    async def get_insights_tool(address: str) -> dict:
+        """Get solar insights with proper tool visualization"""
+        print(f"Getting solar insights for address: {address}")
+        return await get_insights_visualized(address, connection_id=connection_id, request_id=request_id)
+    
+    async def get_datalayers_tool(address: str) -> dict:
+        """Get solar data layers with proper tool visualization"""
+        print(f"Getting data layers for address: {address}")
+        return await get_datalayers_visualized(address, connection_id=connection_id, request_id=request_id)
+    
+    async def get_report_tool(address: str) -> dict:
+        """Get solar report with proper tool visualization"""
+        print(f"Getting solar report for address: {address}")
+        return await get_report_visualized(address, connection_id=connection_id, request_id=request_id)
 
-    #PreSalesConsultant.register_for_llm(name="scrape_page")(scrape_page)
-    PreSalesConsultant.register_for_llm(name="analyze_with_perplexity")(analyze_with_perplexity)
-    PreSalesConsultant.register_for_llm(name="capture_website_screenshot")(capture_website_screenshot)
-    PreSalesConsultant.register_for_llm(name="get_website_favicon")(get_website_favicon)
-    PreSalesConsultant.register_for_llm(name="get_insights")(get_insights)
-    PreSalesConsultant.register_for_llm(name="get_datalayers")(get_datalayers)
-    PreSalesConsultant.register_for_llm(name="get_report")(get_report)
+    # Register the wrapper functions for PreSalesConsultant
+    PreSalesConsultant.register_for_llm(name="analyze_with_perplexity")(analyze_perplexity_tool)
+    PreSalesConsultant.register_for_llm(name="capture_website_screenshot")(capture_screenshot_tool)
+    PreSalesConsultant.register_for_llm(name="get_website_favicon")(get_favicon_tool)
+    PreSalesConsultant.register_for_llm(name="get_insights")(get_insights_tool)
+    PreSalesConsultant.register_for_llm(name="get_datalayers")(get_datalayers_tool)
+    PreSalesConsultant.register_for_llm(name="get_report")(get_report_tool)
 
-    SocialMediaManager = AssistantAgent(
+
+    # PreSalesConsultant.register_for_llm(name="analyze_with_perplexity")(
+    #     lambda url: analyze_with_perplexity_visualized(url, connection_id=connection_id, request_id=request_id)
+    # )
+    # PreSalesConsultant.register_for_llm(name="capture_website_screenshot")(
+    #     lambda url: capture_website_screenshot_visualized(url, connection_id=connection_id, request_id=request_id)
+    # )
+    # PreSalesConsultant.register_for_llm(name="get_website_favicon")(
+    #     lambda url: get_website_favicon_visualized(url, connection_id=connection_id, request_id=request_id)
+    # )
+    # PreSalesConsultant.register_for_llm(name="get_insights")(
+    #     lambda address: get_insights_visualized(address, connection_id=connection_id, request_id=request_id)
+    # )
+    # PreSalesConsultant.register_for_llm(name="get_datalayers")(
+    #     lambda address: get_datalayers_visualized(address, connection_id=connection_id, request_id=request_id)
+    # )
+    # PreSalesConsultant.register_for_llm(name="get_report")(
+    #     lambda address: get_report_visualized(address, connection_id=connection_id, request_id=request_id)
+    # )
+    
+    # Create SocialMediaManager agent with event streaming
+    SocialMediaManager = EventStreamingAssistantAgent(
         name="SocialMediaManager",
         llm_config=llm_config,
         system_message=vector_setup_sys_mesage(role_descriptions, "SocialMediaManager"),
         description="A social media manager AI assistant handling digital presence and strategy",
-        human_input_mode="NEVER"
+        websocket_handler=ws_handler,
+        request_id=request_id
     )
-
-    LeadGenSpecialist = AssistantAgent(
+    
+    # Create LeadGenSpecialist agent with event streaming
+    LeadGenSpecialist = EventStreamingAssistantAgent(
         name="LeadGenSpecialist",
         llm_config=llm_config,
         system_message=vector_setup_sys_mesage(role_descriptions, "LeadGenSpecialist"),
         description="A Lead generation specialist assistant capable of handling and managing follow-ups and setups",
-        human_input_mode="NEVER"
+        websocket_handler=ws_handler,
+        request_id=request_id
     )
-
+    
+    # Register the tool functions for LeadGenSpecialist
     LeadGenSpecialist.register_for_llm(name="create_appointment")(create_appointment)
     LeadGenSpecialist.register_for_llm(name="get_appointment")(get_appointment)
     LeadGenSpecialist.register_for_llm(name="update_appointment")(update_appointment)
-    # Delete Appointment???
-
+    
     LeadGenSpecialist.register_for_llm(name="create_calendar")(create_calendar)
-    # LeadGenSpecialist.register_for_llm(name="delete_calendar")(delete_calendar)
     LeadGenSpecialist.register_for_llm(name="get_all_calendars")(get_all_calendars)
     LeadGenSpecialist.register_for_llm(name="get_calendar")(get_calendar)
     LeadGenSpecialist.register_for_llm(name="update_calendar")(update_calendar)
-
+    
     LeadGenSpecialist.register_for_llm(name="create_contact")(create_contact)
-    # LeadGenSpecialist.register_for_llm(name="delete_contact")(delete_contact)
     LeadGenSpecialist.register_for_llm(name="get_all_contacts")(get_all_contacts)
     LeadGenSpecialist.register_for_llm(name="get_contact")(get_contact)
     LeadGenSpecialist.register_for_llm(name="update_contact")(update_contact)
-
+    
     LeadGenSpecialist.register_for_llm(name="create_sub_acc")(create_sub_acc)
-    # LeadGenSpecialist.register_for_llm(name="delete_sub_acc")(delete_sub_acc)
     LeadGenSpecialist.register_for_llm(name="get_sub_acc")(get_sub_acc)
     LeadGenSpecialist.register_for_llm(name="update_sub_acc")(update_sub_acc)
-
+    
     LeadGenSpecialist.register_for_llm(name="create_user")(create_user)
-    # LeadGenSpecialist.register_for_llm(name="delete_user")(delete_user)
     LeadGenSpecialist.register_for_llm(name="get_user_by_location_id")(get_user_by_location_id)
     LeadGenSpecialist.register_for_llm(name="get_user")(get_user)
     LeadGenSpecialist.register_for_llm(name="update_user")(update_user)
-
+    
     # Termination function for user agent
     def should_terminate_user(message):
         return "tool_calls" not in message and message["role"] != "tool"
-
-    # User Agent
+    
+    # User Agent (not needing the event streaming since it represents the human)
     user_agent = UserProxyAgent(
         name="UserAgent",
         llm_config=llm_config,
@@ -668,42 +1018,46 @@ def create_agents(user_id, session_id):
         human_input_mode="NEVER",
         is_termination_msg=should_terminate_user
     )
-    # user_agent.register_for_execution(name="scrape_page")(scrape_page)
+    
+    # Register all the tool functions for user_agent as well
+    # PreSalesConsultant tools
     user_agent.register_for_execution(name="analyze_with_perplexity")(analyze_with_perplexity)
     user_agent.register_for_execution(name="capture_website_screenshot")(capture_website_screenshot)
     user_agent.register_for_execution(name="get_website_favicon")(get_website_favicon)
     user_agent.register_for_execution(name="get_insights")(get_insights)
     user_agent.register_for_execution(name="get_datalayers")(get_datalayers)
     user_agent.register_for_execution(name="get_report")(get_report)
-
+    
+    # LeadGenSpecialist tools
     user_agent.register_for_execution(name="create_appointment")(create_appointment)
     user_agent.register_for_execution(name="get_appointment")(get_appointment)
     user_agent.register_for_execution(name="update_appointment")(update_appointment)
-    # Delete Appointment???
-
+    
     user_agent.register_for_execution(name="create_calendar")(create_calendar)
-    # LeadGenSpecialist.register_for_llm(name="delete_calendar")(delete_calendar)
     user_agent.register_for_execution(name="get_all_calendars")(get_all_calendars)
     user_agent.register_for_execution(name="get_calendar")(get_calendar)
     user_agent.register_for_execution(name="update_calendar")(update_calendar)
-
+    
     user_agent.register_for_execution(name="create_contact")(create_contact)
-    # LeadGenSpecialist.register_for_llm(name="delete_contact")(delete_contact)
     user_agent.register_for_execution(name="get_all_contacts")(get_all_contacts)
     user_agent.register_for_execution(name="get_contact")(get_contact)
     user_agent.register_for_execution(name="update_contact")(update_contact)
-
+    
     user_agent.register_for_execution(name="create_sub_acc")(create_sub_acc)
-    # LeadGenSpecialist.register_for_llm(name="delete_sub_acc")(delete_sub_acc)
     user_agent.register_for_execution(name="get_sub_acc")(get_sub_acc)
     user_agent.register_for_execution(name="update_sub_acc")(update_sub_acc)
-
+    
     user_agent.register_for_execution(name="create_user")(create_user)
-    # LeadGenSpecialist.register_for_llm(name="delete_user")(delete_user)
     user_agent.register_for_execution(name="get_user_by_location_id")(get_user_by_location_id)
     user_agent.register_for_execution(name="get_user")(get_user)
     user_agent.register_for_execution(name="update_user")(update_user)
-
+    
+    # Add a direct event method to each agent for manual event triggering
+    for agent in [ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist]:
+        agent.send_event = lambda event_type, message, agent=agent: ws_handler(
+            event_type, agent.name, message, request_id
+        )
+    
     return ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent
 
 # Store active WebSocket connections
@@ -712,41 +1066,121 @@ active_connections: Dict[str, WebSocket] = {}
 # Store ongoing chat processes and their status
 ongoing_chats: Dict[str, Dict[str, Any]] = {}
 
+
+async def send_event(websocket, event_type, agent=None, message=None, request_id=None, final=False):
+    """Send a standardized event through the WebSocket with connection checking"""
+    if not websocket:
+        return
+        
+    # Check if the connection is still open before sending
+    if websocket.client_state.DISCONNECTED:
+        return
+        
+    # Use suppress to safely handle connection errors
+    with suppress(RuntimeError, ConnectionError):
+        await websocket.send_json({
+            "type": event_type,
+            "agent": agent,
+            "message": message,
+            "requestId": request_id,
+            "final": final,  # Make sure this is included!
+            "timestamp": int(time.time() * 1000)  # Current timestamp in milliseconds
+        })
+
 @app.websocket("/ws/{user_id}/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str, session_id: str):
     connection_id = f"{user_id}_{session_id}"
+
+    print("PRINTING :", connection_id,user_id, session_id)
+    
+    # Accept the connection
     await websocket.accept()
+    
+    # Store connection
     active_connections[connection_id] = websocket
     
     try:
+        # Add debugging output
+        print(f"WebSocket connection established: {connection_id}")
+        
+        # Send connection confirmation
+        await websocket.send_json({
+            "type": "connection_status",
+            "status": "connected",
+            "message": "WebSocket connection established"
+        })
+        
+        # For debugging, automatically send an initial greeting if this is a new session
+        if session_id not in chat_histories:
+            print(f"New session detected: {session_id}, sending initial greeting")
+            await websocket.send_json({
+                "type": "agent_response",
+                "agent": "Squidgy",
+                "message": "Hi! I'm Squidgy and I'm here to help you win back time and make more money.",
+                "requestId": f"auto-{int(time.time())}",
+                "final": True,
+                "timestamp": int(time.time() * 1000)
+            })
+        
+        # Handle incoming messages
         while True:
-            # Wait for messages from the client
             data = await websocket.receive_text()
             message_data = json.loads(data)
-            user_input = message_data.get("message", "").strip()
             
-            # Generate a unique ID for this chat request
-            request_id = str(uuid.uuid4())
+            # Generate a unique request ID if not provided
+            request_id = message_data.get("requestId", str(uuid.uuid4()))
             
-            # Send acknowledgment back to client
+            # Debug output
+            print(f"Received message from {connection_id}: {message_data}")
+            
+            # Send acknowledgment
             await websocket.send_json({
                 "type": "ack",
                 "requestId": request_id,
                 "message": "Message received, processing..."
             })
             
-            # Start a background task to process the chat
+            # Process in background task
             asyncio.create_task(
-                process_chat(user_id, session_id, user_input, request_id, connection_id)
+                process_chat(
+                    user_id, 
+                    session_id, 
+                    message_data.get("message", ""), 
+                    request_id, 
+                    connection_id
+                )
             )
             
     except WebSocketDisconnect:
+        # Clean up on disconnect
         if connection_id in active_connections:
             del active_connections[connection_id]
         logger.info(f"Client disconnected: {connection_id}")
+    except Exception as e:
+        logger.exception(f"WebSocket error: {str(e)}")
+        # Attempt to send error message before closing
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": f"WebSocket error: {str(e)}"
+            })
+        except:
+            pass
+
+async def agent_callback(agent_name, event_type, message, request_id, connection_id):
+    """Callback to stream events from AutoGen agents with connection checking"""
+    websocket = active_connections.get(connection_id)
+    if websocket and websocket.client_state != websocket.client_state.DISCONNECTED:
+        await send_event(
+            websocket,
+            event_type,
+            agent=agent_name,
+            message=message,
+            request_id=request_id
+        )
 
 async def process_chat(user_id: str, session_id: str, user_input: str, request_id: str, connection_id: str):
-    """Process a chat message in the background and send results via WebSocket"""
+    """Process a chat message with enhanced event streaming and connection checking"""
     ongoing_chats[request_id] = {"status": "processing", "connection_id": connection_id}
     
     try:
@@ -754,39 +1188,113 @@ async def process_chat(user_id: str, session_id: str, user_input: str, request_i
         if not websocket:
             logger.error(f"WebSocket connection not found for {connection_id}")
             return
-            
-        # Initial message if empty input
+        
+        # Check connection state
+        if websocket.client_state == websocket.client_state.DISCONNECTED:
+            logger.info(f"Client already disconnected: {connection_id}")
+            ongoing_chats[request_id]["status"] = "disconnected"
+            return
+
         if not user_input:
-            initial_greeting = """Hi! I'm Squidgy and I'm here to help you win back time and make more money. Think of me as like a consultant who can instantly build you a solution to a bunch of your problems. To get started, could you tell me your website?"""
-            await websocket.send_json({
-                "type": "agent_response",
-                "requestId": request_id,
-                "message": initial_greeting,
-                "final": True
-            })
+            logger.info(f"Empty initial message received for {connection_id}")
+            # Send a direct greeting response without going through agents
+            await send_event(
+                websocket, 
+                "agent_response", 
+                agent="Squidgy", 
+                message="Hi! I'm Squidgy and I'm here to help you win back time and make more money. To get started, could you tell me your website?", 
+                request_id=request_id, 
+                final=True
+            )
+            
+            # Save to chat history
+            save_message_to_history(session_id, "AI", "Hi! I'm Squidgy and I'm here to help you win back time and make more money. To get started, could you tell me your website?")
+            
             ongoing_chats[request_id]["status"] = "completed"
             return
+        
+        # Initial processing start event
+        await send_event(
+            websocket, 
+            "processing_start", 
+            message="Starting analysis pipeline...", 
+            request_id=request_id
+        )
+        
+        # Create agents - FIX: Pass request_id and connection_id parameters
+        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents(
+            user_id, 
+            session_id, 
+            request_id, 
+            connection_id
+        )
+        
+        # Stream thinking events from each agent before actual processing
+        # This provides immediate feedback while the actual processing happens
+        agents = [
+            {"name": "ProductManager", "message": "Planning approach and coordinating team..."}, 
+            {"name": "PreSalesConsultant", "message": "Analyzing requirements and researching solutions..."},
+            {"name": "SocialMediaManager", "message": "Developing digital strategy recommendations..."},
+            {"name": "LeadGenSpecialist", "message": "Preparing follow-up actions and resources..."}
+        ]
+        
+        # Send thinking events in sequence with small delays
+        for agent in agents:
+            # Check connection before sending each message
+            if websocket.client_state == websocket.client_state.DISCONNECTED:
+                logger.info(f"Client disconnected during processing: {connection_id}")
+                ongoing_chats[request_id]["status"] = "disconnected"
+                return
+                
+            await send_event(
+                websocket, 
+                "agent_thinking", 
+                agent=agent["name"], 
+                message=agent["message"], 
+                request_id=request_id
+            )
+            await asyncio.sleep(0.5)  # Small delay between agent updates
             
-        # Create agents and group chat
-        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents(user_id,session_id)
+            # Optional: Send more detailed updates for each agent
+            if agent["name"] == "PreSalesConsultant":
+                # PreSalesConsultant shows more detailed steps
+                steps = [
+                    "Parsing input query...",
+                    "Analyzing website structure...",
+                    "Identifying key business attributes...",
+                    "Evaluating market position..."
+                ]
+                
+                for step in steps:
+                    # Check connection before each message
+                    if websocket.client_state == websocket.client_state.DISCONNECTED:
+                        logger.info(f"Client disconnected during processing: {connection_id}")
+                        ongoing_chats[request_id]["status"] = "disconnected"
+                        return
+                        
+                    await asyncio.sleep(0.4)
+                    await send_event(
+                        websocket, 
+                        "agent_update", 
+                        agent=agent["name"], 
+                        message=step, 
+                        request_id=request_id
+                    )
         
-        # Create a custom callback to send intermediate responses
-        async def send_update(agent_name, message):
-            if websocket and connection_id in active_connections:
-                await websocket.send_json({
-                    "type": "agent_thinking",
-                    "requestId": request_id,
-                    "agent": agent_name,
-                    "message": message,
-                    "final": False
-                })
+        # Actual processing happens here
+        await asyncio.sleep(1)
         
-        # Configure group chat with callback for progress updates
+        # Check connection before proceeding
+        if websocket.client_state == websocket.client_state.DISCONNECTED:
+            logger.info(f"Client disconnected before chat processing: {connection_id}")
+            ongoing_chats[request_id]["status"] = "disconnected"
+            return
+        
+        # Configure group chat
         group_chat = GroupChat(
             agents=[user_agent, ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist],
             messages=[{"role": "assistant", "content": "Hi! I'm Squidgy and I'm here to help you win back time and make more money."}],
-            max_round=120,
-            #on_new_agent_response=send_update  # This would need to be implemented in your GroupChat class
+            max_round=120
         )
 
         group_manager = GroupChatManager(
@@ -794,44 +1302,55 @@ async def process_chat(user_id: str, session_id: str, user_input: str, request_i
             llm_config=llm_config,
             human_input_mode="NEVER"
         )
-
+        
         # Get and restore history
         history = get_history()
-        ProductManager._oai_messages = {group_manager: history["ProductManager"]}
-        PreSalesConsultant._oai_messages = {group_manager: history["PreSalesConsultant"]}
-        SocialMediaManager._oai_messages = {group_manager: history["SocialMediaManager"]}
-        LeadGenSpecialist._oai_messages = {group_manager: history["LeadGenSpecialist"]}
-        user_agent._oai_messages = {group_manager: history["user_agent"]}
         
-        # Run the chat with progress updates
-        await websocket.send_json({
-            "type": "processing_start",
-            "requestId": request_id,
-            "message": "Agents are now thinking..."
-        })
+        # Only restore history if there's history to restore
+        if history["ProductManager"]:
+            ProductManager._oai_messages = {group_manager: history["ProductManager"]}
+        if history["PreSalesConsultant"]:
+            PreSalesConsultant._oai_messages = {group_manager: history["PreSalesConsultant"]}
+        if history["SocialMediaManager"]:
+            SocialMediaManager._oai_messages = {group_manager: history["SocialMediaManager"]}
+        if history["LeadGenSpecialist"]:
+            LeadGenSpecialist._oai_messages = {group_manager: history["LeadGenSpecialist"]}
+        if history["user_agent"]:
+            user_agent._oai_messages = {group_manager: history["user_agent"]}
         
-        # Initiate chat (this would need to be modified to be non-blocking/async)
-        # We'll run this in an executor to not block the event loop
+        # Run the real agent chat process
         final_response = await asyncio.to_thread(
             run_agent_chat, user_agent, group_manager, user_input
         )
         
-        # Save conversation history
+        # Check connection before saving and sending final response
+        if websocket.client_state == websocket.client_state.DISCONNECTED:
+            logger.info(f"Client disconnected after chat processing: {connection_id}")
+            ongoing_chats[request_id]["status"] = "disconnected"
+            return
+        
+        # Save message to chat history
+        save_message_to_history(session_id, "User", user_input)
+        save_message_to_history(session_id, "AI", final_response)
+        
+        # Save updated conversation history
         save_history({
-            "ProductManager": ProductManager.chat_messages.get(group_manager),
-            "PreSalesConsultant": PreSalesConsultant.chat_messages.get(group_manager),
-            "SocialMediaManager": SocialMediaManager.chat_messages.get(group_manager),
-            "LeadGenSpecialist": LeadGenSpecialist.chat_messages.get(group_manager),
-            "user_agent": user_agent.chat_messages.get(group_manager)
+            "ProductManager": ProductManager.chat_messages.get(group_manager, []),
+            "PreSalesConsultant": PreSalesConsultant.chat_messages.get(group_manager, []),
+            "SocialMediaManager": SocialMediaManager.chat_messages.get(group_manager, []),
+            "LeadGenSpecialist": LeadGenSpecialist.chat_messages.get(group_manager, []),
+            "user_agent": user_agent.chat_messages.get(group_manager, [])
         })
         
-        # Send final response
-        await websocket.send_json({
-            "type": "agent_response",
-            "requestId": request_id,
-            "message": final_response,
-            "final": True
-        })
+        # Send final response with connection checking
+        await send_event(
+            websocket, 
+            "agent_response", 
+            agent="Squidgy", 
+            message=final_response, 
+            request_id=request_id, 
+            final=True
+        )
         
         ongoing_chats[request_id]["status"] = "completed"
         
@@ -840,12 +1359,15 @@ async def process_chat(user_id: str, session_id: str, user_input: str, request_i
         try:
             if connection_id in active_connections:
                 websocket = active_connections[connection_id]
-                await websocket.send_json({
-                    "type": "error",
-                    "requestId": request_id,
-                    "message": f"An error occurred: {str(e)}",
-                    "final": True
-                })
+                # Check connection before sending error
+                if websocket.client_state != websocket.client_state.DISCONNECTED:
+                    await send_event(
+                        websocket, 
+                        "error", 
+                        message=f"An error occurred: {str(e)}", 
+                        request_id=request_id, 
+                        final=True
+                    )
         except Exception as send_error:
             logger.exception(f"Error sending error message: {str(send_error)}")
         
@@ -877,10 +1399,20 @@ async def health_check():
 @app.get("/chat-history", response_model=ChatHistoryResponse)
 async def get_chat_history(session_id: str):
     """Retrieve chat history for a specific session"""
-    session_id = 'dd'
+    #session_id = 'dd'
     if session_id not in chat_histories:
         # Return empty history if no messages for this session
         return ChatHistoryResponse(history=[], session_id=session_id)
+
+        # return ChatHistoryResponse(
+        # history=[
+        #     ChatMessage(
+        #         sender="AI",
+        #         message="Hi! I'm Squidgy and I'm here to help you win back time and make more money. Think of me as like a consultant who can instantly build you a solution to a bunch of your problems. To get started, could you tell me your website?"
+        #     )
+        # ], 
+        # session_id=session_id
+        # )
     
     # Check if we have website data for this session
     website_data = {}
@@ -915,6 +1447,11 @@ async def chat_rest(request: ChatRequest):
     session_id = request.session_id
     user_input = request.user_input.strip()
     
+    # Generate a unique request_id for this request
+    request_id = f"{session_id}_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    # Create a connection_id for consistency with WebSocket approach
+    connection_id = f"{user_id}_{session_id}"
+    
     # Log the incoming request
     logger.info(f"REST chat request received from {user_id} in session {session_id}")
     
@@ -930,8 +1467,13 @@ async def chat_rest(request: ChatRequest):
     save_message_to_history(session_id, "User", user_input)
     
     try:
-        # Create agents and group chat
-        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents(user_id, session_id)
+        # Create agents and group chat - FIX: Pass request_id and connection_id
+        ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist, user_agent = create_agents(
+            user_id, 
+            session_id,
+            request_id,
+            connection_id
+        )
         
         group_chat = GroupChat(
             agents=[user_agent, ProductManager, PreSalesConsultant, SocialMediaManager, LeadGenSpecialist],
@@ -947,11 +1489,18 @@ async def chat_rest(request: ChatRequest):
 
         # Get and restore history
         history = get_history()
-        ProductManager._oai_messages = {group_manager: history["ProductManager"]}
-        PreSalesConsultant._oai_messages = {group_manager: history["PreSalesConsultant"]}
-        SocialMediaManager._oai_messages = {group_manager: history["SocialMediaManager"]}
-        LeadGenSpecialist._oai_messages = {group_manager: history["LeadGenSpecialist"]}
-        user_agent._oai_messages = {group_manager: history["user_agent"]}
+        
+        # Only restore history if there's history to restore
+        if history["ProductManager"]:
+            ProductManager._oai_messages = {group_manager: history["ProductManager"]}
+        if history["PreSalesConsultant"]:
+            PreSalesConsultant._oai_messages = {group_manager: history["PreSalesConsultant"]}
+        if history["SocialMediaManager"]:
+            SocialMediaManager._oai_messages = {group_manager: history["SocialMediaManager"]}
+        if history["LeadGenSpecialist"]:
+            LeadGenSpecialist._oai_messages = {group_manager: history["LeadGenSpecialist"]}
+        if history["user_agent"]:
+            user_agent._oai_messages = {group_manager: history["user_agent"]}
         
         # Initiate chat
         user_agent.initiate_chat(group_manager, message=user_input, clear_history=False)
@@ -964,11 +1513,11 @@ async def chat_rest(request: ChatRequest):
         
         # Save conversation history
         save_history({
-            "ProductManager": ProductManager.chat_messages.get(group_manager),
-            "PreSalesConsultant": PreSalesConsultant.chat_messages.get(group_manager),
-            "SocialMediaManager": SocialMediaManager.chat_messages.get(group_manager),
-            "LeadGenSpecialist": LeadGenSpecialist.chat_messages.get(group_manager),
-            "user_agent": user_agent.chat_messages.get(group_manager)
+            "ProductManager": ProductManager.chat_messages.get(group_manager, []),
+            "PreSalesConsultant": PreSalesConsultant.chat_messages.get(group_manager, []),
+            "SocialMediaManager": SocialMediaManager.chat_messages.get(group_manager, []),
+            "LeadGenSpecialist": LeadGenSpecialist.chat_messages.get(group_manager, []),
+            "user_agent": user_agent.chat_messages.get(group_manager, [])
         })
         
         return ChatResponse(agent=agent_response, session_id=session_id)
@@ -1022,6 +1571,15 @@ async def get_chat_status(request_id: str):
         raise HTTPException(status_code=404, detail="Chat request not found")
     
     return ongoing_chats[request_id]
+
+@app.get("/ws-health")
+async def websocket_health():
+    """Health check for WebSocket connections"""
+    return {
+        "status": "healthy",
+        "active_connections": len(active_connections),
+        "ongoing_chats": len(ongoing_chats)
+    }
 
 # Add endpoint to cancel an ongoing chat
 @app.post("/cancel-chat/{request_id}")

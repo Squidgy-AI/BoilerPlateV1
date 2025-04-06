@@ -5,6 +5,12 @@ import type StreamingAvatar from "@heygen/streaming-avatar";
 import { TaskMode, TaskType } from "@heygen/streaming-avatar";
 import InteractiveAvatar from './InteractiveAvatar';
 import AvatarSelector from './AvatarSelector';
+import ToolExecutionVisualizer from './ToolExecutionVisualizer';
+import UserDashboard from './UserDashboard';
+import WebSocketDebugger from './WebSocketDebugger';
+import ConnectionStatus from './ConnectionStatus';
+
+
 
 interface ChatMessage {
   sender: string;
@@ -20,6 +26,29 @@ interface ChatbotProps {
   initialTopic?: string | null;
 }
 
+// Interface for exposing WebSocket and processing state
+export interface ChatProcessingState {
+  websocket: WebSocket | null;
+  currentRequestId: string | null;
+  isProcessing: boolean;
+}
+
+// Create a singleton object to store the processing state
+export const processingState: ChatProcessingState = {
+  websocket: null,
+  currentRequestId: null,
+  isProcessing: false
+};
+
+// Method to get current processing state from outside
+export const getChatProcessingState = (): ChatProcessingState => {
+  return {
+    websocket: processingState.websocket,
+    currentRequestId: processingState.currentRequestId,
+    isProcessing: processingState.isProcessing
+  };
+};
+
 const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic }) => {
   const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -32,7 +61,19 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
-  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108'); // Default avatar ID
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108');
+  
+  
+  // State for tracking the current request
+  const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
+  
+  // NEW: State for website data
+  const [websiteData, setWebsiteData] = useState<{
+    url?: string;
+    screenshot?: string;
+    favicon?: string;
+    analysis?: string;
+  }>({});
   
   const avatarRef = useRef<StreamingAvatar | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -40,8 +81,43 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const websocketRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
-  const currentRequestIdRef = useRef<string | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Add this with your other state variables and refs at the top of your component
+  const lastMessageTimestamp = useRef<number>(Date.now());
+  const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
+
+
+  // Effect to sync the internal state with the exported singleton
+  // useEffect(() => {
+  //   // Update the exported state whenever internal state changes
+  //   processingState.websocket = websocketRef.current;
+  //   processingState.currentRequestId = currentRequestId;
+  //   processingState.isProcessing = loading;
+  // }, [websocketRef.current, currentRequestId, loading]);
+
+  // Add this to the useEffect that updates the processingState
+useEffect(() => {
+  console.log("Loading state changed:", loading);
+  // Update the exported state whenever internal state changes
+  processingState.websocket = websocketRef.current;
+  processingState.currentRequestId = currentRequestId;
+  processingState.isProcessing = loading;
+}, [websocketRef.current, currentRequestId, loading]);
+
+useEffect(() => {
+  // Safety timeout to reset loading state if it gets stuck
+  if (loading) {
+    const safetyTimeout = setTimeout(() => {
+      console.log('Safety timeout triggered - resetting loading state');
+      setLoading(false);
+      if (currentRequestId) {
+        setCurrentRequestId(null);
+      }
+    }, 60000); // 1 minute timeout as safety
+    
+    return () => clearTimeout(safetyTimeout);
+  }
+}, [loading]);
 
   // Handler for avatar change
   const handleAvatarChange = (avatarId: string) => {
@@ -51,79 +127,142 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   // Effect to scroll chat to bottom when messages change
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      console.log('Scrolling chat to bottom', chatHistory.length);
+      const scrollHeight = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop = scrollHeight;
     }
   }, [chatHistory, agentThinking]);
+  // useEffect(() => {
+  //   if (chatContainerRef.current) {
+  //     chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+  //   }
+  // }, [chatHistory, agentThinking]);
 
   // Effect to handle initialTopic
-  useEffect(() => {
-    // If an initial topic is provided and we're in a new session, set it as the input
-    if (initialTopic && chatHistory.length === 0) {
-      setUserInput(initialTopic);
-    }
-  }, [initialTopic, chatHistory.length]);
+// In Chatbot.tsx - add this effect to load chat history on session change
+useEffect(() => {
+  // Function to fetch chat history
+  const fetchChatHistory = async () => {
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
+      const response = await fetch(`http://${apiBase}/chat-history?session_id=${sessionId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Fetched initial chat history:", data);
+        
+        if (data.history && data.history.length > 0) {
+          // Convert the backend format to our chat message format
+          const formattedHistory = data.history.map(msg => ({
+            sender: msg.sender,
+            message: msg.message,
+            status: 'complete'
+          }));
+          
+          console.log("Setting initial chat history:", formattedHistory);
+          setChatHistory([...formattedHistory]);
 
-  // Effect to reset chat when session changes
-  useEffect(() => {
-    initialMessageSent.current = false;
-    setChatHistory([]);
-    setAgentThinking(null);
-    
-    // Reset and reconnect WebSocket with new session ID
-    if (websocketRef.current) {
-      websocketRef.current.close();
-      websocketRef.current = null;
+          setTimeout(() => {
+            if (chatContainerRef.current) {
+              const scrollHeight = chatContainerRef.current.scrollHeight;
+              chatContainerRef.current.scrollTop = scrollHeight;
+              console.log("Scrolled to bottom after history load");
+            }
+          }, 300);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
     }
-    
-    // Clean up any pending reconnect timers
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    
-    connectWebSocket();
-  }, [sessionId]);
+  };
 
-  // Effect to establish WebSocket connection on component mount
-  useEffect(() => {
+  // Reset chat when session changes
+  initialMessageSent.current = false;
+  setAgentThinking(null);
+  setCurrentRequestId(null);
+  
+  // Reset website data when changing sessions
+  setWebsiteData({});
+  
+  // Fetch chat history for the new session
+  fetchChatHistory();
+  
+  // Reset and reconnect WebSocket with new session ID
+  if (websocketRef.current) {
+    websocketRef.current.close();
+    websocketRef.current = null;
+  }
+  
+  // Clean up any pending reconnect timers
+  if (reconnectTimeoutRef.current) {
+    clearTimeout(reconnectTimeoutRef.current);
+    reconnectTimeoutRef.current = null;
+  }
+  
+  // Set connection status to connecting BEFORE attempting connection
+  setConnectionStatus('connecting');
+  console.log("Session changed, setting connection status to 'connecting'");
+  
+  // Add a slight delay before reconnecting to ensure cleanup is complete
+  setTimeout(() => {
     connectWebSocket();
-    
-    // Cleanup on component unmount
-    return () => {
-      if (websocketRef.current) {
-        websocketRef.current.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-    };
-  }, []);
+  }, 200);
+}, [sessionId]);
 
   // Function to connect WebSocket
   const connectWebSocket = () => {
-    if (!userId || !sessionId) return;
-    
-    // Close existing connection if any
-    if (websocketRef.current) {
-      websocketRef.current.close();
-    }
-    
-    setConnectionStatus('connecting');
-    
-    // Use dynamic URL based on environment
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
-    const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
-    
+  if (!userId || !sessionId) return;
+
+  // Close existing connection if any
+  if (websocketRef.current) {
+    websocketRef.current.close();
+    websocketRef.current = null;
+  }
+  
+  // Make sure connection status is set to connecting
+  setConnectionStatus('connecting');
+  console.log("Setting connection status to 'connecting'");
+
+  console.log("userId:", userId); 
+  console.log("sessionId:", sessionId);
+  
+  // Use dynamic URL based on environment with proper protocol handling
+/* && lastMessageTimestamp.current && (Date.now() - lastMessageTimestamp.current > 30000)
+              */
+
+
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
+  // const wsUrl = `${wsProtocol}//${wsBase}/ws/`;
+  const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
+  
+  console.log("Connecting to WebSocket URL:", wsUrl);
+
+  try {
     const ws = new WebSocket(wsUrl);
     
+    // Set a connection timeout
+    const connectionTimeout = setTimeout(() => {
+      if (ws.readyState !== 1) {
+        console.log("WebSocket connection timeout");
+        if (ws.readyState === 0) { // Still in CONNECTING state
+          ws.close();
+        }
+      }
+    }, 8000); // 8 second timeout
+    
     ws.onopen = () => {
+      clearTimeout(connectionTimeout);
       console.log('WebSocket connected');
       setConnectionStatus('connected');
+      console.log("Setting connection status to 'connected'");
       reconnectAttemptsRef.current = 0;
       websocketRef.current = ws;
       
-      // If connecting for the first time, initiate chat
+      // Update the exported state with the new WebSocket
+      processingState.websocket = ws;
+      
+      // Start chat with a small delay to ensure everything is ready
       setTimeout(() => {
         if (!chatStarted && !initialMessageSent.current) {
           startChat();
@@ -131,10 +270,23 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       }, 500);
     };
     
+    
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('WebSocket message:', data);
+        console.log('WebSocket message:', data, 'final flag:', data.final); // Debug logging
+
+        if (data.type === 'connection_status') {
+          if (data.status === 'connected') {
+            setConnectionStatus('connected');
+          } else if (data.status === 'connecting') {
+            setConnectionStatus('connecting');
+          } else if (data.status === 'disconnected') {
+            setConnectionStatus('disconnected');
+          }
+          return; // Skip further processing for status messages
+        }
+
         
         switch (data.type) {
           case 'ack':
@@ -156,50 +308,173 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
             // Update from an agent during processing
             setAgentThinking(`${data.agent}: ${data.message}`);
             break;
-            
+
           case 'agent_response':
-            // Final response from the agent
-            if (data.final) {
+              // Final response from the agent
+              console.log('Received agent_response with final flag:', data.final);
+              
+              if (data.final === true) {
+                console.log('Setting loading to false because final flag is true');
+                setLoading(false);
+                setAgentThinking(null);
+                
+                // Clear message timeout if it exists
+                if (data.requestId && messageTimeoutsRef.current[data.requestId]) {
+                  clearTimeout(messageTimeoutsRef.current[data.requestId]);
+                  delete messageTimeoutsRef.current[data.requestId];
+                }
+                
+                // Clear current request ID when complete
+                if (currentRequestId === data.requestId) {
+                  setCurrentRequestId(null);
+                }
+                
+                // Only add the AI response to chat history if text is enabled
+                if (textEnabled) {
+                  console.log('Adding message to chat history:', {
+                    sender: 'AI',
+                    message: data.message,
+                    requestId: data.requestId,
+                    status: 'complete'
+                  });
+                  
+                  setChatHistory(prevHistory => {
+                    const newHistory = [
+                      ...prevHistory.filter(msg => 
+                        !(msg.requestId === data.requestId && msg.sender === 'AI')
+                      ),
+                      { 
+                        sender: 'AI', 
+                        message: data.message, 
+                        requestId: data.requestId, 
+                        status: 'complete' 
+                      }
+                    ];
+                    console.log('New chat history after adding message:', newHistory);
+                    return newHistory;
+                  });
+                }
+                
+                // Speak the response if avatar and voice are enabled
+                if (avatarRef.current && videoEnabled && voiceEnabled) {
+                  speakWithAvatar(data.message);
+                }
+              } else {
+                console.log('Received agent_response without final flag set to true:', data);
+              }
+            break;  
+            
+          case 'tool_execution':
+            // Tool execution started
+            console.log(`Tool execution started: ${data.tool} with ID ${data.executionId}`);
+            console.log(`Tool result received for tool:`, data.tool);
+            console.log(`Tool result full data:`, data);
+        
+              // Extract URL from tool parameters if available and it's a website tool
+              if (data.tool === 'capture_website_screenshot' || 
+                  data.tool === 'get_website_favicon' || 
+                  data.tool === 'analyze_with_perplexity') {
+                if (data.params && data.params.url) {
+                  // Update website data with the URL
+                  setWebsiteData(prev => ({
+                    ...prev,
+                    url: data.params.url
+                  }));
+                }
+              }
+            break;
+            
+          case 'tool_result':
+            // Tool execution completed - handle results
+            console.log(`Tool result received: ${data.executionId}`);
+            
+            // Process tool results based on the tool type
+            if (data.executionId) {
+              // Extract tool name from executionId (e.g., "screenshot-12345" -> "screenshot")
+              const toolName = data.executionId.split('-')[0];
+              
+              // Handle screenshot result
+              if (data.tool === 'capture_website_screenshot' && data.result) {
+                let screenshotPath = data.result;
+                if (typeof data.result === 'object' && data.result.path) {
+                  screenshotPath = data.result.path;
+                }
+                
+                // Ensure path starts with /
+                if (screenshotPath && !screenshotPath.startsWith('/')) {
+                  screenshotPath = '/' + screenshotPath;
+                }
+                
+                console.log("Setting screenshot path:", screenshotPath);
+                setWebsiteData(prev => ({
+                  ...prev,
+                  screenshot: screenshotPath
+                }));
+              }
+              
+              // Handle favicon result
+              if (data.tool === 'get_website_favicon' && data.result) {
+                let faviconPath = data.result;
+                if (typeof data.result === 'object' && data.result.path) {
+                  faviconPath = data.result.path;
+                }
+                
+                // Ensure path starts with /
+                if (faviconPath && !faviconPath.startsWith('/')) {
+                  faviconPath = '/' + faviconPath;
+                }
+                
+                console.log("Setting favicon path:", faviconPath);
+                setWebsiteData(prev => ({
+                  ...prev,
+                  favicon: faviconPath
+                }));
+              }
+              
+              // Handle perplexity analysis result
+              if (data.tool === 'analyze_with_perplexity' && data.result) {
+                let analysis = null;
+                if (typeof data.result === 'object' && data.result.analysis) {
+                  analysis = data.result.analysis;
+                } else if (typeof data.result === 'string') {
+                  analysis = data.result;
+                }
+                
+                if (analysis) {
+                  console.log("Setting website analysis:", analysis);
+                  setWebsiteData(prev => ({
+                    ...prev,
+                    analysis: analysis
+                  }));
+                }
+              }
+            }
+            break;
+            
+            case 'error':
+              // Error occurred
               setLoading(false);
               setAgentThinking(null);
               
-              // Only add the AI response to chat history if text is enabled
-              if (textEnabled) {
-                setChatHistory(prevHistory => [
-                  ...prevHistory.filter(msg => msg.requestId !== data.requestId || msg.sender !== 'AI'),
-                  { sender: 'AI', message: data.message, requestId: data.requestId, status: 'complete' }
-                ]);
+              // Clear current request ID on error
+              if (currentRequestId === data.requestId) {
+                setCurrentRequestId(null);
+                
+                // Also update the global state - ADD THIS LINE
+                processingState.isProcessing = false;
+                processingState.currentRequestId = null;
               }
               
-              // Speak the response if avatar and voice are enabled
-              if (avatarRef.current && videoEnabled && voiceEnabled) {
-                speakWithAvatar(data.message);
-              }
-              
-              // Clear current request ID
-              if (currentRequestIdRef.current === data.requestId) {
-                currentRequestIdRef.current = null;
-              }
-            }
-            break;
-            
-          case 'error':
-            // Error occurred
-            setLoading(false);
-            setAgentThinking(null);
-            setChatHistory(prevHistory => [
-              ...prevHistory,
-              { 
-                sender: 'System', 
-                message: data.message || 'An error occurred while processing your request.',
-                requestId: data.requestId,
-                status: 'error'
-              }
-            ]);
-            if (currentRequestIdRef.current === data.requestId) {
-              currentRequestIdRef.current = null;
-            }
-            break;
+              setChatHistory(prevHistory => [
+                ...prevHistory,
+                { 
+                  sender: 'System', 
+                  message: data.message || 'An error occurred while processing your request.',
+                  requestId: data.requestId,
+                  status: 'error'
+                }
+              ]);
+              break;
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
@@ -207,9 +482,14 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     };
     
     ws.onclose = (event) => {
+      clearTimeout(connectionTimeout);
       console.log('WebSocket disconnected:', event.code, event.reason);
       websocketRef.current = null;
       setConnectionStatus('disconnected');
+      console.log("Setting connection status to 'disconnected'");
+      
+      // Update the exported state when WebSocket disconnects
+      processingState.websocket = null;
       
       // Attempt to reconnect if not intentionally closed and not at max attempts
       if (reconnectAttemptsRef.current < maxReconnectAttempts) {
@@ -219,6 +499,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         console.log(`Attempting to reconnect in ${reconnectDelay / 1000} seconds...`);
         
         reconnectTimeoutRef.current = setTimeout(() => {
+          setConnectionStatus('connecting');
+          console.log("Setting connection status to 'connecting' before reconnect");
           connectWebSocket();
         }, reconnectDelay);
       } else {
@@ -229,9 +511,53 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     
     ws.onerror = (event) => {
       console.error('WebSocket error:', event);
+      console.log('WebSocket error occurred on URL:', wsUrl);
+      console.log('WebSocket readyState:', ws.readyState);
+      
+      // Don't update connection status here, as onclose will be called next
+      // Just log that we received an error event
+      
+      // Show error in UI if needed
+      if (ws.readyState === 3) { // CLOSED
+        setAgentThinking("Cannot connect to server. Please check if the server is running.");
+      }
       // The onclose handler will be called after this
     };
-  };
+  }
+  catch (error) {
+
+    
+    console.error('Error creating WebSocket:', error);
+    setConnectionStatus('disconnected');
+    
+    // Set up auto-reconnect
+    const reconnectDelay = 3000;
+    console.log(`WebSocket creation error. Retrying in ${reconnectDelay/1000} seconds...`);
+    
+    reconnectTimeoutRef.current = setTimeout(() => {
+      setConnectionStatus('connecting');
+      connectWebSocket();
+    }, reconnectDelay);
+  }
+};
+
+  // Effect to establish WebSocket connection on component mount
+  useEffect(() => {
+    // connectWebSocket();
+    const timer = setTimeout(() => {
+      connectWebSocket();
+    }, 300);
+    
+    // Cleanup on component unmount
+    return () => {
+      if (websocketRef.current) {
+        websocketRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Function to start chat via WebSocket
   const startChat = () => {
@@ -245,27 +571,62 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     
     // Generate a unique request ID
     const requestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    currentRequestIdRef.current = requestId;
+    setCurrentRequestId(requestId);
+    
+    // Update the exported state
+    processingState.currentRequestId = requestId;
+    processingState.isProcessing = true;
     
     // Send empty message to start the conversation
     websocketRef.current.send(JSON.stringify({
       message: "",
       requestId
     }));
-    
-    // Actual response will be handled by the onmessage handler
   };
 
   // Function to send a message via WebSocket
+  // Find this code in Chatbot.tsx
   const sendMessage = () => {
-    if (!userInput.trim() || !websocketRef.current || loading) return;
+    if (!userInput.trim()) return;
+    
+    // Check connection status before sending
+    if (!websocketRef.current || connectionStatus !== 'connected') {
+      console.log("Cannot send message: WebSocket not connected");
+      // Update UI to show connection issue
+      setAgentThinking("Connection issue. Attempting to reconnect...");
+      // Attempt to reconnect
+      connectWebSocket();
+      return;
+    }
+    
+    if (loading) {
+      console.log("Cannot send message: Still processing previous request");
+      return;
+    }
     
     setLoading(true);
     setAvatarError(null);
+  
+    lastMessageTimestamp.current = Date.now();
     
     // Generate a unique request ID
     const requestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    currentRequestIdRef.current = requestId;
+    setCurrentRequestId(requestId);
+    
+    // Update the exported state
+    processingState.currentRequestId = requestId;
+    processingState.isProcessing = true;
+    
+    // Extract URL from user message if present
+    if (userInput.includes('http://') || userInput.includes('https://')) {
+      const urlMatch = userInput.match(/(https?:\/\/[^\s]+)/g);
+      if (urlMatch && urlMatch[0]) {
+        setWebsiteData(prev => ({
+          ...prev,
+          url: urlMatch[0]
+        }));
+      }
+    }
     
     // Add user message to chat immediately if text is enabled
     if (textEnabled) {
@@ -275,13 +636,56 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       ]);
     }
     
-    // Send message via WebSocket
-    websocketRef.current.send(JSON.stringify({
-      message: userInput,
-      requestId
-    }));
-    
-    setUserInput(""); // Clear input field immediately for better UX
+    // Send message with timeout
+    try {
+      // Send message via WebSocket
+      websocketRef.current.send(JSON.stringify({
+        message: userInput,
+        requestId
+      }));
+      
+      // Set a timeout to reset loading state if no response is received
+      const messageTimeout = setTimeout(() => {
+        if (loading && currentRequestId === requestId) {
+          console.log(`Message timeout for request ${requestId}`);
+          setLoading(false);
+          setCurrentRequestId(null);
+          setAgentThinking(null);
+          
+          // Add timeout message to chat
+          setChatHistory(prevHistory => [
+            ...prevHistory,
+            { 
+              sender: "System", 
+              message: "Message timed out. The server may be busy. Please try again.", 
+              requestId, 
+              status: 'error' 
+            }
+          ]);
+        }
+      }, 60000); // 1 minute timeout
+      
+      // Store the timeout ID to clear it if response is received
+      // You'll need to add this to your state or ref
+      messageTimeoutsRef.current[requestId] = messageTimeout;
+      
+      setUserInput(""); // Clear input field immediately for better UX
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setLoading(false);
+      setAgentThinking(null);
+      
+      // Add error message to chat
+      setChatHistory(prevHistory => [
+        ...prevHistory,
+        { 
+          sender: "System", 
+          message: `Error sending message: ${error.message}`, 
+          requestId, 
+          status: 'error' 
+        }
+      ]);
+    }
   };
 
   // Function to have avatar speak the message
@@ -308,237 +712,268 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     }
   };
 
-  // Custom CSS for toggle switch
-  const switchStyles = `
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-    }
+  // Function to handle new session requests - ADDING THIS WAS MISSING
+  const handleNewSession = () => {
+    // Generate a new session ID
+    const newSessionId = `${userId}_${Date.now()}`;
     
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
+    // Notify parent component about session change
+    if (onSessionChange) {
+      onSessionChange(newSessionId);
     }
-    
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: .4s;
-    }
-    
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .4s;
-    }
-    
-    input:checked + .slider {
-      background-color: #2196F3;
-    }
-    
-    input:focus + .slider {
-      box-shadow: 0 0 1px #2196F3;
-    }
-    
-    input:checked + .slider:before {
-      transform: translateX(20px);
-    }
-    
-    .slider.round {
-      border-radius: 24px;
-    }
-    
-    .slider.round:before {
-      border-radius: 50%;
-    }
-  `;
+  };
 
-  // The return statement starts here
+  // Function to handle session selection - ADDING THIS WAS MISSING
+  const handleSessionSelect = (selectedSessionId: string) => {
+    // Notify parent component about session change
+    if (onSessionChange) {
+      onSessionChange(selectedSessionId);
+    }
+  };
+
+  // Function to handle topic selection
+  const handleTopicSelect = (topic: string) => {
+    setUserInput(topic);
+    // Optional: auto-send the message
+    setTimeout(() => {
+      sendMessage();
+    }, 100);
+  };
+
+  useEffect(() => {
+    return () => {
+      // Clean up message timeouts
+      Object.values(messageTimeoutsRef.current).forEach(timeout => {
+        clearTimeout(timeout);
+      });
+      messageTimeoutsRef.current = {};
+    };
+  }, []);
+
+  // The return statement - fixed version
   return (
     <>
-    {/* Avatar Selector - now floating and draggable */}
-    <AvatarSelector 
-      onAvatarChange={handleAvatarChange}
-      currentAvatarId={selectedAvatarId}
-    />
-    <div className="w-[55%] bg-[#1E2A3B] h-screen overflow-hidden fixed right-0 top-0">
-      <style>{switchStyles}</style>
-      <div className="h-full flex flex-col p-6">
-        {/* Avatar Selector */}
-        {/* <AvatarSelector 
+      {/* Left side - User dashboard */}
+      <div className="w-[45%] bg-[#1B2431] h-screen overflow-auto fixed left-0 top-0">
+        <UserDashboard
+          userId={userId}
+          currentSessionId={sessionId}
+          onSessionSelect={handleSessionSelect}
+          onNewSession={handleNewSession}
+          onTopicSelect={handleTopicSelect}
+          websiteData={websiteData}
+          // These props are needed for visualization
+          websocket={websocketRef.current}
+          currentRequestId={currentRequestId}
+          isProcessing={loading}
+        />
+  
+        <WebSocketDebugger websocket={websocketRef.current} />
+      </div>
+  
+      {/* Right side - Chat interface */}
+      <div className="w-[55%] bg-[#1E2A3B] h-screen overflow-hidden fixed right-0 top-0">
+        {/* Tool execution visualizer - Only show during active tool execution */}
+        <ToolExecutionVisualizer
+          websocket={websocketRef.current}
+          currentRequestId={currentRequestId}
+          isProcessing={loading}
+        />
+        
+        {/* Avatar Selector - now floating and draggable */}
+        <AvatarSelector 
           onAvatarChange={handleAvatarChange}
           currentAvatarId={selectedAvatarId}
-        /> */}
-        {/* The AvatarSelector is now outside the layout and positioned absolutely */}
-        {/* No need to wrap it in additional positioning divs */}
+        />
         
-        {/* Connection Status Indicator */}
-        <div className="absolute top-2 left-20 z-10">
-          <div className={`flex items-center px-3 py-1 rounded-full text-xs ${
-            connectionStatus === 'connected' ? 'bg-green-600' : 
-            connectionStatus === 'connecting' ? 'bg-yellow-600' : 'bg-red-600'
-          } text-white`}>
-            <div className={`w-2 h-2 rounded-full mr-2 ${
-              connectionStatus === 'connected' ? 'bg-green-300' : 
-              connectionStatus === 'connecting' ? 'bg-yellow-300' : 'bg-red-300'
-            }`}></div>
-            {connectionStatus === 'connected' ? 'Connected' : 
-             connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-          </div>
-        </div>
-        
-        {/* Avatar Controls */}
-        <div className="absolute top-4 right-4 z-10 flex space-x-4">
-          <div className="flex items-center">
-            <span className="text-white mr-2 text-sm">Text</span>
-            <label className="switch">
-              <input 
-                type="checkbox" 
-                checked={textEnabled} 
-                onChange={() => setTextEnabled(!textEnabled)} 
-              />
-              <span className="slider round"></span>
-            </label>
-          </div>
-          
-          <div className="flex items-center">
-            <span className="text-white mr-2 text-sm">Voice</span>
-            <label className="switch">
-              <input 
-                type="checkbox" 
-                checked={voiceEnabled} 
-                onChange={() => setVoiceEnabled(!voiceEnabled)} 
-              />
-              <span className="slider round"></span>
-            </label>
-          </div>
-          
-          <div className="flex items-center">
-            <span className="text-white mr-2 text-sm">Video</span>
-            <label className="switch">
-              <input 
-                type="checkbox" 
-                checked={videoEnabled} 
-                onChange={() => {
-                  setVideoEnabled(!videoEnabled);
-                  setAvatarEnabled(!videoEnabled);
-                }} 
-              />
-              <span className="slider round"></span>
-            </label>
-          </div>
-        </div>
-        
-        {/* Avatar Video Section */}
-        <div className="relative h-[430px] mb-4 mt-16">
-          <InteractiveAvatar
-            onAvatarReady={handleAvatarReady}
-            avatarRef={avatarRef}
-            enabled={videoEnabled}
-            sessionId={sessionId}
-            voiceEnabled={voiceEnabled}
-            avatarId={selectedAvatarId}
-          />
-          
-          {/* Avatar Error Message */}
-          {avatarError && (
-            <div className="absolute bottom-4 left-0 right-0 mx-auto text-center">
-              <div className="bg-red-800 text-white px-4 py-2 rounded-lg inline-block">
-                {avatarError}
-              </div>
+        <div className="h-full flex flex-col p-6">
+          {/* Connection Status Indicator */}
+          <div className="absolute top-2 left-20 z-10">
+            <div className={`flex items-center px-3 py-1 rounded-full text-xs ${
+              connectionStatus === 'connected' ? 'bg-green-600' : 
+              connectionStatus === 'connecting' ? 'bg-yellow-600' : 'bg-red-600'
+            } text-white`}>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                connectionStatus === 'connected' ? 'bg-green-300' : 
+                connectionStatus === 'connecting' ? 'bg-yellow-300 animate-pulse' : 'bg-red-300'
+              }`}></div>
+              {connectionStatus === 'connected' ? 'Connected' : 
+              connectionStatus === 'connecting' ? (
+                <span className="animate-pulse">Connecting...</span>
+              ) : 'Disconnected'}
             </div>
-          )}
-        </div>
-
-        {/* Chat History and Input Section */}
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* Chat History - increased height */}
-          <div 
-            ref={chatContainerRef}
-            className={`flex-1 bg-[#2D3B4F] rounded-lg overflow-y-auto mb-4 max-h-[calc(100vh-600px)] ${
-              !textEnabled ? 'opacity-50' : ''
-            }`}
-          >
-            {loading && chatHistory.length === 0 ? (
-              <div className="p-4 text-white text-center">
-                Loading conversation...
+          </div>
+          
+          {/* Avatar Controls */}
+          <div className="absolute top-4 right-4 z-10 flex space-x-4">
+            <div className="flex items-center">
+              <span className="text-white mr-2 text-sm">Text</span>
+              <label className="switch">
+                <input 
+                  type="checkbox" 
+                  checked={textEnabled} 
+                  onChange={() => setTextEnabled(!textEnabled)} 
+                />
+                <span className="slider round"></span>
+              </label>
+            </div>
+            
+            <div className="flex items-center">
+              <span className="text-white mr-2 text-sm">Voice</span>
+              <label className="switch">
+                <input 
+                  type="checkbox" 
+                  checked={voiceEnabled} 
+                  onChange={() => setVoiceEnabled(!voiceEnabled)} 
+                />
+                <span className="slider round"></span>
+              </label>
+            </div>
+            
+            <div className="flex items-center">
+              <span className="text-white mr-2 text-sm">Video</span>
+              <label className="switch">
+                <input 
+                  type="checkbox" 
+                  checked={videoEnabled} 
+                  onChange={() => {
+                    setVideoEnabled(!videoEnabled);
+                    setAvatarEnabled(!videoEnabled);
+                  }} 
+                />
+                <span className="slider round"></span>
+              </label>
+            </div>
+          </div>
+          
+          {/* Avatar Video Section */}
+          <div className="relative h-[430px] mb-4 mt-16">
+            <InteractiveAvatar
+              onAvatarReady={handleAvatarReady}
+              avatarRef={avatarRef}
+              enabled={videoEnabled}
+              sessionId={sessionId}
+              voiceEnabled={voiceEnabled}
+              avatarId={selectedAvatarId}
+            />
+            
+            {/* Avatar Error Message */}
+            {avatarError && (
+              <div className="absolute bottom-4 left-0 right-0 mx-auto text-center">
+                <div className="bg-red-800 text-white px-4 py-2 rounded-lg inline-block">
+                  {avatarError}
+                </div>
               </div>
-            ) : (
-              <>
-                {chatHistory.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 border-b border-gray-700 ${
-                      msg.sender === "System" ? "bg-red-900 bg-opacity-20" : ""
-                    }`}
-                  >
-                    <span className={`font-bold ${
-                      msg.sender === "AI" ? "text-blue-400" :
-                      msg.sender === "User" ? "text-green-400" : "text-red-400"
-                    }`}>
-                      {msg.sender}: 
-                    </span>
-                    <span className="text-white ml-2">{msg.message}</span>
-                  </div>
-                ))}
-                
-                {/* Show agent thinking status */}
-                {agentThinking && (
-                  <div className="p-4 border-b border-gray-700 bg-blue-900 bg-opacity-20">
-                    <div className="flex items-center">
-                      <div className="animate-pulse w-3 h-3 bg-blue-300 rounded-full mr-3"></div>
-                      <span className="text-blue-300 font-medium">{agentThinking}</span>
-                    </div>
-                  </div>
-                )}
-              </>
             )}
           </div>
-
-          {/* Input Section */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              className="flex-1 bg-[#2D3B4F] text-white rounded-lg px-4 py-3"
-              placeholder={
-                connectionStatus !== 'connected' 
-                  ? "Reconnecting to server..." 
-                  : "Type your message..."
-              }
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && !loading && sendMessage()}
-              disabled={loading || connectionStatus !== 'connected'}
-            />
-            <button
-              onClick={sendMessage}
-              className={`${
-                loading || connectionStatus !== 'connected' 
-                  ? "bg-gray-600" 
-                  : "bg-blue-600 hover:bg-blue-700"
-              } text-white px-8 py-3 rounded-lg font-medium transition-colors`}
-              disabled={loading || connectionStatus !== 'connected'}
+  
+          {/* Chat History and Input Section */}
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Chat History */}
+            <div 
+              ref={chatContainerRef}
+              className={`flex-1 bg-[#2D3B4F] rounded-lg overflow-y-auto mb-4 max-h-[calc(100vh-600px)] ${
+                !textEnabled ? 'opacity-50' : ''
+              }`}
             >
+              {loading && chatHistory.length === 0 ? (
+                <div className="p-4 text-white text-center">
+                  Loading conversation...
+                </div>
+              ) : chatHistory.length === 0 ? (
+                <div className="p-4 text-white text-center">
+                  No messages yet. Start a conversation below.
+                </div>
+              ) : (
+                <>
+                  {chatHistory.map((msg, index) => {
+                    console.log(`Rendering message ${index}:`, msg);
+                    return (
+                      <div
+                        key={`chat-msg-${index}`}
+                        className={`p-4 border-b border-gray-700 ${
+                          msg.sender === "System" ? "bg-red-900 bg-opacity-20" : ""
+                        }`}
+                      >
+                        <span className={`font-bold ${
+                          msg.sender === "AI" ? "text-blue-400" :
+                          msg.sender === "User" ? "text-green-400" : "text-red-400"
+                        }`}>
+                          {msg.sender}: 
+                        </span>
+                        <span className="text-white ml-2">{msg.message}</span>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Show agent thinking status */}
+                  {agentThinking && (
+                    <div className="p-4 border-b border-gray-700 bg-blue-900 bg-opacity-20">
+                      <div className="flex items-center">
+                        <div className="animate-pulse w-3 h-3 bg-blue-300 rounded-full mr-3"></div>
+                        <span className="text-blue-300 font-medium">{agentThinking}</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+  
+            {/* Input Section */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                className="flex-1 bg-[#2D3B4F] text-white rounded-lg px-4 py-3"
+                placeholder={
+                  connectionStatus !== 'connected' 
+                    ? connectionStatus === 'connecting' 
+                      ? "Connecting to server..." 
+                      : "Disconnected from server..."
+                    : "Type your message..."
+                }
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && !loading && connectionStatus === 'connected' && sendMessage()}
+                disabled={loading || connectionStatus !== 'connected'}
+              />
+              <button
+                onClick={() => {
+                  if (connectionStatus !== 'connected') {
+                    // Try to reconnect if disconnected
+                    if (connectionStatus === 'disconnected') {
+                      connectWebSocket();
+                    }
+                    return;
+                  }
+                  
+                  if (loading) {
+                    // If loading for more than 30 seconds, allow resending
+                    setLoading(false);
+                    sendMessage();
+                  } else {
+                    sendMessage();
+                  }
+                }}
+                className={`
+                  text-white px-8 py-3 rounded-lg font-medium transition-colors
+                  ${loading
+                    ? "bg-gray-600" 
+                    : connectionStatus !== 'connected'
+                      ? connectionStatus === 'connecting'
+                        ? "bg-yellow-600 cursor-wait"
+                        : "bg-blue-600 hover:bg-blue-700"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }
+                `}
+                disabled={loading || connectionStatus === 'connecting'}
+              >
               {loading ? "Processing..." : 
                connectionStatus !== 'connected' ? "Connecting..." : "Send"}
-            </button>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </>
   );
 };

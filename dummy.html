@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .loading {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0069d9;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Server Connection Test</h1>
+    
+    <div>
+        <h2>HTTP Test</h2>
+        <button id="testHttp">Test HTTP Connection</button>
+        <div id="httpStatus" class="status loading">Waiting for test...</div>
+        <pre id="httpResponse"></pre>
+    </div>
+    
+    <div>
+        <h2>WebSocket Test</h2>
+        <button id="testWs">Test WebSocket Connection</button>
+        <div id="wsStatus" class="status loading">Waiting for test...</div>
+        <pre id="wsResponse"></pre>
+    </div>
+    
+    <script>
+        // HTTP Test
+        document.getElementById('testHttp').addEventListener('click', async () => {
+            const statusEl = document.getElementById('httpStatus');
+            const responseEl = document.getElementById('httpResponse');
+            
+            statusEl.className = 'status loading';
+            statusEl.textContent = 'Testing connection...';
+            responseEl.textContent = '';
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch('http://127.0.0.1:8080/');
+                const endTime = performance.now();
+                const responseTime = (endTime - startTime).toFixed(2);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusEl.className = 'status success';
+                    statusEl.textContent = `Connection successful! Response time: ${responseTime}ms`;
+                    responseEl.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `Error: HTTP ${response.status} ${response.statusText}`;
+                }
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.textContent = `Error: ${error.message}`;
+                console.error('HTTP test error:', error);
+            }
+        });
+        
+        // WebSocket Test
+        document.getElementById('testWs').addEventListener('click', () => {
+            const statusEl = document.getElementById('wsStatus');
+            const responseEl = document.getElementById('wsResponse');
+            
+            statusEl.className = 'status loading';
+            statusEl.textContent = 'Testing WebSocket connection...';
+            responseEl.textContent = '';
+            
+            // Create WebSocket connection
+            const ws = new WebSocket('ws://127.0.0.1:8080/ws/test_user/test_session');
+            
+            // Set connection timeout
+            const connectionTimeout = setTimeout(() => {
+                if (ws.readyState !== 1) { // Not OPEN
+                    statusEl.className = 'status error';
+                    statusEl.textContent = 'Connection timeout after 10 seconds';
+                    ws.close();
+                }
+            }, 10000);
+            
+            ws.onopen = () => {
+                clearTimeout(connectionTimeout);
+                statusEl.className = 'status success';
+                statusEl.textContent = 'WebSocket connection established!';
+                
+                // Send a test message
+                ws.send(JSON.stringify({
+                    message: "",
+                    requestId: "test-" + Date.now()
+                }));
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    responseEl.textContent += JSON.stringify(data, null, 2) + '\n\n';
+                } catch (e) {
+                    responseEl.textContent += event.data + '\n\n';
+                }
+            };
+            
+            ws.onerror = (error) => {
+                clearTimeout(connectionTimeout);
+                statusEl.className = 'status error';
+                statusEl.textContent = 'WebSocket error occurred';
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onclose = (event) => {
+                clearTimeout(connectionTimeout);
+                if (event.wasClean) {
+                    statusEl.textContent += `\nClosed cleanly, code=${event.code} reason=${event.reason}`;
+                } else {
+                    statusEl.className = 'status error';
+                    statusEl.textContent += `\nConnection died unexpectedly`;
+                }
+            };
+        });
+    </script>
+</body>
+</html>
