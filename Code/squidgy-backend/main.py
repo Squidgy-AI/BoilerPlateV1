@@ -205,11 +205,11 @@ def analyze_with_perplexity(url: str) -> dict:
     Please analyze the website {url} and provide a summary in exactly this format:
     --- *Company name*: [Extract company name]
     --- *Website*: {url}
+    --- *Contact Information*: [Any available contact details]
     --- *Description*: [2-3 sentence summary of what the company does]
     --- *Tags*: [Main business categories, separated by periods]
     --- *Takeaways*: [Key business value propositions]
     --- *Niche*: [Specific market focus or specialty]
-    --- *Contact Information*: [Any available contact details]
     """
 
     try:
