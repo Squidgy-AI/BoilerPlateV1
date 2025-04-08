@@ -2,28 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 
-// Animation keyframes for pulsing effect
-const pulseAnimation = `
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.animate-pulse-custom {
-  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-`;
-
 interface ConnectionStatusProps {
   websocket: WebSocket | null;
   isAttemptingConnection?: boolean;
   className?: string;
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  onStatusChange?: (status: 'connected' | 'connecting' | 'disconnected') => void;
 }
 
 const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
@@ -31,51 +16,80 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   isAttemptingConnection = false,
   className = '',
   showLabel = true,
-  size = 'md'
+  size = 'md',
+  onStatusChange
 }) => {
+  // Current connection status
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>(
     websocket ? 
-      websocket.readyState === 1 ? 'connected' : 
-      websocket.readyState === 0 ? 'connecting' : 'disconnected' 
+      websocket.readyState === WebSocket.OPEN ? 'connected' : 
+      websocket.readyState === WebSocket.CONNECTING ? 'connecting' : 'disconnected' 
     : isAttemptingConnection ? 'connecting' : 'disconnected'
   );
 
   // Update status when websocket or isAttemptingConnection changes
   useEffect(() => {
+    let newStatus: 'connected' | 'connecting' | 'disconnected';
+    
     if (websocket) {
-      const newStatus = websocket.readyState === 1 ? 'connected' : 
-                        websocket.readyState === 0 ? 'connecting' : 'disconnected';
-      
-      if (newStatus !== connectionStatus) {
-        setConnectionStatus(newStatus);
+      // Determine status based on WebSocket readyState
+      if (websocket.readyState === WebSocket.OPEN) {
+        newStatus = 'connected';
+      } else if (websocket.readyState === WebSocket.CONNECTING) {
+        newStatus = 'connecting';
+      } else {
+        newStatus = 'disconnected';
       }
-    } else if (isAttemptingConnection) {
-      setConnectionStatus('connecting');
     } else {
-      setConnectionStatus('disconnected');
+      // No WebSocket, determine status based on isAttemptingConnection
+      newStatus = isAttemptingConnection ? 'connecting' : 'disconnected';
     }
-  }, [websocket, isAttemptingConnection]);
+    
+    // Only update if the status has changed
+    if (newStatus !== connectionStatus) {
+      setConnectionStatus(newStatus);
+      
+      // Notify parent component if callback provided
+      if (onStatusChange) {
+        onStatusChange(newStatus);
+      }
+    }
+  }, [websocket, isAttemptingConnection, connectionStatus, onStatusChange]);
 
-  // Add event listeners to track websocket status changes
+  // Set up WebSocket event listeners
   useEffect(() => {
     if (!websocket) return;
 
-    const handleOpen = () => setConnectionStatus('connected');
-    const handleClose = () => setConnectionStatus('disconnected');
-    const handleError = () => setConnectionStatus('disconnected');
+    // Define event handlers
+    const handleOpen = () => {
+      setConnectionStatus('connected');
+      if (onStatusChange) onStatusChange('connected');
+    };
+    
+    const handleClose = () => {
+      setConnectionStatus('disconnected');
+      if (onStatusChange) onStatusChange('disconnected');
+    };
+    
+    const handleError = () => {
+      setConnectionStatus('disconnected');
+      if (onStatusChange) onStatusChange('disconnected');
+    };
 
+    // Add event listeners
     websocket.addEventListener('open', handleOpen);
     websocket.addEventListener('close', handleClose);
     websocket.addEventListener('error', handleError);
 
+    // Clean up on unmount
     return () => {
       websocket.removeEventListener('open', handleOpen);
       websocket.removeEventListener('close', handleClose);
       websocket.removeEventListener('error', handleError);
     };
-  }, [websocket]);
+  }, [websocket, onStatusChange]);
 
-  // Get indicator size based on size prop
+  // Get indicator size
   const getIndicatorSize = () => {
     switch (size) {
       case 'sm': return 'w-2 h-2';
@@ -84,7 +98,7 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     }
   };
 
-  // Get container classes based on size prop
+  // Get container classes
   const getContainerClasses = () => {
     switch (size) {
       case 'sm': return 'py-0.5 px-2 text-xs';
@@ -103,7 +117,7 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     connecting: {
       bg: 'bg-yellow-600', 
       text: 'text-white',
-      dot: 'bg-yellow-300 animate-pulse-custom'
+      dot: 'bg-yellow-300 animate-pulse'
     },
     disconnected: {
       bg: 'bg-red-600', 
@@ -115,28 +129,25 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   const currentStyle = statusStyles[connectionStatus];
 
   return (
-    <>
-      <style jsx>{pulseAnimation}</style>
+    <div className={`
+      inline-flex items-center rounded-full 
+      ${getContainerClasses()} 
+      ${currentStyle.bg} 
+      ${currentStyle.text}
+      ${className}
+    `}>
       <div className={`
-        inline-flex items-center rounded-full 
-        ${getContainerClasses()} 
-        ${currentStyle.bg} 
-        ${currentStyle.text}
-        ${className}
-      `}>
-        <div className={`
-          ${getIndicatorSize()} 
-          rounded-full mr-2 
-          ${currentStyle.dot}
-        `} />
-        {showLabel && (
-          <span>
-            {connectionStatus === 'connected' ? 'Connected' : 
-             connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-          </span>
-        )}
-      </div>
-    </>
+        ${getIndicatorSize()} 
+        rounded-full mr-2 
+        ${currentStyle.dot}
+      `} />
+      {showLabel && (
+        <span>
+          {connectionStatus === 'connected' ? 'Connected' : 
+           connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+        </span>
+      )}
+    </div>
   );
 };
 

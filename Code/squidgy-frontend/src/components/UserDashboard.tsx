@@ -50,6 +50,10 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     "Help with social media strategy"
   ]);
   
+  // Get backend URL from environment or use default
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
+  const backendUrl = `http://${apiBase}`;
+  
   // Sample data for testing - will only show if real data isn't available
   const testWebsiteData = {
     url: "https://example.com",
@@ -63,9 +67,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     const fetchSessions = async () => {
       setLoading(true);
       try {
-        // API base URL
-        const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
-        const response = await fetch(`http://${apiBase}/chat-history?session_id=${currentSessionId}`);
+        const response = await fetch(`${backendUrl}/chat-history?session_id=${currentSessionId}`);
         
         if (!response.ok) {
           throw new Error(`Server responded with status: ${response.status}`);
@@ -107,7 +109,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     };
 
     fetchSessions();
-  }, [currentSessionId]);
+  }, [currentSessionId, backendUrl]);
 
   // Function to format session name from ID
   const formatSessionName = (id: string): string => {
@@ -128,29 +130,53 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     console.log("Selected topic:", topic);
   };
 
-  // Use either real website data or test data
-  // In UserDashboard.tsx, replace the displayData constant definition with this:
-// Use either real website data or test data with proper processing
-const displayData = React.useMemo(() => {
-  // If no websiteData provided or it's empty, use test data
-  if (!websiteData || 
-     (!websiteData.url && !websiteData.screenshot && !websiteData.favicon)) {
-    return testWebsiteData;
-  }
-  
-  // Process the real website data
-  return {
-    url: websiteData.url || '',
-    screenshot: websiteData.screenshot || '',
-    favicon: websiteData.favicon || '',
-    analysis: websiteData.analysis || ''
-  };
-}, [websiteData]);
+  // Use either real website data or test data with proper processing
+  const displayData = React.useMemo(() => {
+    // If no websiteData provided or it's empty, use test data
+    if (!websiteData || 
+       (!websiteData.url && !websiteData.screenshot && !websiteData.favicon)) {
+      return testWebsiteData;
+    }
+    
+    // Process the real website data - add backend URL prefix to paths
+    let screenshot = websiteData.screenshot || '';
+    let favicon = websiteData.favicon || '';
 
-// Log for debugging
-useEffect(() => {
-  console.log("Current displayData:", displayData);
-}, [displayData]);
+    // Add backend URL to static paths if they don't already have it
+    if (screenshot && screenshot.startsWith('/static/')) {
+      screenshot = `${backendUrl}${screenshot}`;
+    } else if (screenshot) {
+      // Handle filenames or partial paths
+      if (screenshot.includes('/')) {
+        screenshot = `${backendUrl}/static/screenshots/${screenshot.split('/').pop()}`;
+      } else {
+        screenshot = `${backendUrl}/static/screenshots/${screenshot}`;
+      }
+    }
+
+    if (favicon && favicon.startsWith('/static/')) {
+      favicon = `${backendUrl}${favicon}`;
+    } else if (favicon) {
+      // Handle filenames or partial paths
+      if (favicon.includes('/')) {
+        favicon = `${backendUrl}/static/favicons/${favicon.split('/').pop()}`;
+      } else {
+        favicon = `${backendUrl}/static/favicons/${favicon}`;
+      }
+    }
+
+    return {
+      url: websiteData.url || '',
+      screenshot: screenshot,
+      favicon: favicon,
+      analysis: websiteData.analysis || ''
+    };
+  }, [websiteData, backendUrl]);
+
+  // Log for debugging
+  useEffect(() => {
+    console.log("Current displayData:", displayData);
+  }, [displayData]);
 
   return (
     <div className="w-full h-full bg-[#1B2431] text-white flex flex-col p-8 overflow-y-auto">

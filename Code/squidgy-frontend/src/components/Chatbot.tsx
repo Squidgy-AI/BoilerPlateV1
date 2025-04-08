@@ -162,13 +162,13 @@ useEffect(() => {
           console.log("Setting initial chat history:", formattedHistory);
           setChatHistory([...formattedHistory]);
 
-          setTimeout(() => {
-            if (chatContainerRef.current) {
-              const scrollHeight = chatContainerRef.current.scrollHeight;
-              chatContainerRef.current.scrollTop = scrollHeight;
-              console.log("Scrolled to bottom after history load");
-            }
-          }, 300);
+          // setTimeout(() => {
+          //   if (chatContainerRef.current) {
+          //     const scrollHeight = chatContainerRef.current.scrollHeight;
+          //     chatContainerRef.current.scrollTop = scrollHeight;
+          //     console.log("Scrolled to bottom after history load");
+          //   }
+          // }, 300);
         }
       }
     } catch (error) {
@@ -401,9 +401,9 @@ useEffect(() => {
                 }
                 
                 // Ensure path starts with /
-                if (screenshotPath && !screenshotPath.startsWith('/')) {
-                  screenshotPath = '/' + screenshotPath;
-                }
+                // if (screenshotPath && !screenshotPath.startsWith('/')) {
+                //   screenshotPath = '/' + screenshotPath;
+                // }
                 
                 console.log("Setting screenshot path:", screenshotPath);
                 setWebsiteData(prev => ({
@@ -542,22 +542,22 @@ useEffect(() => {
 };
 
   // Effect to establish WebSocket connection on component mount
-  useEffect(() => {
-    // connectWebSocket();
-    const timer = setTimeout(() => {
-      connectWebSocket();
-    }, 300);
+  // useEffect(() => {
+  //   // connectWebSocket();
+  //   const timer = setTimeout(() => {
+  //     connectWebSocket();
+  //   }, 300);
     
-    // Cleanup on component unmount
-    return () => {
-      if (websocketRef.current) {
-        websocketRef.current.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-    };
-  }, []);
+  //   // Cleanup on component unmount
+  //   return () => {
+  //     if (websocketRef.current) {
+  //       websocketRef.current.close();
+  //     }
+  //     if (reconnectTimeoutRef.current) {
+  //       clearTimeout(reconnectTimeoutRef.current);
+  //     }
+  //   };
+  // }, []);
 
   // Function to start chat via WebSocket
   const startChat = () => {

@@ -7,7 +7,7 @@ def capture_website_screenshot(url: str, session_id: str = None) -> str:
         session_id (str, optional): Session ID for filename
         
     Returns:
-        str: URL path to the saved screenshot
+        str: Filename of the saved screenshot (without the full path)
     """
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
@@ -15,14 +15,16 @@ def capture_website_screenshot(url: str, session_id: str = None) -> str:
     import os
 
     # Create the images directory if it doesn't exist
-    os.makedirs("E:/squidgy_images/screenshots", exist_ok=True)
+    os.makedirs("static/screenshots", exist_ok=True)
 
     try:
         # Use session_id in filename if provided
         if session_id:
-            filename = f"E:/squidgy_images/screenshots/{session_id}_screenshot.jpg"
+            filename = f"{session_id}_screenshot.jpg"
+            full_path = f"static/screenshots/{filename}"
         else:
-            filename = f"E:/squidgy_images/screenshots/screenshot_{int(time.time())}.jpg"
+            filename = f"screenshot_{int(time.time())}.jpg"
+            full_path = f"static/screenshots/{filename}"
         
         # Set up Chrome options for headless mode
         chrome_options = Options()
@@ -36,13 +38,12 @@ def capture_website_screenshot(url: str, session_id: str = None) -> str:
         driver = webdriver.Chrome(options=chrome_options)
         driver.get(url)
         time.sleep(3)  # Increased wait time to ensure page loads completely
-        driver.save_screenshot(filename)
+        driver.save_screenshot(full_path)
         driver.quit()
         
-        # Return the relative path for frontend use
-        relative_path = f"/static/screenshots/{os.path.basename(filename)}"
-        print(f"Screenshot saved at: {filename}, returning path: {relative_path}")
-        return relative_path
+        # Return just the filename (not the full path) for API usage
+        print(f"Screenshot saved at: {full_path}, returning: {filename}")
+        return filename
     except Exception as e:
         print(f"Error capturing screenshot: {e}")
         return None
@@ -56,7 +57,7 @@ def get_website_favicon(url: str, session_id: str = None) -> str:
         session_id (str, optional): Session ID for filename
         
     Returns:
-        str: URL path to the saved favicon
+        str: Filename of the saved favicon (without the full path)
     """
     from bs4 import BeautifulSoup
     import requests
@@ -68,14 +69,16 @@ def get_website_favicon(url: str, session_id: str = None) -> str:
     print(f"Getting favicon for URL: {url}, session_id: {session_id}")
     
     # Create the images directory if it doesn't exist
-    os.makedirs("E:/squidgy_images/favicons", exist_ok=True)
+    os.makedirs("static/favicons", exist_ok=True)
 
     try:
         # Create filename with timestamp or session ID
         if session_id:
-            filename = f"E:/squidgy_images/favicons/{session_id}_logo.jpg"
+            filename = f"{session_id}_logo.jpg"
+            full_path = f"static/favicons/{filename}"
         else:
-            filename = f"E:/squidgy_images/favicons/logo_{int(time.time())}.jpg"
+            filename = f"logo_{int(time.time())}.jpg"
+            full_path = f"static/favicons/{filename}"
         
         # Get the website's HTML
         headers = {
@@ -135,20 +138,18 @@ def get_website_favicon(url: str, session_id: str = None) -> str:
                         img = Image.open(BytesIO(favicon_response.content))
                         if img.mode != 'RGB':
                             img = img.convert('RGB')
-                        img.save(filename, 'JPEG')
-                        print(f"Successfully saved favicon as JPEG: {filename}")
+                        img.save(full_path, 'JPEG')
+                        print(f"Successfully saved favicon as JPEG: {full_path}")
                         
-                        # Return the relative path for frontend use
-                        return_path = f"/static/favicons/{os.path.basename(filename)}"
-                        return return_path
+                        # Return just the filename (not the full path) for API usage
+                        return filename
                     except Exception as e:
                         print(f"Error converting favicon to JPG: {e}")
                         # Fallback: save original content
-                        with open(filename, 'wb') as f:
+                        with open(full_path, 'wb') as f:
                             f.write(favicon_response.content)
-                        print(f"Saved original favicon content: {filename}")
-                        return_path = f"/static/favicons/{os.path.basename(filename)}"
-                        return return_path
+                        print(f"Saved original favicon content: {full_path}")
+                        return filename
                 else:
                     print(f"Failed to download favicon, status code: {favicon_response.status_code}")
             except Exception as e:
