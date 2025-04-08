@@ -76,7 +76,7 @@ def conversation_data():
 # Test the model's response to each client's probable response
 def test_model_responses(conversation_data):
     Model_response, expected_input = conversation_data
-    #Model_response, expected_input = load_conversation_templates("conversation_templates.xlsx")
+    # Model_response, expected_input = load_conversation_templates("conversation_templates.xlsx")
     assert len(Model_response) == len(expected_input)
     for i in range(len(Model_response)):
         if i==0:
@@ -97,22 +97,22 @@ def test_model_responses(conversation_data):
         except ValueError:
             pytest.fail(f"Model response {i} is not a as expected with similarity %{number}")
 
-# Model_response, expected_input = load_conversation_templates("conversation_templates.xlsx")
+Model_response, expected_input = load_conversation_templates("conversation_templates.xlsx")
 
-# for i in range(len(Model_response)):
-#     if i==0:
-#         reponse=CheckModelPerformance('Hi')
-#     else:
-#         reponse=CheckModelPerformance(expected_input[i-1])
-#     print("Model_response:",reponse)
-#     print("Model_expected_response:",Model_response[i])
+for i in range(len(Model_response)):
+    if i==0:
+        reponse=CheckModelPerformance('Hi')
+    else:
+        reponse=CheckModelPerformance(expected_input[i-1])
+    print("Model_response:",reponse)
+    print("Model_expected_response:",Model_response[i])
 
-#     request = {
-#             "content": "Compare: "+Model_response[i]+" with: "+reponse,
-#             "role": "user"
-#         }
+    request = {
+            "content": "Compare: "+Model_response[i]+" with: "+reponse,
+            "role": "user"
+        }
     
-#     text = agent.generate_reply([request])
-#     number = int(text.split(':')[1].split('%')[0])
-#     print("Similarity:",number,"Valid:",number>threshold)
+    text = agent.generate_reply([request])
+    number = int(text.split(':')[1].split('%')[0])
+    print("Similarity:",number,"Valid:",number>threshold)
 
