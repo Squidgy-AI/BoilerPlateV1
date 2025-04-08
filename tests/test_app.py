@@ -23,41 +23,41 @@ def test_home_page(client):
     logger.debug(f"Home page response content: {response.content}")
     assert response.status_code == 200
 
-# def test_chat_endpoint(client):
-#     """Test if the chat endpoint works correctly."""
-#     request_payload = {"user_id": "test_user", "session_id": "test_session", "user_input": "What percentage of Share do you take?"}
-#     logger.info(f"Sending request to chat endpoint: {request_payload}")
+def test_chat_endpoint(client):
+    """Test if the chat endpoint works correctly."""
+    request_payload = {"user_id": "test_user", "session_id": "test_session", "user_input": "What percentage of Share do you take?"}
+    logger.info(f"Sending request to chat endpoint: {request_payload}")
     
-#     response = client.post(
-#         "/chat",
-#         json=request_payload
-#     )
+    response = client.post(
+        "/chat",
+        json=request_payload
+    )
     
-#     logger.info(f"Chat endpoint response status: {response.status_code}")
+    logger.info(f"Chat endpoint response status: {response.status_code}")
     
-#     try:
-#         json_data = response.json()
-#         logger.info(f"Response JSON: {json.dumps(json_data, indent=2)}")
-#     except Exception as e:
-#         logger.error(f"Failed to parse JSON: {e}")
-#         logger.debug(f"Raw response content: {response.content}")
+    try:
+        json_data = response.json()
+        logger.info(f"Response JSON: {json.dumps(json_data, indent=2)}")
+    except Exception as e:
+        logger.error(f"Failed to parse JSON: {e}")
+        logger.debug(f"Raw response content: {response.content}")
     
-#     assert response.status_code == 200
+    assert response.status_code == 200
     
-#     # Log before assertions to help with debugging
-#     if "agent" in json_data:
-#         logger.info(f"Found 'agent' in response: {json_data['agent'][:100]}...")  # Log first 100 chars
-#     else:
-#         logger.warning("'agent' key missing from response")
+    # Log before assertions to help with debugging
+    if "agent" in json_data:
+        logger.info(f"Found 'agent' in response: {json_data['agent'][:100]}...")  # Log first 100 chars
+    else:
+        logger.warning("'agent' key missing from response")
         
-#     if "session_id" in json_data:
-#         logger.info(f"Found 'session_id' in response: {json_data['session_id']}")
-#     else:
-#         logger.warning("'session_id' key missing from response")
+    if "session_id" in json_data:
+        logger.info(f"Found 'session_id' in response: {json_data['session_id']}")
+    else:
+        logger.warning("'session_id' key missing from response")
     
-#     # Check for appropriate keys in the response based on your ChatResponse model
-#     assert "agent" in json_data
-#     assert "session_id" in json_data
+    # Check for appropriate keys in the response based on your ChatResponse model
+    assert "agent" in json_data
+    assert "session_id" in json_data
 
 def test_chat_ghl_appointment_create_endpoint(client):
     """Test if the chat endpoint works correctly."""
