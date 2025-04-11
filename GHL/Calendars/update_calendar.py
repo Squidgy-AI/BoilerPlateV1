@@ -69,13 +69,13 @@ def update_calendar(
         event_title = f"{constant.constant.nescafe_id} Calling in {constant.constant.kitkat_id}"
     
     if days_of_week is None:
-        days_of_week = [2]  # Default to Tuesday
+        days_of_week = [1,2,3,4,5,6,7]
         
     # Default availability hours structure
     default_hours = [{
-        "openHour": 0,
+        "openHour": 9,
         "openMinute": 0,
-        "closeHour": 0,
+        "closeHour": 17,
         "closeMinute": 0
     }]
     
@@ -91,21 +91,21 @@ def update_calendar(
         "widgetType": widget_type,
         "eventTitle": event_title,
         "eventColor": event_color,
-        "meetingLocation": "string",
+        "meetingLocation": constant.Constant.string,
         "slotDuration": slot_duration,
-        "slotDurationUnit": "mins",
+        "slotDurationUnit": constant.Constant.mins,
         "slotInterval": slot_interval,
-        "slotIntervalUnit": "mins",
+        "slotIntervalUnit": constant.Constant.mins,
         "slotBuffer": slot_buffer,
-        "slotBufferUnit": "mins",
+        "slotBufferUnit": constant.Constant.mins,
         "preBuffer": pre_buffer,
-        "preBufferUnit": "mins",
+        "preBufferUnit": constant.Constant.mins,
         "appointmentPerSlot": appointment_per_slot,
         "appointmentPerDay": appointment_per_day,
         "allowBookingAfter": allow_booking_after,
-        "allowBookingAfterUnit": "hours",
+        "allowBookingAfterUnit": constant.Constant.hours,
         "allowBookingFor": 0,
-        "allowBookingForUnit": "days",
+        "allowBookingForUnit": constant.Constant.days,
         "openHours": [
             {
                 "daysOfTheWeek": days_of_week,
@@ -119,25 +119,25 @@ def update_calendar(
             "bookingOption": "skip",
             "bookingOverlapDefaultStatus": "confirmed"
         },
-        "formId": "string",
+        "formId": constant.Constant.string,
         "stickyContact": True,
         "isLivePaymentMode": True,
         "autoConfirm": True,
         "shouldSendAlertEmailsToAssignedMember": True,
-        "alertEmail": "string",
+        "alertEmail": constant.Constant.string,
         "googleInvitationEmails": False,
         "allowReschedule": True,
         "allowCancellation": True,
         "shouldAssignContactToTeamMember": True,
         "shouldSkipAssigningContactForExisting": True,
-        "notes": "string",
-        "pixelId": "string",
-        "formSubmitType": "ThankYouMessage",
-        "formSubmitRedirectURL": "string",
-        "formSubmitThanksMessage": "string",
+        "notes":constant.Constant.string,
+        "pixelId": constant.Constant.string,
+        "formSubmitType": constant.Constant.thankYouMessage,
+        "formSubmitRedirectURL": constant.Constant.string,
+        "formSubmitThanksMessage": constant.Constant.string,
         "availabilityType": 0,
         "guestType": "count_only",
-        "consentLabel": "string",
+        "consentLabel": constant.Constant.string,
         "lookBusyConfig": {
             "enabled": True,
             "LookBusyPercentage": 0
