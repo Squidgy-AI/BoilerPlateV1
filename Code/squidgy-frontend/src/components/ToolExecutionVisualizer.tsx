@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Globe, Camera, Image as ImageIcon, Calendar, User, Building, Database } from 'lucide-react';
+import SolarToolVisualizer from './SolarToolVisualizer';
+
 
 interface ToolExecutionProps {
   websocket: WebSocket | null;
@@ -56,7 +58,7 @@ function useToolAnimation(toolExecution: ToolExecution | null) {
         // Reset to idle after showing results
         const resetTimer = setTimeout(() => {
           setAnimationState('idle');
-        }, 5000);
+        }, 120000);
         
         return () => clearTimeout(resetTimer);
       }, 2000);
@@ -308,6 +310,45 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
               </div>
             )}
           </div>
+        );
+
+      case 'get_insights':
+      case 'insights':
+        return (
+              <SolarToolVisualizer
+                tool="get_insights"
+                executionId={currentExecution.id}
+                params={currentExecution.params}
+                result={currentExecution.result}
+                status={currentExecution.status}
+                animationState={animationState}
+              />
+    );
+          
+      case 'get_datalayers':
+      case 'datalayers':
+        return (
+              <SolarToolVisualizer
+                tool="get_datalayers"
+                executionId={currentExecution.id}
+                params={currentExecution.params}
+                result={currentExecution.result}
+                status={currentExecution.status}
+                animationState={animationState}
+              />
+        );
+          
+      case 'get_report':
+      case 'report':
+        return (
+              <SolarToolVisualizer
+                tool="get_report"
+                executionId={currentExecution.id}
+                params={currentExecution.params}
+                result={currentExecution.result}
+                status={currentExecution.status}
+                animationState={animationState}
+              />
         );
         
         // case 'capture_website_screenshot':

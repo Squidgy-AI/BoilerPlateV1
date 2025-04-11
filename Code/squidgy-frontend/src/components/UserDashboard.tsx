@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import ThinkingProcess from './ThinkingProcess';
 import WebSocketDebugger from './WebSocketDebugger';
+import { FileDown, MapPin, Sun, Calendar } from 'lucide-react';
+import { useRef} from 'react';
 
 interface Session {
   id: string;
@@ -28,7 +30,19 @@ interface UserDashboardProps {
   websocket: WebSocket | null;
   currentRequestId: string | null;
   isProcessing: boolean;
+  solarResults?: SolarResult[];
 }
+
+interface SolarResult {
+  timestamp: number;
+  address: string;
+  type: 'insights' | 'datalayers' | 'report';
+  data: any;
+}
+
+
+
+
 
 const UserDashboard: React.FC<UserDashboardProps> = ({ 
   userId, 
@@ -49,6 +63,9 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     "Set up a consultation appointment",
     "Help with social media strategy"
   ]);
+  // Add this state to your component
+  const [solarResults, setSolarResults] = useState<SolarResult[]>([]);
+  const solarResultsRef = useRef<HTMLDivElement>(null);
   
   // Get backend URL from environment or use default
   const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
@@ -110,6 +127,47 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
     fetchSessions();
   }, [currentSessionId, backendUrl]);
+
+  useEffect(() => {
+    // In a real implementation, you would get this from your WebSocket data
+    // This is just a placeholder for demonstration
+    if (websocket && isProcessing && currentRequestId) {
+      const handleMessage = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'tool_result' && 
+              (data.tool === 'get_insights' || 
+               data.tool === 'get_datalayers' || 
+               data.tool === 'get_report')) {
+            
+            // Add the new result to the solar results array
+            setSolarResults(prev => [{
+              timestamp: Date.now(),
+              address: data.result?.location?.address || 
+                      data.params?.address || 
+                      'Unknown Address',
+              type: data.tool.replace('get_', '') as any,
+              data: data.result
+            }, ...prev].slice(0, 10)); // Keep only the latest 10 results
+          }
+        } catch (error) {
+          console.error('Error handling solar result:', error);
+        }
+      };
+      
+      websocket.addEventListener('message', handleMessage);
+      return () => {
+        websocket.removeEventListener('message', handleMessage);
+      };
+    }
+  }, [websocket, isProcessing, currentRequestId]);
+
+  useEffect(() => {
+    if (solarResultsRef.current && solarResults.length > 0) {
+      solarResultsRef.current.scrollTop = 0;
+    }
+  }, [solarResults.length]);
 
   // Function to format session name from ID
   const formatSessionName = (id: string): string => {
@@ -294,6 +352,102 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
             })}
           </div>
         )}
+      </div>
+
+      {/* Solar Results Section */}
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Solar Analysis Results</h2>
+          {solarResults.length > 0 && (
+            <div className="text-xs text-gray-400">
+              {solarResults.length} {solarResults.length === 1 ? 'result' : 'results'}
+            </div>
+          )}
+        </div>
+        
+        <div 
+          ref={solarResultsRef}
+          className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar"
+        >
+          {solarResults.length > 0 ? (
+            solarResults.map((result, index) => (
+              <div 
+                key={`solar-result-${result.timestamp}-${index}`}
+                className="p-3 bg-[#2D3B4F] rounded-lg cursor-pointer hover:bg-[#374863] transition-colors"
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center">
+                      {result.type === 'insights' && <Sun size={16} className="text-yellow-400 mr-2" />}
+                      {result.type === 'datalayers' && <MapPin size={16} className="text-green-400 mr-2" />}
+                      {result.type === 'report' && <FileDown size={16} className="text-blue-400 mr-2" />}
+                      <p className="font-medium text-white capitalize">{result.type} Analysis</p>
+                    </div>
+                    <p className="text-sm text-gray-400 mt-1">{result.address}</p>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {new Date(result.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+                
+                {/* Render different content based on result type */}
+                {result.type === 'insights' && result.data?.solarPotential && (
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-slate-800 p-2 rounded">
+                      <div className="text-gray-400">Panel Count</div>
+                      <div className="text-white">{result.data.solarPotential.idealPanelCount || '--'}</div>
+                    </div>
+                    <div className="bg-slate-800 p-2 rounded">
+                      <div className="text-gray-400">Est. Savings</div>
+                      <div className="text-white">${result.data.solarPotential.estimatedSavings ? 
+                        Math.round(result.data.solarPotential.estimatedSavings).toLocaleString() : '--'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {result.type === 'datalayers' && result.data?.layers && (
+                  <div className="mt-2 grid grid-cols-4 gap-1">
+                    {result.data.layers.slice(0, 4).map((layer: any, i: number) => (
+                      <div key={i} className="bg-slate-800 h-12 rounded overflow-hidden relative">
+                        {layer.imageUrl && (
+                          <img 
+                            src={layer.imageUrl} 
+                            alt={layer.name} 
+                            className="w-full h-full object-cover opacity-70 hover:opacity-100 transition-opacity"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {result.type === 'report' && result.data?.reportUrl && (
+                  <div className="mt-2">
+                    <a 
+                      href={result.data.reportUrl} 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center text-xs bg-blue-900 hover:bg-blue-800 text-white py-1 px-2 rounded transition-colors w-full"
+                    >
+                      <FileDown size={12} className="mr-1" />
+                      View Solar Report
+                    </a>
+                    {result.data.summary && (
+                      <div className="mt-1 text-xs text-gray-400">
+                        {result.data.summary}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-400 bg-[#2D3B4F] rounded-lg">
+              No solar analysis results yet
+            </div>
+          )}
+        </div>
       </div>
   
       {/* Sessions Section */}

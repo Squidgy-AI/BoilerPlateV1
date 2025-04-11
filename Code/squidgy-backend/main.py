@@ -235,8 +235,25 @@ def analyze_with_perplexity(url: str) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+# def get_insights(address: str) -> Dict[str, Any]:
+#     """Get solar insights for an address"""
+#     base_url = "https://api.realwave.com/googleSolar"
+#     headers = {
+#         "Authorization": f"Bearer {SOLAR_API_KEY}",
+#         "Content-Type": "application/json",
+#         "Accept": "application/json"
+#     }
+#     url = f"{base_url}/insights"
+#     params = {
+#             "address": address,
+#             "mode": "full",
+#             "demo": "true"
+#     }
+#     response = requests.post(url, headers=headers, params=params)
+#     return response.json()
+
 def get_insights(address: str) -> Dict[str, Any]:
-    """Get solar insights for an address"""
+    """Get solar insights for an address with enhanced visualization data"""
     base_url = "https://api.realwave.com/googleSolar"
     headers = {
         "Authorization": f"Bearer {SOLAR_API_KEY}",
@@ -245,15 +262,68 @@ def get_insights(address: str) -> Dict[str, Any]:
     }
     url = f"{base_url}/insights"
     params = {
-            "address": address,
-            "mode": "full",
-            "demo": "true"
+        "address": address,
+        "mode": "full",
+        "demo": "true"
     }
-    response = requests.post(url, headers=headers, params=params)
-    return response.json()
+    
+    try:
+        response = requests.post(url, headers=headers, params=params)
+        result = response.json()
+        
+        # Process the response for visualization
+        processed_result = {}
+        
+        # Extract location data for map visualization
+        if "rwResult" in result and result["rwResult"] and "center" in result["rwResult"]:
+            center = result["rwResult"]["center"]
+            processed_result["location"] = {
+                "latitude": center.get("latitude"),
+                "longitude": center.get("longitude"),
+                "address": address
+            }
+        
+        # Extract solar potential data
+        if "rwResult" in result and result["rwResult"] and "summary" in result["rwResult"]:
+            summary = result["rwResult"]["summary"]
+            processed_result["solarPotential"] = {
+                "maxSunshineHoursPerYear": summary.get("maxSunshineHoursPerYear"),
+                "minPanelCount": summary.get("minPanelCount"),
+                "maxPanelCount": summary.get("maxPanelCount"),
+                "idealPanelCount": summary.get("idealConfigurations", [{}])[0].get("panelCount") if summary.get("idealConfigurations") else None,
+                "maxYearlyEnergy": summary.get("maxIdealYearlyEnergyDcKwh"),
+                "estimatedSavings": summary.get("idealCashPurchaseSavings", {}).get("financialDetails", {}).get("lifetimeSavings")
+            }
+            
+            # Add financial data if available
+            if "financialSavingsAssumptions" in summary:
+                processed_result["financials"] = {
+                    "installationCost": summary.get("idealCashPurchaseSavings", {}).get("financialDetails", {}).get("initialAcquisitionCost"),
+                    "annualSavings": summary.get("idealCashPurchaseSavings", {}).get("financialDetails", {}).get("averageYearlySavings"),
+                    "paybackPeriodYears": summary.get("idealCashPurchaseSavings", {}).get("financialDetails", {}).get("paybackPeriodYears")
+                }
+        
+        # Add raw building insights for detailed analysis if available
+        if "rwResult" in result and result["rwResult"] and "solarResults" in result["rwResult"] and "solarPotential" in result["rwResult"]["solarResults"]:
+            solar_potential = result["rwResult"]["solarResults"]["solarPotential"]
+            processed_result["roofData"] = {
+                "maxArrayAreaMeters2": solar_potential.get("maxArrayAreaMeters2"),
+                "maxSunshineHoursPerYear": solar_potential.get("maxSunshineHoursPerYear"),
+                "carbonOffsetFactorKgPerMwh": solar_potential.get("carbonOffsetFactorKgPerMwh"),
+                "panelCapacityWatts": solar_potential.get("panelCapacityWatts"),
+                "roofSegmentStats": solar_potential.get("roofSegmentStats", [])
+            }
+        
+        return processed_result
+        
+    except Exception as e:
+        logger.exception(f"Error fetching solar insights: {str(e)}")
+        return {"error": str(e)}
+    
+
 
 def get_datalayers(address: str) -> Dict[str, Any]:
-    """Get solar data layers for an address"""
+    """Get solar data layers for an address and process images for display"""
     base_url = "https://api.realwave.com/googleSolar"
     headers = {
         "Authorization": f"Bearer {SOLAR_API_KEY}",
@@ -262,16 +332,87 @@ def get_datalayers(address: str) -> Dict[str, Any]:
     }
     url = f"{base_url}/dataLayers"
     params = {
-            "address": address,
-            "renderPanels": "true",
-            "fileFormat": "jpeg",
-            "demo": "true"
+        "address": address,
+        "renderPanels": "true",
+        "fileFormat": "jpeg",
+        "demo": "true"
     }
-    response = requests.post(url, headers=headers, params=params)
-    return response.json()
+    
+    try:
+        response = requests.post(url, headers=headers, params=params)
+        result = response.json()
+        
+        # Process the response for visualization
+        processed_result = {}
+        
+        # Process image URLs if they exist
+        if "rwResult" in result:
+            rwResult = result["rwResult"]
+            layers = []
+            
+            # Define the layers to extract and their display names
+            layer_mappings = {
+                "satelliteImageURL": {
+                    "name": "Satellite View",
+                    "description": "Satellite image of the property"
+                },
+                "compositedMarkedRGBURL": {
+                    "name": "Property Marker",
+                    "description": "Satellite image with property marked"
+                },
+                "compositedAnnualFluxURL": {
+                    "name": "Solar Potential",
+                    "description": "Annual solar energy potential overlay"
+                },
+                "compositedMarkedPanelsURL": {
+                    "name": "Solar Panel Layout",
+                    "description": "Recommended solar panel configuration"
+                }
+            }
+            
+            # Extract layers that exist in the response
+            for key, info in layer_mappings.items():
+                if key in rwResult and rwResult[key]:
+                    layers.append({
+                        "name": info["name"],
+                        "description": info["description"],
+                        "imageUrl": rwResult[key],
+                        "type": key.replace("URL", "").lower()
+                    })
+            
+            processed_result["layers"] = layers
+            
+            # Add expiration info if available
+            if "imagesExpireOn" in rwResult:
+                processed_result["expiresOn"] = rwResult["imagesExpireOn"]
+        
+        return processed_result
+        
+    except Exception as e:
+        logger.exception(f"Error fetching solar data layers: {str(e)}")
+        return {"error": str(e)}
+
+# def get_datalayers(address: str) -> Dict[str, Any]:
+#     """Get solar data layers for an address"""
+#     base_url = "https://api.realwave.com/googleSolar"
+#     headers = {
+#         "Authorization": f"Bearer {SOLAR_API_KEY}",
+#         "Content-Type": "application/json",
+#         "Accept": "application/json"
+#     }
+#     url = f"{base_url}/dataLayers"
+#     params = {
+#             "address": address,
+#             "renderPanels": "true",
+#             "fileFormat": "jpeg",
+#             "demo": "true"
+#     }
+#     response = requests.post(url, headers=headers, params=params)
+#     return response.json()
+
 
 def get_report(address: str) -> Dict[str, Any]:
-    """Get solar report for an address"""
+    """Get solar report for an address and extract PDF download link"""
     base_url = "https://api.realwave.com/googleSolar"
     headers = {
         "Authorization": f"Bearer {SOLAR_API_KEY}",
@@ -280,13 +421,77 @@ def get_report(address: str) -> Dict[str, Any]:
     }
     url = f"{base_url}/report"
     params = {
-            "address": address,
-            "organizationName": "Squidgy Solar",
-            "leadName": "Potential Client",
-            "demo": "true"
+        "address": address,
+        "organizationName": "Squidgy Solar",
+        "leadName": "Potential Client",
+        "demo": "true"
     }
-    response = requests.post(url, headers=headers, params=params)
-    return response.json()
+    
+    try:
+        response = requests.post(url, headers=headers, params=params)
+        result = response.json()
+        
+        # Process the response for visualization
+        processed_result = {}
+        
+        # Extract the PDF report URL
+        if "rwResult" in result and result["rwResult"] and "reportURL" in result["rwResult"]:
+            processed_result["reportUrl"] = result["rwResult"]["reportURL"]
+        
+        # Extract expiration date
+        if "rwResult" in result and result["rwResult"] and "reportExpiresOn" in result["rwResult"]:
+            processed_result["expiresOn"] = result["rwResult"]["reportExpiresOn"]
+        
+        # Extract structured data if available
+        if "rwResult" in result and result["rwResult"] and "structuredDataForAgents" in result["rwResult"]:
+            try:
+                structured_data = json.loads(result["rwResult"]["structuredDataForAgents"])
+                
+                # Create a summary from the structured data
+                summary_parts = []
+                
+                if "systemSize" in structured_data and "capacityKw" in structured_data["systemSize"]:
+                    summary_parts.append(f"System size: {structured_data['systemSize']['capacityKw']:.1f} kW")
+                
+                if "panelCount" in structured_data:
+                    summary_parts.append(f"Panel count: {structured_data['panelCount']}")
+                
+                if "financialSummary" in structured_data:
+                    financial = structured_data["financialSummary"]
+                    if "lifetimeSavings" in financial:
+                        summary_parts.append(f"Lifetime savings: ${financial['lifetimeSavings']:,.2f}")
+                    if "paybackPeriodYears" in financial:
+                        summary_parts.append(f"Payback period: {financial['paybackPeriodYears']:.1f} years")
+                
+                processed_result["summary"] = ". ".join(summary_parts)
+                processed_result["reportData"] = structured_data
+            except json.JSONDecodeError:
+                # If parsing fails, provide a basic summary
+                processed_result["summary"] = f"Solar report generated for {address}."
+        
+        return processed_result
+        
+    except Exception as e:
+        logger.exception(f"Error generating solar report: {str(e)}")
+        return {"error": str(e)}
+
+# def get_report(address: str) -> Dict[str, Any]:
+#     """Get solar report for an address"""
+#     base_url = "https://api.realwave.com/googleSolar"
+#     headers = {
+#         "Authorization": f"Bearer {SOLAR_API_KEY}",
+#         "Content-Type": "application/json",
+#         "Accept": "application/json"
+#     }
+#     url = f"{base_url}/report"
+#     params = {
+#             "address": address,
+#             "organizationName": "Squidgy Solar",
+#             "leadName": "Potential Client",
+#             "demo": "true"
+#     }
+#     response = requests.post(url, headers=headers, params=params)
+#     return response.json()
 
 async def wrapped_capture_screenshot(url, request_id, websocket):
     """Wrapper around capture_website_screenshot to send results via WebSocket"""
@@ -898,6 +1103,165 @@ def run_agent_chat(user_agent, group_manager, user_input, request_id, websocket)
                         "timestamp": int(time.time() * 1000)
                     })
                     return False,{"content": f"Error analyzing website favicon: {str(e)}"}
+                
+            # Add this to the sync_execute_with_tracking function in run_agent_chat
+
+            elif function_name == "get_insights" and "address" in arguments:
+                address = arguments["address"]
+                execution_id = f"insights-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+                
+                # Send tool execution start message
+                try:
+                    await websocket.send_json({
+                        "type": "tool_execution",
+                        "tool": "get_insights",
+                        "executionId": execution_id,
+                        "params": {"address": address},
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+                except Exception as e:
+                    logger.exception(f"Error sending tool execution start: {str(e)}")
+                
+                # Call the function
+                try:
+                    result = get_insights(address)
+                    
+                    # Send the result
+                    await websocket.send_json({
+                        "type": "tool_result",
+                        "tool": "get_insights",
+                        "executionId": execution_id,
+                        "result": result,
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+                    
+                    # Create a summary of the results for the agent response
+                    summary = "Solar analysis completed for the property."
+                    if "solarPotential" in result:
+                        potential = result["solarPotential"]
+                        if "maxSunshineHoursPerYear" in potential and potential["maxSunshineHoursPerYear"]:
+                            summary += f" The property receives approximately {potential['maxSunshineHoursPerYear']:.0f} sunshine hours per year."
+                        if "idealPanelCount" in potential and potential["idealPanelCount"]:
+                            summary += f" Recommended system: {potential['idealPanelCount']} panels."
+                        if "estimatedSavings" in potential and potential["estimatedSavings"]:
+                            summary += f" Estimated lifetime savings: ${potential['estimatedSavings']:,.2f}."
+                    
+                    return False, {"content": summary}
+                except Exception as e:
+                    logger.exception(f"Error in solar insights analysis: {str(e)}")
+                    await websocket.send_json({
+                        "type": "tool_result",
+                        "tool": "get_insights",
+                        "executionId": execution_id,
+                        "result": {"status": "error", "message": str(e)},
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+                    return False, {"content": f"Error analyzing solar insights: {str(e)}"}
+
+            elif function_name == "get_datalayers" and "address" in arguments:
+                address = arguments["address"]
+                execution_id = f"datalayers-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+                
+                # Send tool execution start message
+                try:
+                    await websocket.send_json({
+                        "type": "tool_execution",
+                        "tool": "get_datalayers",
+                        "executionId": execution_id,
+                        "params": {"address": address},
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+                except Exception as e:
+                    logger.exception(f"Error sending tool execution start: {str(e)}")
+                
+                # Call the function
+                try:
+                    result = get_datalayers(address)
+                    
+                    # Send the result
+                    await websocket.send_json({
+                        "type": "tool_result",
+                        "tool": "get_datalayers",
+                        "executionId": execution_id,
+                        "result": result,
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+                    
+                    # Create a summary message
+                    layer_count = len(result.get("layers", []))
+                    summary = f"Generated {layer_count} solar visualization images for {address}."
+                    if layer_count > 0:
+                        layer_names = [layer["name"] for layer in result.get("layers", [])]
+                        summary += f" Visualization types include: {', '.join(layer_names)}."
+                    
+                    return False, {"content": summary}
+                except Exception as e:
+                    logger.exception(f"Error in solar data layer analysis: {str(e)}")
+                    await websocket.send_json({
+                        "type": "tool_result",
+                        "tool": "get_datalayers",
+                        "executionId": execution_id,
+                        "result": {"status": "error", "message": str(e)},
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+                    return False, {"content": f"Error analyzing solar data layers: {str(e)}"}
+
+            elif function_name == "get_report" and "address" in arguments:
+                address = arguments["address"]
+                execution_id = f"report-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+                
+                # Send tool execution start message
+                try:
+                    await websocket.send_json({
+                        "type": "tool_execution",
+                        "tool": "get_report",
+                        "executionId": execution_id,
+                        "params": {"address": address},
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+                except Exception as e:
+                    logger.exception(f"Error sending tool execution start: {str(e)}")
+                
+                # Call the function
+                try:
+                    result = get_report(address)
+                    
+                    # Send the result
+                    await websocket.send_json({
+                        "type": "tool_result",
+                        "tool": "get_report",
+                        "executionId": execution_id,
+                        "result": result,
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+                    
+                    # Create a response message
+                    summary = f"Solar report generated for {address}."
+                    if "summary" in result:
+                        summary += f" {result['summary']}"
+                    if "reportUrl" in result:
+                        summary += " A detailed PDF report is available for download."
+                    
+                    return False, {"content": summary}
+                except Exception as e:
+                    logger.exception(f"Error generating solar report: {str(e)}")
+                    await websocket.send_json({
+                        "type": "tool_result",
+                        "tool": "get_report",
+                        "executionId": execution_id,
+                        "result": {"status": "error", "message": str(e)},
+                        "requestId": request_id,
+                        "timestamp": int(time.time() * 1000)
+                    })
+                    return False, {"content": f"Error generating solar report: {str(e)}"}
             else:
                 # Call original method for other functions
                 try:
@@ -905,6 +1269,8 @@ def run_agent_chat(user_agent, group_manager, user_input, request_id, websocket)
                 except Exception as e:
                     logger.exception(f"Error executing function {function_name}: {str(e)}")
                     return {"status": "error", "message": str(e)}
+                
+            
                 
         try:
             return loop.run_until_complete(handle_tool_execution())
