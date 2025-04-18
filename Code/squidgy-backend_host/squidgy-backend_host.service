@@ -1,0 +1,14 @@
+ini
+[Unit]
+Description=Squidgy Backend Host
+After=network.target
+
+[Service]
+User=user
+WorkingDirectory=/home/user/BoilerPlateV1/Code/squidgy-backend_host
+Environment="PATH=/home/user/BoilerPlateV1/Code/squidgy-backend_host/venv/bin:$PATH"
+ExecStart=/home/user/BoilerPlateV1/Code/squidgy-backend_host/venv/bin/python /home/user/BoilerPlateV1/Code/squidgy-backend_host/main_flask.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
