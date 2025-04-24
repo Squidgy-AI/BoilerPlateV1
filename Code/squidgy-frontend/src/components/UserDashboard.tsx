@@ -68,8 +68,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   const solarResultsRef = useRef<HTMLDivElement>(null);
   
   // Get backend URL from environment or use default
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
-  const backendUrl = `http://${apiBase}`;
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+  const backendUrl = `https://${apiBase}`;
   
   // Sample data for testing - will only show if real data isn't available
   const testWebsiteData = {
@@ -84,7 +84,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     const fetchSessions = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`${backendUrl}/chat-history?session_id=${currentSessionId}`);
+        const response = await fetch(`https://${apiBase}/chat-history?session_id=${currentSessionId}`);
+
         
         if (!response.ok) {
           throw new Error(`Server responded with status: ${response.status}`);
@@ -202,24 +203,24 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
     // Add backend URL to static paths if they don't already have it
     if (screenshot && screenshot.startsWith('/static/')) {
-      screenshot = `${backendUrl}${screenshot}`;
+      screenshot = `https://${apiBase}${screenshot}`;
     } else if (screenshot) {
       // Handle filenames or partial paths
       if (screenshot.includes('/')) {
-        screenshot = `${backendUrl}/static/screenshots/${screenshot.split('/').pop()}`;
+        screenshot = `https://${apiBase}/static/screenshots/${screenshot.split('/').pop()}`;
       } else {
-        screenshot = `${backendUrl}/static/screenshots/${screenshot}`;
+        screenshot = `https://${apiBase}/static/screenshots/${screenshot}`;
       }
     }
 
     if (favicon && favicon.startsWith('/static/')) {
-      favicon = `${backendUrl}${favicon}`;
+      favicon = `https://${apiBase}${favicon}`;
     } else if (favicon) {
       // Handle filenames or partial paths
       if (favicon.includes('/')) {
-        favicon = `${backendUrl}/static/favicons/${favicon.split('/').pop()}`;
+        favicon = `https://${apiBase}/static/favicons/${favicon.split('/').pop()}`;
       } else {
-        favicon = `${backendUrl}/static/favicons/${favicon}`;
+        favicon = `https://${apiBase}/static/favicons/${favicon}`;
       }
     }
 

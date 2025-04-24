@@ -301,7 +301,7 @@ const WebSocketDebugger = ({ websocket }) => {
                 <div className="bg-blue-900 bg-opacity-30 p-2 rounded text-sm">
                   <div className="font-bold">Connection Troubleshooting:</div>
                   <ul className="list-disc pl-4 mt-1">
-                    <li>Make sure server is running on 127.0.0.1:8080</li>
+                    <li>Make sure server is accessible at {process.env.NEXT_PUBLIC_API_BASE}</li>
                     <li>Check browser console for connection errors</li>
                     <li>Verify WebSocket endpoint URL is correct</li>
                     <li>Try refreshing the page</li>

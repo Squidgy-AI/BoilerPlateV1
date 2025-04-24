@@ -83,8 +83,8 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Get backend URL from environment or use default
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
-  const backendUrl = `http://${apiBase}`;
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+const backendUrl = `https://${apiBase}`;
 
   // ADD THIS USEEFFECT HERE
   useEffect(() => {
@@ -151,15 +151,16 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
             //     processedResult = { path: processedResult };
             //   }
               
-            //   if (processedResult && processedResult.path) {
-            //     // Add backend URL to paths if they don't already have it
-            //     if (processedResult.path.startsWith('/static/')) {
-            //       processedResult.path = `${backendUrl}${processedResult.path}`;
-            //     } else if (toolName === 'capture_website_screenshot') {
-            //       processedResult.path = `${backendUrl}/static/screenshots/${processedResult.path.split('/').pop()}`;
-            //     } else if (toolName === 'get_website_favicon') {
-            //       processedResult.path = `${backendUrl}/static/favicons/${processedResult.path.split('/').pop()}`;
-            //     }
+            // if (processedResult && processedResult.path) {
+            //   // Add backend URL to paths if they don't already have it
+            //   if (processedResult.path.startsWith('/static/')) {
+            //     processedResult.path = `https://${apiBase}${processedResult.path}`;
+            //   } else if (toolName === 'capture_website_screenshot') {
+            //     processedResult.path = `https://${apiBase}/static/screenshots/${processedResult.path.split('/').pop()}`;
+            //   } else if (toolName === 'get_website_favicon') {
+            //     processedResult.path = `https://${apiBase}/static/favicons/${processedResult.path.split('/').pop()}`;
+            //   }
+            // }
 
             //     // ADD THIS DEBUGGING CODE HERE
             //   console.log("Original path from backend:", data.result?.path);

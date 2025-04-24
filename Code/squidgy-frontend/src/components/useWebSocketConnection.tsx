@@ -59,8 +59,9 @@ const useWebSocketConnection = ({
     
     try {
       // Use dynamic URL based on environment
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
+      // Line ~109 in connect function
+      const wsProtocol = 'wss:'; // Always use secure WebSockets with Heroku
+      const wsBase = process.env.NEXT_PUBLIC_API_BASE;
       const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
       
       const ws = new WebSocket(wsUrl);

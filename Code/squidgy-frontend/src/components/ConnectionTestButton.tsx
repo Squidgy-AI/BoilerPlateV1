@@ -9,7 +9,8 @@ interface ConnectionTestButtonProps {
 
 const ConnectionTestButton: React.FC<ConnectionTestButtonProps> = ({ 
   onTest,
-  serverAddress = '127.0.0.1:8080'
+  serverAddress = process.env.NEXT_PUBLIC_API_BASE
+
 }) => {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'failure' | null>(null);
@@ -23,7 +24,7 @@ const ConnectionTestButton: React.FC<ConnectionTestButtonProps> = ({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const response = await fetch(`http://${serverAddress}`, {
+      const response = await fetch(`https://${serverAddress}`, {
         method: 'GET',
         signal: controller.signal
       });
@@ -87,7 +88,7 @@ const ConnectionTestButton: React.FC<ConnectionTestButtonProps> = ({
 //       connectWebSocket();
 //     }
 //   }} 
-//   serverAddress="127.0.0.1:8080" 
+//   serverAddress="" 
 // />
 
 export default ConnectionTestButton;

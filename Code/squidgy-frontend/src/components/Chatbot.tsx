@@ -144,8 +144,8 @@ useEffect(() => {
   // Function to fetch chat history
   const fetchChatHistory = async () => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
-      const response = await fetch(`http://${apiBase}/chat-history?session_id=${sessionId}`);
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+      const response = await fetch(`https://${apiBase}/chat-history?session_id=${sessionId}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -231,10 +231,9 @@ useEffect(() => {
               */
 
 
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
-  // const wsUrl = `${wsProtocol}//${wsBase}/ws/`;
-  const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
+const wsProtocol = 'wss:'; // Always use secure WebSockets with Heroku
+const wsBase = process.env.NEXT_PUBLIC_API_BASE;
+const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
   
   console.log("Connecting to WebSocket URL:", wsUrl);
 

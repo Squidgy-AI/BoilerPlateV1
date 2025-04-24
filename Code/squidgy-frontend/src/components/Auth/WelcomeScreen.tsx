@@ -61,8 +61,8 @@ const WelcomeScreen: React.FC = () => {
   // Function to fetch session data including website info
   const fetchSessionData = useCallback(async (sessionId: string) => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE || '127.0.0.1:8080';
-      const response = await fetch(`http://${apiBase}/chat-history?session_id=${sessionId}`);
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+      const response = await fetch(`https://${apiBase}/chat-history?session_id=${sessionId}`);
       
       if (response.ok) {
         const data = await response.json();
