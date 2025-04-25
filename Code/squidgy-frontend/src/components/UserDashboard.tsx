@@ -202,42 +202,59 @@ const displayData = React.useMemo(() => {
     return testWebsiteData;
   }
 
-  // Process the real website data
-  // Make sure to initialize with string values and check types
-  let screenshot = typeof websiteData.screenshot === 'string' ? websiteData.screenshot : '';
-  let favicon = typeof websiteData.favicon === 'string' ? websiteData.favicon : '';
-
-  // Make sure we have valid URLs for images
-  // Only modify paths if they don't already have a full URL and are strings
-  if (screenshot && typeof screenshot === 'string') {
-    if (screenshot.startsWith('/static/')) {
-      screenshot = `https://${apiBase}${screenshot}`;
-    } else if (!screenshot.startsWith('http')) {
-      // Handle filenames or partial paths
-      const filename = screenshot.includes('/') ? screenshot.split('/').pop() : screenshot;
-      screenshot = `https://${apiBase}/static/screenshots/${filename}`;
+  console.log("Processing website data:", websiteData);
+  
+  // Safely extract values ensuring they're strings
+  const url = typeof websiteData.url === 'string' ? websiteData.url : '';
+  const analysis = typeof websiteData.analysis === 'string' ? websiteData.analysis : '';
+  
+  // Process screenshot path with extra safety checks
+  let screenshot = '';
+  if (websiteData.screenshot) {
+    if (typeof websiteData.screenshot === 'string') {
+      screenshot = websiteData.screenshot;
+      
+      // Add domain if needed
+      if (screenshot && !screenshot.startsWith('http') && screenshot.startsWith('/static/')) {
+        screenshot = `https://${apiBase}${screenshot}`;
+      } 
+      // Handle just filename
+      else if (screenshot && !screenshot.startsWith('http') && !screenshot.startsWith('/static/')) {
+        screenshot = `https://${apiBase}/static/screenshots/${screenshot}`;
+      }
+      
+      console.log("Processed screenshot URL:", screenshot);
+    } else {
+      console.warn("Screenshot is not a string:", websiteData.screenshot);
     }
   }
-
-  if (favicon && typeof favicon === 'string') {
-    if (favicon.startsWith('/static/')) {
-      favicon = `https://${apiBase}${favicon}`;
-    } else if (!favicon.startsWith('http')) {
-      // Handle filenames or partial paths
-      const filename = favicon.includes('/') ? favicon.split('/').pop() : favicon;
-      favicon = `https://${apiBase}/static/favicons/${filename}`;
+  
+  // Process favicon path with extra safety checks
+  let favicon = '';
+  if (websiteData.favicon) {
+    if (typeof websiteData.favicon === 'string') {
+      favicon = websiteData.favicon;
+      
+      // Add domain if needed
+      if (favicon && !favicon.startsWith('http') && favicon.startsWith('/static/')) {
+        favicon = `https://${apiBase}${favicon}`;
+      } 
+      // Handle just filename
+      else if (favicon && !favicon.startsWith('http') && !favicon.startsWith('/static/')) {
+        favicon = `https://${apiBase}/static/favicons/${favicon}`;
+      }
+      
+      console.log("Processed favicon URL:", favicon);
+    } else {
+      console.warn("Favicon is not a string:", websiteData.favicon);
     }
   }
-
-  // Add debug logging
-  console.log("Processed screenshot URL:", screenshot);
-  console.log("Processed favicon URL:", favicon);
 
   return {
-    url: typeof websiteData.url === 'string' ? websiteData.url : '',
+    url: url,
     screenshot: screenshot,
     favicon: favicon,
-    analysis: typeof websiteData.analysis === 'string' ? websiteData.analysis : ''
+    analysis: analysis
   };
 }, [websiteData, apiBase]);
 
@@ -332,12 +349,21 @@ const displayData = React.useMemo(() => {
         {displayData.screenshot && (
           <div className="w-full h-48 relative rounded-lg overflow-hidden mb-4 bg-slate-800">
             <img
-              src={displayData.screenshot}
+              src={`${displayData.screenshot}?t=${Date.now()}`} // Add cache buster
               alt="Website Screenshot"
               className="w-full h-full object-cover rounded-lg"
               onError={(e) => {
                 console.error("Screenshot load error:", e);
-                e.currentTarget.src = "/fallback-screenshot.jpg"; // Fallback screenshot
+                // Try to reload with cache-busting param
+                const target = e.currentTarget;
+                const currentSrc = target.src;
+                // Only retry once to avoid infinite loop
+                if (!currentSrc.includes('?retry=true')) {
+                  target.src = `${displayData.screenshot}?retry=true&t=${Date.now()}`;
+                } else {
+                  // Replace with fallback image after retry
+                  target.src = "/fallback-screenshot.jpg";
+                }
               }}
             />
           </div>

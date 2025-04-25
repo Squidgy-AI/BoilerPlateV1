@@ -340,7 +340,7 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
                 status={currentExecution.status}
                 animationState={animationState}
               />
-    );
+      );
           
       case 'get_datalayers':
       case 'datalayers':
@@ -368,6 +368,9 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
               />
         );
         
+      // Inside ToolExecutionVisualizer.tsx
+      // Find the case 'capture_website_screenshot': section and replace it with this improved version
+
       case 'capture_website_screenshot':
         return (
           <div className={`${containerClasses} border-l-4 border-green-500`}>
@@ -402,18 +405,25 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
               <div className="animate-fadeIn">
                 <div className="relative h-48 bg-gray-800 rounded-md overflow-hidden">
                   <div className="relative w-full h-full">
-                    {currentExecution.result.path && (
+                    {currentExecution.result.path ? (
                       <img 
-                        src={currentExecution.result.path + `?t=${Date.now()}`}
+                        src={apiBase ? 
+                          `https://${apiBase}/static/screenshots/${currentExecution.result.path}` : 
+                          `/static/screenshots/${currentExecution.result.path}`}
                         alt="Website Screenshot"
                         className="object-contain w-full h-full"
                         onError={(e) => {
                           console.error('Error loading screenshot:', e);
-                          // Add timestamp to force reload
+                          // Add cache-busting parameter
                           const target = e.target as HTMLImageElement;
-                          target.src = `${currentExecution.result.path}?t=${Date.now()}`;
+                          const currentSrc = target.src;
+                          target.src = `${currentSrc}?t=${Date.now()}`;
                         }}
                       />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-400">
+                        No screenshot available
+                      </div>
                     )}
                   </div>
                   <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
@@ -421,14 +431,21 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
                   </div>
                 </div>
                 <div className="mt-2 text-sm text-gray-400">
-                Screenshot saved to: {currentExecution.result.path}
+                  {currentExecution.result.path ? 
+                    `Screenshot saved successfully` : 
+                    "Screenshot path not available"}
                 </div>
               </div>
             )}
             
             {animationState === 'error' && (
               <div className="bg-red-900 bg-opacity-30 p-3 rounded-md text-red-300">
-                Error capturing screenshot. Please check the URL and try again.
+                Error capturing screenshot. 
+                {currentExecution.result?.message && (
+                  <div className="mt-2 text-xs">
+                    Details: {currentExecution.result.message}
+                  </div>
+                )}
               </div>
             )}
           </div>

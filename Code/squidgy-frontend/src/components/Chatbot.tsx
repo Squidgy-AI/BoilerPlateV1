@@ -378,37 +378,59 @@ useEffect(() => {
               const toolName = data.tool || data.executionId.split('-')[0];
               
               // Handle screenshot result
-              if (data.tool === 'capture_website_screenshot' && data.result) {
+              // Inside Chatbot.tsx, find the websocket message handler for tool_result 
+              // and update the screenshot handling code:
+
+              // For handling screenshot result
+              if (data.tool === 'capture_website_screenshot') {
+                // Log the entire result for debugging
+                console.log("Screenshot tool result:", data.result);
+                
                 let screenshotPath = '';
                 
-                if (typeof data.result === 'object' && data.result && data.result.path) {
+                // Handle different result formats
+                if (typeof data.result === 'object' && data.result && data.result.status === 'success' && data.result.path) {
+                  console.log("Result is success object with path:", data.result.path);
+                  screenshotPath = data.result.path;
+                } else if (typeof data.result === 'object' && data.result && data.result.path) {
+                  console.log("Result is object with path property:", data.result.path);
                   screenshotPath = data.result.path;
                 } else if (typeof data.result === 'string') {
+                  console.log("Result is string:", data.result);
                   screenshotPath = data.result;
+                } else {
+                  console.warn("Unexpected result format:", typeof data.result);
                 }
                 
                 // Ensure path has the correct format
                 if (screenshotPath && typeof screenshotPath === 'string') {
+                  console.log("Processing screenshot path:", screenshotPath);
+                  
                   // If path is just a filename, add the full path
                   if (!screenshotPath.startsWith('/') && !screenshotPath.startsWith('http')) {
                     screenshotPath = `/static/screenshots/${screenshotPath}`;
+                    console.log("Added directory to path:", screenshotPath);
                   }
                   
                   // If path doesn't include the backend URL, add it
                   if (screenshotPath.startsWith('/static/')) {
                     const apiBase = process.env.NEXT_PUBLIC_API_BASE;
                     screenshotPath = `https://${apiBase}${screenshotPath}`;
+                    console.log("Added API base to path:", screenshotPath);
                   }
                 } else {
-                  // Set default empty string if path is not a string
-                  screenshotPath = '';
+                  console.warn("Invalid screenshot path:", screenshotPath);
                 }
                 
-                console.log("Setting screenshot path:", screenshotPath);
-                setWebsiteData(prev => ({
-                  ...prev,
-                  screenshot: screenshotPath
-                }));
+                console.log("Final screenshot path:", screenshotPath);
+                
+                // Only update if we have a valid path
+                if (screenshotPath) {
+                  setWebsiteData(prev => ({
+                    ...prev,
+                    screenshot: screenshotPath
+                  }));
+                }
               }
               
               // Handle favicon result
