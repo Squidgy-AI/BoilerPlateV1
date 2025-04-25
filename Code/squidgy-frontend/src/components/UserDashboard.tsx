@@ -200,6 +200,10 @@ const displayData = React.useMemo(() => {
      (!websiteData.url && !websiteData.screenshot && !websiteData.favicon && !websiteData.analysis)) {
     return testWebsiteData;
   }
+
+  console.log("Using test website data:", websiteData);
+  console.log("Using real website websiteData.screensho data:", websiteData.screenshot);
+  console.log("Using real website websiteData.favicon data:", websiteData.favicon);
   
   // Process the real website data
   // Make sure to initialize with string values and check types
