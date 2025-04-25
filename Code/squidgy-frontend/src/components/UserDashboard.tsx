@@ -193,6 +193,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   // Replace the displayData useMemo function in UserDashboard.tsx with this:
 
 // Use either real website data or test data with proper processing
+// Fix for the displayData useMemo function
 const displayData = React.useMemo(() => {
   // If no websiteData provided or it's empty, use test data
   if (!websiteData || 
@@ -201,12 +202,13 @@ const displayData = React.useMemo(() => {
   }
   
   // Process the real website data
-  let screenshot = websiteData.screenshot || '';
-  let favicon = websiteData.favicon || '';
+  // Make sure to initialize with string values and check types
+  let screenshot = typeof websiteData.screenshot === 'string' ? websiteData.screenshot : '';
+  let favicon = typeof websiteData.favicon === 'string' ? websiteData.favicon : '';
 
   // Make sure we have valid URLs for images
-  // Only modify paths if they don't already have a full URL
-  if (screenshot && !screenshot.startsWith('http')) {
+  // Only modify paths if they don't already have a full URL and are strings
+  if (screenshot && typeof screenshot === 'string' && !screenshot.startsWith('http')) {
     if (screenshot.startsWith('/static/')) {
       screenshot = `https://${apiBase}${screenshot}`;
     } else {
@@ -216,7 +218,7 @@ const displayData = React.useMemo(() => {
     }
   }
 
-  if (favicon && !favicon.startsWith('http')) {
+  if (favicon && typeof favicon === 'string' && !favicon.startsWith('http')) {
     if (favicon.startsWith('/static/')) {
       favicon = `https://${apiBase}${favicon}`;
     } else {
@@ -231,12 +233,12 @@ const displayData = React.useMemo(() => {
   console.log("Processed favicon URL:", favicon);
 
   return {
-    url: websiteData.url || '',
+    url: typeof websiteData.url === 'string' ? websiteData.url : '',
     screenshot: screenshot,
     favicon: favicon,
-    analysis: websiteData.analysis || ''
+    analysis: typeof websiteData.analysis === 'string' ? websiteData.analysis : ''
   };
-  }, [websiteData, apiBase]);
+}, [websiteData, apiBase]);
 
   // Log for debugging
   useEffect(() => {
