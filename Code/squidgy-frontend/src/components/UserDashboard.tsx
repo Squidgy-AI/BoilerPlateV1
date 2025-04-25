@@ -190,47 +190,53 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   };
 
   // Use either real website data or test data with proper processing
-  const displayData = React.useMemo(() => {
-    // If no websiteData provided or it's empty, use test data
-    if (!websiteData || 
-       (!websiteData.url && !websiteData.screenshot && !websiteData.favicon)) {
-      return testWebsiteData;
-    }
-    
-    // Process the real website data - add backend URL prefix to paths
-    let screenshot = websiteData.screenshot || '';
-    let favicon = websiteData.favicon || '';
+  // Replace the displayData useMemo function in UserDashboard.tsx with this:
 
-    // Add backend URL to static paths if they don't already have it
-    if (screenshot && screenshot.startsWith('/static/')) {
+// Use either real website data or test data with proper processing
+const displayData = React.useMemo(() => {
+  // If no websiteData provided or it's empty, use test data
+  if (!websiteData || 
+     (!websiteData.url && !websiteData.screenshot && !websiteData.favicon && !websiteData.analysis)) {
+    return testWebsiteData;
+  }
+  
+  // Process the real website data
+  let screenshot = websiteData.screenshot || '';
+  let favicon = websiteData.favicon || '';
+
+  // Make sure we have valid URLs for images
+  // Only modify paths if they don't already have a full URL
+  if (screenshot && !screenshot.startsWith('http')) {
+    if (screenshot.startsWith('/static/')) {
       screenshot = `https://${apiBase}${screenshot}`;
-    } else if (screenshot) {
+    } else {
       // Handle filenames or partial paths
-      if (screenshot.includes('/')) {
-        screenshot = `https://${apiBase}/static/screenshots/${screenshot.split('/').pop()}`;
-      } else {
-        screenshot = `https://${apiBase}/static/screenshots/${screenshot}`;
-      }
+      const filename = screenshot.includes('/') ? screenshot.split('/').pop() : screenshot;
+      screenshot = `https://${apiBase}/static/screenshots/${filename}`;
     }
+  }
 
-    if (favicon && favicon.startsWith('/static/')) {
+  if (favicon && !favicon.startsWith('http')) {
+    if (favicon.startsWith('/static/')) {
       favicon = `https://${apiBase}${favicon}`;
-    } else if (favicon) {
+    } else {
       // Handle filenames or partial paths
-      if (favicon.includes('/')) {
-        favicon = `https://${apiBase}/static/favicons/${favicon.split('/').pop()}`;
-      } else {
-        favicon = `https://${apiBase}/static/favicons/${favicon}`;
-      }
+      const filename = favicon.includes('/') ? favicon.split('/').pop() : favicon;
+      favicon = `https://${apiBase}/static/favicons/${filename}`;
     }
+  }
 
-    return {
-      url: websiteData.url || '',
-      screenshot: screenshot,
-      favicon: favicon,
-      analysis: websiteData.analysis || ''
-    };
-  }, [websiteData, backendUrl]);
+  // Log the processed URLs for debugging
+  console.log("Processed screenshot URL:", screenshot);
+  console.log("Processed favicon URL:", favicon);
+
+  return {
+    url: websiteData.url || '',
+    screenshot: screenshot,
+    favicon: favicon,
+    analysis: websiteData.analysis || ''
+  };
+  }, [websiteData, apiBase]);
 
   // Log for debugging
   useEffect(() => {

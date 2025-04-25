@@ -84,7 +84,7 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
   
   // Get backend URL from environment or use default
   const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-const backendUrl = `https://${apiBase}`;
+  const backendUrl = `https://${apiBase}`;
 
   // ADD THIS USEEFFECT HERE
   useEffect(() => {
@@ -146,31 +146,31 @@ const backendUrl = `https://${apiBase}`;
             
             // Process image paths
             let processedResult = {...data.result};
-            // if (toolName === 'capture_website_screenshot' || toolName === 'get_website_favicon') {
-            //   if (typeof processedResult === 'string') {
-            //     processedResult = { path: processedResult };
-            //   }
+            if (toolName === 'capture_website_screenshot' || toolName === 'get_website_favicon') {
+              if (typeof processedResult === 'string') {
+                processedResult = { path: processedResult };
+              }
               
-            // if (processedResult && processedResult.path) {
-            //   // Add backend URL to paths if they don't already have it
-            //   if (processedResult.path.startsWith('/static/')) {
-            //     processedResult.path = `https://${apiBase}${processedResult.path}`;
-            //   } else if (toolName === 'capture_website_screenshot') {
-            //     processedResult.path = `https://${apiBase}/static/screenshots/${processedResult.path.split('/').pop()}`;
-            //   } else if (toolName === 'get_website_favicon') {
-            //     processedResult.path = `https://${apiBase}/static/favicons/${processedResult.path.split('/').pop()}`;
-            //   }
-            // }
+              if (processedResult && processedResult.path) {
+                // Add backend URL to paths if they don't already have it
+                if (processedResult.path.startsWith('/static/')) {
+                  processedResult.path = `https://${apiBase}${processedResult.path}`;
+                } else if (!processedResult.path.startsWith('http')) {
+                  // If it's just a filename, construct the full path
+                  if (toolName === 'capture_website_screenshot') {
+                    processedResult.path = `https://${apiBase}/static/screenshots/${processedResult.path.split('/').pop()}`;
+                  } else if (toolName === 'get_website_favicon') {
+                    processedResult.path = `https://${apiBase}/static/favicons/${processedResult.path.split('/').pop()}`;
+                  }
+                }
+              }
 
-            //     // ADD THIS DEBUGGING CODE HERE
-            //   console.log("Original path from backend:", data.result?.path);
-            //   console.log("Processing image path for:", toolName);
-            //   console.log("Backend URL:", backendUrl);
-            //   console.log("Final processed path:", processedResult.path);
-            //   }
-              
-            //   console.log("Processed image path:", processedResult?.path);
-            // }
+              // ADD THIS DEBUGGING CODE HERE
+              console.log("Original path from backend:", data.result?.path);
+              console.log("Processing image path for:", toolName);
+              console.log("Backend URL:", backendUrl);
+              console.log("Final processed path:", processedResult.path);
+            }
             
             // First try to find by execution ID
             let executionIndex = -1;
@@ -352,132 +352,132 @@ const backendUrl = `https://${apiBase}`;
               />
         );
         
-        // case 'capture_website_screenshot':
-        //   return (
-        //     <div className={`${containerClasses} border-l-4 border-green-500`}>
-        //       <div className="flex items-center mb-2">
-        //         <Camera className="mr-2 text-green-400" size={20} />
-        //         <h3 className="text-lg font-medium text-green-400">Website Screenshot</h3>
-        //       </div>
-              
-        //       {animationState === 'initializing' && (
-        //         <div className="flex items-center text-gray-300">
-        //           <div className="animate-pulse w-3 h-3 bg-green-400 rounded-full mr-3"></div>
-        //           <span>Initializing headless browser...</span>
-        //         </div>
-        //       )}
-              
-        //       {animationState === 'processing' && (
-        //         <div className="space-y-2">
-        //           <div className="flex items-center text-gray-300">
-        //             <div className="animate-pulse w-3 h-3 bg-green-400 rounded-full mr-3"></div>
-        //             <span>Capturing screenshot of {currentExecution.params?.url}...</span>
-        //           </div>
-        //           <div className="relative h-40 bg-gray-800 rounded-md overflow-hidden">
-        //             <div className="absolute inset-0 flex items-center justify-center">
-        //               <Camera size={32} className="text-gray-600 animate-pulse" />
-        //             </div>
-        //             <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-500 animate-[loading_3s_ease-in-out]"></div>
-        //           </div>
-        //         </div>
-        //       )}
-              
-        //       {animationState === 'success' && currentExecution.result && (
-        //         <div className="animate-fadeIn">
-        //           <div className="relative h-48 bg-gray-800 rounded-md overflow-hidden">
-        //             <div className="relative w-full h-full">
-        //               {currentExecution.result.path && (
-        //                 <img 
-        //                   src={currentExecution.result.path + `?t=${Date.now()}`}
-        //                   alt="Website Screenshot"
-        //                   className="object-contain w-full h-full"
-        //                   onError={(e) => {
-        //                     console.error('Error loading screenshot:', e);
-        //                     // Add timestamp to force reload
-        //                     const target = e.target as HTMLImageElement;
-        //                     target.src = `${currentExecution.result.path}?t=${Date.now()}`;
-        //                   }}
-        //                 />
-        //               )}
-        //             </div>
-        //             <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-        //               Captured: {new Date().toLocaleTimeString()}
-        //             </div>
-        //           </div>
-        //           <div className="mt-2 text-sm text-gray-400">
-        //           Screenshot saved to: {currentExecution.result.path}
-        //           </div>
-        //         </div>
-        //       )}
-              
-        //       {animationState === 'error' && (
-        //         <div className="bg-red-900 bg-opacity-30 p-3 rounded-md text-red-300">
-        //           Error capturing screenshot. Please check the URL and try again.
-        //         </div>
-        //       )}
-        //     </div>
-        //   );
+      case 'capture_website_screenshot':
+        return (
+          <div className={`${containerClasses} border-l-4 border-green-500`}>
+            <div className="flex items-center mb-2">
+              <Camera className="mr-2 text-green-400" size={20} />
+              <h3 className="text-lg font-medium text-green-400">Website Screenshot</h3>
+            </div>
+            
+            {animationState === 'initializing' && (
+              <div className="flex items-center text-gray-300">
+                <div className="animate-pulse w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                <span>Initializing headless browser...</span>
+              </div>
+            )}
+            
+            {animationState === 'processing' && (
+              <div className="space-y-2">
+                <div className="flex items-center text-gray-300">
+                  <div className="animate-pulse w-3 h-3 bg-green-400 rounded-full mr-3"></div>
+                  <span>Capturing screenshot of {currentExecution.params?.url}...</span>
+                </div>
+                <div className="relative h-40 bg-gray-800 rounded-md overflow-hidden">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Camera size={32} className="text-gray-600 animate-pulse" />
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-500 animate-[loading_3s_ease-in-out]"></div>
+                </div>
+              </div>
+            )}
+            
+            {animationState === 'success' && currentExecution.result && (
+              <div className="animate-fadeIn">
+                <div className="relative h-48 bg-gray-800 rounded-md overflow-hidden">
+                  <div className="relative w-full h-full">
+                    {currentExecution.result.path && (
+                      <img 
+                        src={currentExecution.result.path + `?t=${Date.now()}`}
+                        alt="Website Screenshot"
+                        className="object-contain w-full h-full"
+                        onError={(e) => {
+                          console.error('Error loading screenshot:', e);
+                          // Add timestamp to force reload
+                          const target = e.target as HTMLImageElement;
+                          target.src = `${currentExecution.result.path}?t=${Date.now()}`;
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                    Captured: {new Date().toLocaleTimeString()}
+                  </div>
+                </div>
+                <div className="mt-2 text-sm text-gray-400">
+                Screenshot saved to: {currentExecution.result.path}
+                </div>
+              </div>
+            )}
+            
+            {animationState === 'error' && (
+              <div className="bg-red-900 bg-opacity-30 p-3 rounded-md text-red-300">
+                Error capturing screenshot. Please check the URL and try again.
+              </div>
+            )}
+          </div>
+        );
         
-        //   case 'get_website_favicon':
-        //     return (
-        //       <div className={`${containerClasses} border-l-4 border-purple-500`}>
-        //         <div className="flex items-center mb-2">
-        //           <ImageIcon className="mr-2 text-purple-400" size={20} />
-        //           <h3 className="text-lg font-medium text-purple-400">Website Favicon</h3>
-        //         </div>
-                
-        //         {animationState === 'initializing' && (
-        //           <div className="flex items-center text-gray-300">
-        //             <div className="animate-pulse w-3 h-3 bg-purple-400 rounded-full mr-3"></div>
-        //             <span>Scanning website for favicon...</span>
-        //           </div>
-        //         )}
-                
-        //         {animationState === 'processing' && (
-        //           <div className="space-y-2">
-        //             <div className="flex items-center text-gray-300">
-        //               <div className="animate-pulse w-3 h-3 bg-purple-400 rounded-full mr-3"></div>
-        //               <span>Extracting favicon from {currentExecution.params?.url}...</span>
-        //             </div>
-        //             <div className="flex justify-center py-4">
-        //               <div className="w-16 h-16 bg-gray-800 rounded-md flex items-center justify-center">
-        //                 <ImageIcon size={24} className="text-gray-600 animate-pulse" />
-        //               </div>
-        //             </div>
-        //           </div>
-        //         )}
-                
-        //         {animationState === 'success' && currentExecution.result && (
-        //           <div className="animate-fadeIn flex items-center space-x-4">
-        //             <div className="w-16 h-16 bg-white rounded-md overflow-hidden flex items-center justify-center">
-        //               {currentExecution.result.path && (
-        //                 <img 
-        //                   src={currentExecution.result.path + `?t=${Date.now()}`}
-        //                   alt="Website Favicon"
-        //                   className="max-w-full max-h-full"
-        //                   onError={(e) => {
-        //                     console.error('Error loading favicon:', e);
-        //                     // Add timestamp to force reload
-        //                     const target = e.target as HTMLImageElement;
-        //                     target.src = `${currentExecution.result.path}?t=${Date.now()}`;
-        //                   }}
-        //                 />
-        //               )}
-        //             </div>
-        //             <div className="text-sm text-gray-400">
-        //               <div>Favicon extracted successfully</div>
-        //               <div>Path: {currentExecution.result.path}</div>
-        //             </div>
-        //           </div>
-        //         )}
-                
-        //         {animationState === 'error' && (
-        //           <div className="bg-red-900 bg-opacity-30 p-3 rounded-md text-red-300">
-        //             Error extracting favicon. The website may not have a favicon.
-        //           </div>
-        //         )}
-        //       </div>
-        //     );
+      case 'get_website_favicon':
+        return (
+          <div className={`${containerClasses} border-l-4 border-purple-500`}>
+            <div className="flex items-center mb-2">
+              <ImageIcon className="mr-2 text-purple-400" size={20} />
+              <h3 className="text-lg font-medium text-purple-400">Website Favicon</h3>
+            </div>
+            
+            {animationState === 'initializing' && (
+              <div className="flex items-center text-gray-300">
+                <div className="animate-pulse w-3 h-3 bg-purple-400 rounded-full mr-3"></div>
+                <span>Scanning website for favicon...</span>
+              </div>
+            )}
+            
+            {animationState === 'processing' && (
+              <div className="space-y-2">
+                <div className="flex items-center text-gray-300">
+                  <div className="animate-pulse w-3 h-3 bg-purple-400 rounded-full mr-3"></div>
+                  <span>Extracting favicon from {currentExecution.params?.url}...</span>
+                </div>
+                <div className="flex justify-center py-4">
+                  <div className="w-16 h-16 bg-gray-800 rounded-md flex items-center justify-center">
+                    <ImageIcon size={24} className="text-gray-600 animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {animationState === 'success' && currentExecution.result && (
+              <div className="animate-fadeIn flex items-center space-x-4">
+                <div className="w-16 h-16 bg-white rounded-md overflow-hidden flex items-center justify-center">
+                  {currentExecution.result.path && (
+                    <img 
+                      src={currentExecution.result.path + `?t=${Date.now()}`}
+                      alt="Website Favicon"
+                      className="max-w-full max-h-full"
+                      onError={(e) => {
+                        console.error('Error loading favicon:', e);
+                        // Add timestamp to force reload
+                        const target = e.target as HTMLImageElement;
+                        target.src = `${currentExecution.result.path}?t=${Date.now()}`;
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="text-sm text-gray-400">
+                  <div>Favicon extracted successfully</div>
+                  <div>Path: {currentExecution.result.path}</div>
+                </div>
+              </div>
+            )}
+            
+            {animationState === 'error' && (
+              <div className="bg-red-900 bg-opacity-30 p-3 rounded-md text-red-300">
+                Error extracting favicon. The website may not have a favicon.
+              </div>
+            )}
+          </div>
+        );
         
       default:
         return (
@@ -549,8 +549,8 @@ const backendUrl = `https://${apiBase}`;
               >
                 <div className="flex items-center">
                   {execution.tool === 'perplexity' && <Globe size={16} className="text-blue-400 mr-2" />}
-                  {/* {execution.tool === 'capture_website_screenshot' && <Camera size={16} className="text-green-400 mr-2" />} */}
-                  {/* {execution.tool === 'get_website_favicon' && <ImageIcon size={16} className="text-purple-400 mr-2" />} */}
+                  {execution.tool === 'capture_website_screenshot' && <Camera size={16} className="text-green-400 mr-2" />}
+                  {execution.tool === 'get_website_favicon' && <ImageIcon size={16} className="text-purple-400 mr-2" />}
                   
                   <span className="text-xs">
                     {execution.tool}

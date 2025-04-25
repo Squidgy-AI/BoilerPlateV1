@@ -9,6 +9,8 @@ import ToolExecutionVisualizer from './ToolExecutionVisualizer';
 import UserDashboard from './UserDashboard';
 import WebSocketDebugger from './WebSocketDebugger';
 import ConnectionStatus from './ConnectionStatus';
+import { createOptimizedWebSocketConnection } from './WebSocketUtils';
+
 
 
 
@@ -159,16 +161,7 @@ useEffect(() => {
             status: 'complete'
           }));
           
-          console.log("Setting initial chat history:", formattedHistory);
           setChatHistory([...formattedHistory]);
-
-          // setTimeout(() => {
-          //   if (chatContainerRef.current) {
-          //     const scrollHeight = chatContainerRef.current.scrollHeight;
-          //     chatContainerRef.current.scrollTop = scrollHeight;
-          //     console.log("Scrolled to bottom after history load");
-          //   }
-          // }, 300);
         }
       }
     } catch (error) {
@@ -176,22 +169,11 @@ useEffect(() => {
     }
   };
 
-  // Reset chat when session changes
+  // Reset state for new session
   initialMessageSent.current = false;
   setAgentThinking(null);
   setCurrentRequestId(null);
-  
-  // Reset website data when changing sessions
   setWebsiteData({});
-  
-  // Fetch chat history for the new session
-  fetchChatHistory();
-  
-  // Reset and reconnect WebSocket with new session ID
-  if (websocketRef.current) {
-    websocketRef.current.close();
-    websocketRef.current = null;
-  }
   
   // Clean up any pending reconnect timers
   if (reconnectTimeoutRef.current) {
@@ -199,14 +181,25 @@ useEffect(() => {
     reconnectTimeoutRef.current = null;
   }
   
-  // Set connection status to connecting BEFORE attempting connection
+  // Set connection status to connecting
   setConnectionStatus('connecting');
-  console.log("Session changed, setting connection status to 'connecting'");
   
-  // Add a slight delay before reconnecting to ensure cleanup is complete
-  setTimeout(() => {
-    connectWebSocket();
-  }, 200);
+  // Optimize the session change flow:
+  // 1. Start WebSocket connection immediately (don't wait)
+  // 2. Fetch chat history in parallel with the connection
+  
+  // Start a new WebSocket connection immediately 
+  if (websocketRef.current) {
+    websocketRef.current.close();
+    websocketRef.current = null;
+  }
+  
+  // Connect to WebSocket immediately without delay
+  connectWebSocket();
+  
+  // Fetch chat history in parallel
+  fetchChatHistory();
+  
 }, [sessionId]);
 
   // Function to connect WebSocket
@@ -223,24 +216,16 @@ useEffect(() => {
   setConnectionStatus('connecting');
   console.log("Setting connection status to 'connecting'");
 
-  console.log("userId:", userId); 
-  console.log("sessionId:", sessionId);
-  
-  // Use dynamic URL based on environment with proper protocol handling
-/* && lastMessageTimestamp.current && (Date.now() - lastMessageTimestamp.current > 30000)
-              */
-
-
-const wsProtocol = 'wss:'; // Always use secure WebSockets with Heroku
-const wsBase = process.env.NEXT_PUBLIC_API_BASE;
-const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
+  const wsProtocol = 'wss:'; // Always use secure WebSockets with Heroku
+  const wsBase = process.env.NEXT_PUBLIC_API_BASE;
+  const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
   
   console.log("Connecting to WebSocket URL:", wsUrl);
 
   try {
     const ws = new WebSocket(wsUrl);
     
-    // Set a connection timeout
+    // Set a shorter connection timeout (3 seconds instead of 8)
     const connectionTimeout = setTimeout(() => {
       if (ws.readyState !== 1) {
         console.log("WebSocket connection timeout");
@@ -248,7 +233,7 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
           ws.close();
         }
       }
-    }, 8000); // 8 second timeout
+    }, 3000);
     
     ws.onopen = () => {
       clearTimeout(connectionTimeout);
@@ -261,12 +246,10 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
       // Update the exported state with the new WebSocket
       processingState.websocket = ws;
       
-      // Start chat with a small delay to ensure everything is ready
-      setTimeout(() => {
-        if (!chatStarted && !initialMessageSent.current) {
-          startChat();
-        }
-      }, 500);
+      // Start chat immediately without delay
+      if (!chatStarted && !initialMessageSent.current) {
+        startChat();
+      }
     };
     
     
@@ -383,6 +366,8 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
               }
             break;
             
+          // Replace the existing tool_result case handler in the ws.onmessage function with this one:
+
           case 'tool_result':
             // Tool execution completed - handle results
             console.log(`Tool result received: ${data.executionId}`);
@@ -390,19 +375,31 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
             // Process tool results based on the tool type
             if (data.executionId) {
               // Extract tool name from executionId (e.g., "screenshot-12345" -> "screenshot")
-              const toolName = data.executionId.split('-')[0];
+              const toolName = data.tool || data.executionId.split('-')[0];
               
               // Handle screenshot result
               if (data.tool === 'capture_website_screenshot' && data.result) {
-                let screenshotPath = data.result;
+                let screenshotPath = '';
+                
                 if (typeof data.result === 'object' && data.result.path) {
                   screenshotPath = data.result.path;
+                } else if (typeof data.result === 'string') {
+                  screenshotPath = data.result;
                 }
                 
-                // Ensure path starts with /
-                // if (screenshotPath && !screenshotPath.startsWith('/')) {
-                //   screenshotPath = '/' + screenshotPath;
-                // }
+                // Ensure path has the correct format
+                if (screenshotPath) {
+                  // If path is just a filename, add the full path
+                  if (!screenshotPath.startsWith('/') && !screenshotPath.startsWith('http')) {
+                    screenshotPath = `/static/screenshots/${screenshotPath}`;
+                  }
+                  
+                  // If path doesn't include the backend URL, add it
+                  if (screenshotPath.startsWith('/static/')) {
+                    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+                    screenshotPath = `https://${apiBase}${screenshotPath}`;
+                  }
+                }
                 
                 console.log("Setting screenshot path:", screenshotPath);
                 setWebsiteData(prev => ({
@@ -413,14 +410,26 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
               
               // Handle favicon result
               if (data.tool === 'get_website_favicon' && data.result) {
-                let faviconPath = data.result;
+                let faviconPath = '';
+                
                 if (typeof data.result === 'object' && data.result.path) {
                   faviconPath = data.result.path;
+                } else if (typeof data.result === 'string') {
+                  faviconPath = data.result;
                 }
                 
-                // Ensure path starts with /
-                if (faviconPath && !faviconPath.startsWith('/')) {
-                  faviconPath = '/' + faviconPath;
+                // Ensure path has the correct format
+                if (faviconPath) {
+                  // If path is just a filename, add the full path
+                  if (!faviconPath.startsWith('/') && !faviconPath.startsWith('http')) {
+                    faviconPath = `/static/favicons/${faviconPath}`;
+                  }
+                  
+                  // If path doesn't include the backend URL, add it
+                  if (faviconPath.startsWith('/static/')) {
+                    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+                    faviconPath = `https://${apiBase}${faviconPath}`;
+                  }
                 }
                 
                 console.log("Setting favicon path:", faviconPath);
@@ -485,21 +494,21 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
       console.log('WebSocket disconnected:', event.code, event.reason);
       websocketRef.current = null;
       setConnectionStatus('disconnected');
-      console.log("Setting connection status to 'disconnected'");
       
       // Update the exported state when WebSocket disconnects
       processingState.websocket = null;
       
-      // Attempt to reconnect if not intentionally closed and not at max attempts
+      // Use much shorter reconnect delays
       if (reconnectAttemptsRef.current < maxReconnectAttempts) {
         reconnectAttemptsRef.current++;
-        const reconnectDelay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000);
+        // Exponential backoff but with much shorter times
+        // 300ms, 600ms, 1200ms, etc. instead of seconds
+        const reconnectDelay = Math.min(300 * 2 ** reconnectAttemptsRef.current, 5000);
         
         console.log(`Attempting to reconnect in ${reconnectDelay / 1000} seconds...`);
         
         reconnectTimeoutRef.current = setTimeout(() => {
           setConnectionStatus('connecting');
-          console.log("Setting connection status to 'connecting' before reconnect");
           connectWebSocket();
         }, reconnectDelay);
       } else {
@@ -524,13 +533,11 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
     };
   }
   catch (error) {
-
-    
     console.error('Error creating WebSocket:', error);
     setConnectionStatus('disconnected');
     
-    // Set up auto-reconnect
-    const reconnectDelay = 3000;
+    // Set up faster auto-reconnect (1 second instead of 3)
+    const reconnectDelay = 1000;
     console.log(`WebSocket creation error. Retrying in ${reconnectDelay/1000} seconds...`);
     
     reconnectTimeoutRef.current = setTimeout(() => {
@@ -564,6 +571,7 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
       return;
     }
     
+    console.log("Starting chat immediately");
     setChatStarted(true);
     initialMessageSent.current = true;
     setLoading(true);
@@ -788,9 +796,9 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
         <div className="h-full flex flex-col p-6">
           {/* Connection Status Indicator */}
           <div className="absolute top-2 left-20 z-10">
-            <div className={`flex items-center px-3 py-1 rounded-full text-xs ${
+            <div className={`flex items-center px-3 py-1 rounded-full text-xs transition-all duration-300 ${
               connectionStatus === 'connected' ? 'bg-green-600' : 
-              connectionStatus === 'connecting' ? 'bg-yellow-600' : 'bg-red-600'
+              connectionStatus === 'connecting' ? 'bg-yellow-600 animate-pulse' : 'bg-red-600'
             } text-white`}>
               <div className={`w-2 h-2 rounded-full mr-2 ${
                 connectionStatus === 'connected' ? 'bg-green-300' : 
@@ -798,7 +806,24 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
               }`}></div>
               {connectionStatus === 'connected' ? 'Connected' : 
               connectionStatus === 'connecting' ? (
-                <span className="animate-pulse">Connecting...</span>
+                // Show connection attempt count and improve message
+                <span className="flex items-center">
+                  Connecting
+                  <span className="ml-1 flex space-x-1">
+                    {[...Array(3)].map((_, i) => (
+                      <span 
+                        key={i} 
+                        className="h-1 w-1 bg-yellow-300 rounded-full animate-bounce" 
+                        style={{ animationDelay: `${i * 0.15}s` }}
+                      />
+                    ))}
+                  </span>
+                  {reconnectAttemptsRef.current > 0 && (
+                    <span className="ml-1 opacity-75 text-[10px]">
+                      ({reconnectAttemptsRef.current})
+                    </span>
+                  )}
+                </span>
               ) : 'Disconnected'}
             </div>
           </div>
@@ -924,16 +949,22 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
                 type="text"
                 className="flex-1 bg-[#2D3B4F] text-white rounded-lg px-4 py-3"
                 placeholder={
-                  connectionStatus !== 'connected' 
-                    ? connectionStatus === 'connecting' 
-                      ? "Connecting to server..." 
-                      : "Disconnected from server..."
-                    : "Type your message..."
+                  connectionStatus === 'connecting' 
+                    ? "Connecting to server..." 
+                    : connectionStatus === 'disconnected'
+                      ? "Disconnected from server..."
+                      : "Type your message..."
                 }
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && !loading && connectionStatus === 'connected' && sendMessage()}
-                disabled={loading || connectionStatus !== 'connected'}
+                onKeyPress={(e) => {
+                  // Allow sending message as soon as we're connected, even if still loading
+                  if (e.key === "Enter" && connectionStatus === 'connected') {
+                    sendMessage();
+                  }
+                }}
+                // Only disable when actually disconnected
+                disabled={connectionStatus === 'disconnected'}
               />
               <button
                 onClick={() => {
@@ -945,29 +976,22 @@ const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
                     return;
                   }
                   
-                  if (loading) {
-                    // If loading for more than 30 seconds, allow resending
-                    setLoading(false);
-                    sendMessage();
-                  } else {
-                    sendMessage();
-                  }
+                  // Always allow sending new messages when connected
+                  sendMessage();
                 }}
                 className={`
                   text-white px-8 py-3 rounded-lg font-medium transition-colors
-                  ${loading
-                    ? "bg-gray-600" 
-                    : connectionStatus !== 'connected'
-                      ? connectionStatus === 'connecting'
-                        ? "bg-yellow-600 cursor-wait"
-                        : "bg-blue-600 hover:bg-blue-700"
+                  ${connectionStatus === 'connecting'
+                    ? "bg-yellow-600 cursor-wait"
+                    : connectionStatus === 'disconnected'
+                      ? "bg-gray-600"
                       : "bg-blue-600 hover:bg-blue-700"
                   }
                 `}
-                disabled={loading || connectionStatus === 'connecting'}
+                disabled={connectionStatus !== 'connected'}
               >
-              {loading ? "Processing..." : 
-               connectionStatus !== 'connected' ? "Connecting..." : "Send"}
+                {connectionStatus === 'connecting' ? "Connecting..." : 
+                connectionStatus === 'disconnected' ? "Disconnected" : "Send"}
               </button>
             </div>
           </div>
