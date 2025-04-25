@@ -151,22 +151,38 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
                 processedResult = { path: processedResult };
               }
               
-              if (processedResult && processedResult.path) {
+              // Original path handling for debugging
+              const originalPath = processedResult?.path;
+              console.log("Original path from backend:", originalPath);
+              
+              if (processedResult && typeof processedResult.path === 'string') {
                 // Add backend URL to paths if they don't already have it
                 if (processedResult.path.startsWith('/static/')) {
                   processedResult.path = `https://${apiBase}${processedResult.path}`;
                 } else if (!processedResult.path.startsWith('http')) {
                   // If it's just a filename, construct the full path
-                  if (toolName === 'capture_website_screenshot') {
-                    processedResult.path = `https://${apiBase}/static/screenshots/${processedResult.path.split('/').pop()}`;
-                  } else if (toolName === 'get_website_favicon') {
-                    processedResult.path = `https://${apiBase}/static/favicons/${processedResult.path.split('/').pop()}`;
+                  try {
+                    const filename = processedResult.path.includes('/') ? 
+                      processedResult.path.split('/').pop() : 
+                      processedResult.path;
+                      
+                    if (toolName === 'capture_website_screenshot') {
+                      processedResult.path = `https://${apiBase}/static/screenshots/${filename}`;
+                    } else if (toolName === 'get_website_favicon') {
+                      processedResult.path = `https://${apiBase}/static/favicons/${filename}`;
+                    }
+                  } catch (error) {
+                    console.error("Error processing path:", error);
+                    processedResult.path = ''; // Set to empty string if path processing fails
                   }
                 }
+              } else {
+                // Set a default empty path if path is not a string
+                processedResult.path = '';
+                console.warn("Image path is not a string:", processedResult?.path);
               }
 
-              // ADD THIS DEBUGGING CODE HERE
-              console.log("Original path from backend:", data.result?.path);
+              // Debug logging
               console.log("Processing image path for:", toolName);
               console.log("Backend URL:", backendUrl);
               console.log("Final processed path:", processedResult.path);

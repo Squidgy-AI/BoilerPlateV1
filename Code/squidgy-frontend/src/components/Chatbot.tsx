@@ -369,7 +369,7 @@ useEffect(() => {
           // Replace the existing tool_result case handler in the ws.onmessage function with this one:
 
           case 'tool_result':
-            // Tool execution completed - handle results
+            // Find the case 'tool_result': section in ws.onmessage handler and replace it with this:
             console.log(`Tool result received: ${data.executionId}`);
             
             // Process tool results based on the tool type
@@ -381,14 +381,14 @@ useEffect(() => {
               if (data.tool === 'capture_website_screenshot' && data.result) {
                 let screenshotPath = '';
                 
-                if (typeof data.result === 'object' && data.result.path) {
+                if (typeof data.result === 'object' && data.result && data.result.path) {
                   screenshotPath = data.result.path;
                 } else if (typeof data.result === 'string') {
                   screenshotPath = data.result;
                 }
                 
                 // Ensure path has the correct format
-                if (screenshotPath) {
+                if (screenshotPath && typeof screenshotPath === 'string') {
                   // If path is just a filename, add the full path
                   if (!screenshotPath.startsWith('/') && !screenshotPath.startsWith('http')) {
                     screenshotPath = `/static/screenshots/${screenshotPath}`;
@@ -399,6 +399,9 @@ useEffect(() => {
                     const apiBase = process.env.NEXT_PUBLIC_API_BASE;
                     screenshotPath = `https://${apiBase}${screenshotPath}`;
                   }
+                } else {
+                  // Set default empty string if path is not a string
+                  screenshotPath = '';
                 }
                 
                 console.log("Setting screenshot path:", screenshotPath);
@@ -412,14 +415,14 @@ useEffect(() => {
               if (data.tool === 'get_website_favicon' && data.result) {
                 let faviconPath = '';
                 
-                if (typeof data.result === 'object' && data.result.path) {
+                if (typeof data.result === 'object' && data.result && data.result.path) {
                   faviconPath = data.result.path;
                 } else if (typeof data.result === 'string') {
                   faviconPath = data.result;
                 }
                 
                 // Ensure path has the correct format
-                if (faviconPath) {
+                if (faviconPath && typeof faviconPath === 'string') {
                   // If path is just a filename, add the full path
                   if (!faviconPath.startsWith('/') && !faviconPath.startsWith('http')) {
                     faviconPath = `/static/favicons/${faviconPath}`;
@@ -430,6 +433,9 @@ useEffect(() => {
                     const apiBase = process.env.NEXT_PUBLIC_API_BASE;
                     faviconPath = `https://${apiBase}${faviconPath}`;
                   }
+                } else {
+                  // Set default empty string if path is not a string
+                  faviconPath = '';
                 }
                 
                 console.log("Setting favicon path:", faviconPath);
@@ -442,7 +448,7 @@ useEffect(() => {
               // Handle perplexity analysis result
               if (data.tool === 'analyze_with_perplexity' && data.result) {
                 let analysis = null;
-                if (typeof data.result === 'object' && data.result.analysis) {
+                if (typeof data.result === 'object' && data.result && data.result.analysis) {
                   analysis = data.result.analysis;
                 } else if (typeof data.result === 'string') {
                   analysis = data.result;
@@ -458,31 +464,6 @@ useEffect(() => {
               }
             }
             break;
-            
-            case 'error':
-              // Error occurred
-              setLoading(false);
-              setAgentThinking(null);
-              
-              // Clear current request ID on error
-              if (currentRequestId === data.requestId) {
-                setCurrentRequestId(null);
-                
-                // Also update the global state - ADD THIS LINE
-                processingState.isProcessing = false;
-                processingState.currentRequestId = null;
-              }
-              
-              setChatHistory(prevHistory => [
-                ...prevHistory,
-                { 
-                  sender: 'System', 
-                  message: data.message || 'An error occurred while processing your request.',
-                  requestId: data.requestId,
-                  status: 'error'
-                }
-              ]);
-              break;
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);

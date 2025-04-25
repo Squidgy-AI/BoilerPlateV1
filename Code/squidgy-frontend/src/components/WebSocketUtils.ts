@@ -8,10 +8,16 @@ export const processImagePath = (
     toolName: string, 
     apiBase: string | undefined
   ): string => {
-    if (!path) return '';
+    // Check if path is a string and not empty
+    if (!path || typeof path !== 'string') return '';
     
     // If it's already a full URL, return it as is
     if (path.startsWith('http')) {
+      return path;
+    }
+    
+    // If apiBase is not provided, return the path as is
+    if (!apiBase) {
       return path;
     }
     
@@ -196,3 +202,10 @@ export const createOptimizedWebSocketConnection = (
       }
     };
   };
+
+
+  // Replace the processImagePath function with this more robust version:
+
+/**
+ * Processes an image path from WebSocket tool results to ensure it has the full URL
+ */

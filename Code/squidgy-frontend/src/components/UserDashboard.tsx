@@ -193,7 +193,8 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   // Replace the displayData useMemo function in UserDashboard.tsx with this:
 
 // Use either real website data or test data with proper processing
-// Fix for the displayData useMemo function
+// Replace the existing displayData useMemo function with this:
+
 const displayData = React.useMemo(() => {
   // If no websiteData provided or it's empty, use test data
   if (!websiteData || 
@@ -201,10 +202,6 @@ const displayData = React.useMemo(() => {
     return testWebsiteData;
   }
 
-  console.log("Using test website data:", websiteData);
-  console.log("Using real website websiteData.screensho data:", websiteData.screenshot);
-  console.log("Using real website websiteData.favicon data:", websiteData.favicon);
-  
   // Process the real website data
   // Make sure to initialize with string values and check types
   let screenshot = typeof websiteData.screenshot === 'string' ? websiteData.screenshot : '';
@@ -212,27 +209,27 @@ const displayData = React.useMemo(() => {
 
   // Make sure we have valid URLs for images
   // Only modify paths if they don't already have a full URL and are strings
-  if (screenshot && typeof screenshot === 'string' && !screenshot.startsWith('http')) {
+  if (screenshot && typeof screenshot === 'string') {
     if (screenshot.startsWith('/static/')) {
       screenshot = `https://${apiBase}${screenshot}`;
-    } else {
+    } else if (!screenshot.startsWith('http')) {
       // Handle filenames or partial paths
       const filename = screenshot.includes('/') ? screenshot.split('/').pop() : screenshot;
       screenshot = `https://${apiBase}/static/screenshots/${filename}`;
     }
   }
 
-  if (favicon && typeof favicon === 'string' && !favicon.startsWith('http')) {
+  if (favicon && typeof favicon === 'string') {
     if (favicon.startsWith('/static/')) {
       favicon = `https://${apiBase}${favicon}`;
-    } else {
+    } else if (!favicon.startsWith('http')) {
       // Handle filenames or partial paths
       const filename = favicon.includes('/') ? favicon.split('/').pop() : favicon;
       favicon = `https://${apiBase}/static/favicons/${filename}`;
     }
   }
 
-  // Log the processed URLs for debugging
+  // Add debug logging
   console.log("Processed screenshot URL:", screenshot);
   console.log("Processed favicon URL:", favicon);
 
