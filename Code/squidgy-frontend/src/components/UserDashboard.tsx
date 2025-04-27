@@ -193,7 +193,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   // Replace the displayData useMemo function in UserDashboard.tsx with this:
 
 // Use either real website data or test data with proper processing
-// Replace the existing displayData useMemo function with this:
+// Update the displayData function in UserDashboard.tsx:
 
 const displayData = React.useMemo(() => {
   // If no websiteData provided or it's empty, use test data
@@ -202,59 +202,36 @@ const displayData = React.useMemo(() => {
     return testWebsiteData;
   }
 
+  // Log for debugging
   console.log("Processing website data:", websiteData);
-  
-  // Safely extract values ensuring they're strings
-  const url = typeof websiteData.url === 'string' ? websiteData.url : '';
-  const analysis = typeof websiteData.analysis === 'string' ? websiteData.analysis : '';
   
   // Process screenshot path with extra safety checks
   let screenshot = '';
   if (websiteData.screenshot) {
-    if (typeof websiteData.screenshot === 'string') {
-      screenshot = websiteData.screenshot;
-      
-      // Add domain if needed
-      if (screenshot && !screenshot.startsWith('http') && screenshot.startsWith('/static/')) {
-        screenshot = `https://${apiBase}${screenshot}`;
-      } 
-      // Handle just filename
-      else if (screenshot && !screenshot.startsWith('http') && !screenshot.startsWith('/static/')) {
-        screenshot = `https://${apiBase}/static/screenshots/${screenshot}`;
-      }
-      
-      console.log("Processed screenshot URL:", screenshot);
-    } else {
-      console.warn("Screenshot is not a string:", websiteData.screenshot);
+    screenshot = typeof websiteData.screenshot === 'string' ? websiteData.screenshot : '';
+    
+    // Fix URL format if needed
+    if (screenshot && !screenshot.startsWith('http') && screenshot.startsWith('/static/')) {
+      screenshot = `https://${apiBase}${screenshot}`;
     }
   }
   
-  // Process favicon path with extra safety checks
+  // Process favicon path similarly
   let favicon = '';
   if (websiteData.favicon) {
-    if (typeof websiteData.favicon === 'string') {
-      favicon = websiteData.favicon;
-      
-      // Add domain if needed
-      if (favicon && !favicon.startsWith('http') && favicon.startsWith('/static/')) {
-        favicon = `https://${apiBase}${favicon}`;
-      } 
-      // Handle just filename
-      else if (favicon && !favicon.startsWith('http') && !favicon.startsWith('/static/')) {
-        favicon = `https://${apiBase}/static/favicons/${favicon}`;
-      }
-      
-      console.log("Processed favicon URL:", favicon);
-    } else {
-      console.warn("Favicon is not a string:", websiteData.favicon);
+    favicon = typeof websiteData.favicon === 'string' ? websiteData.favicon : '';
+    
+    // Fix URL format if needed
+    if (favicon && !favicon.startsWith('http') && favicon.startsWith('/static/')) {
+      favicon = `https://${apiBase}${favicon}`;
     }
   }
 
   return {
-    url: url,
+    url: typeof websiteData.url === 'string' ? websiteData.url : '',
     screenshot: screenshot,
     favicon: favicon,
-    analysis: analysis
+    analysis: typeof websiteData.analysis === 'string' ? websiteData.analysis : ''
   };
 }, [websiteData, apiBase]);
 

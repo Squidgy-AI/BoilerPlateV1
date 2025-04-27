@@ -157,25 +157,17 @@ const ToolExecutionVisualizer: React.FC<ToolExecutionProps> = ({
               
               if (processedResult && typeof processedResult.path === 'string') {
                 // Add backend URL to paths if they don't already have it
-                if (processedResult.path.startsWith('/static/')) {
-                  processedResult.path = `https://${apiBase}${processedResult.path}`;
-                } else if (!processedResult.path.startsWith('http')) {
-                  // If it's just a filename, construct the full path
-                  try {
-                    const filename = processedResult.path.includes('/') ? 
-                      processedResult.path.split('/').pop() : 
-                      processedResult.path;
-                      
-                    if (toolName === 'capture_website_screenshot') {
-                      processedResult.path = `https://${apiBase}/static/screenshots/${filename}`;
-                    } else if (toolName === 'get_website_favicon') {
-                      processedResult.path = `https://${apiBase}/static/favicons/${filename}`;
-                    }
-                  } catch (error) {
-                    console.error("Error processing path:", error);
-                    processedResult.path = ''; // Set to empty string if path processing fails
+                let filename = processedResult.path;
+                  if (filename.includes('/')) {
+                    filename = filename.split('/').pop();
                   }
-                }
+
+                  const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+                  if (toolName === 'capture_website_screenshot') {
+                    processedResult.path = `https://${apiBase}/static/screenshots/${filename}`;
+                  } else {
+                    processedResult.path = `https://${apiBase}/static/favicons/${filename}`;
+                  }
               } else {
                 // Set a default empty path if path is not a string
                 processedResult.path = '';
