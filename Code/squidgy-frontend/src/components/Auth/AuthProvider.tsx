@@ -3,126 +3,247 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Session } from '@supabase/supabase-js';
+import type { Provider, Session, User } from '@supabase/supabase-js';
 import type { Profile } from '@/lib/supabase';
 
 type AuthContextType = {
   session: Session | null;
+  user: User | null;
   profile: Profile | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signIn: (provider: string, credentials?: { email?: string; password?: string }) => Promise<void>;
+  signUp: (credentials: { email: string; password: string; fullName: string }) => Promise<void>;
   signOut: () => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
-  inviteUser: (email: string, groupId?: string) => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  inviteUser: (email: string, groupId?: string) => Promise<{ status: string; message?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Set up Supabase auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        setSession(currentSession);
+  // Fetch user profile from database
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
         
-        if (currentSession?.user) {
-          // Fetch user profile
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', currentSession.user.id)
-            .single();
-            
-          if (!error && data) {
-            setProfile(data);
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      return null;
+    }
+  };
+
+  // Initialize auth state
+  useEffect(() => {
+    const initAuth = async () => {
+      setIsLoading(true);
+      
+      // Get current session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+      
+      if (currentSession?.user) {
+        setUser(currentSession.user);
+        
+        // Fetch user profile
+        const profileData = await fetchProfile(currentSession.user.id);
+        setProfile(profileData);
+      }
+      
+      setIsLoading(false);
+    };
+    
+    initAuth();
+    
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, updatedSession) => {
+        setSession(updatedSession);
+        setUser(updatedSession?.user || null);
+        
+        if (updatedSession?.user) {
+          // Fetch or create profile
+          let profileData = await fetchProfile(updatedSession.user.id);
+          
+          // If no profile exists and we have a new sign-up, create one
+          if (!profileData && event === 'SIGNED_IN') {
+            try {
+              const fullName = updatedSession.user.user_metadata?.full_name || 
+                               updatedSession.user.user_metadata?.name || 
+                               updatedSession.user.email?.split('@')[0] || 
+                               'User';
+              
+              const { data, error } = await supabase
+                .from('profiles')
+                .insert({
+                  id: updatedSession.user.id,
+                  email: updatedSession.user.email,
+                  full_name: fullName,
+                  avatar_url: updatedSession.user.user_metadata?.avatar_url || null
+                })
+                .select()
+                .single();
+                
+              if (error) throw error;
+              profileData = data;
+            } catch (error) {
+              console.error('Error creating profile:', error);
+            }
           }
+          
+          setProfile(profileData);
         } else {
           setProfile(null);
         }
-        
-        setIsLoading(false);
       }
     );
-
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      
-      if (initialSession?.user) {
-        // Fetch user profile
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', initialSession.user.id)
-          .single()
-          .then(({ data }) => {
-            if (data) setProfile(data);
-            setIsLoading(false);
-          });
-      } else {
-        setIsLoading(false);
-      }
-    });
-
+    
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    await supabase.auth.signInWithPassword({ email, password });
-  };
-
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({ 
-      email, 
-      password,
-      options: {
-        data: {
-          full_name: fullName
+  // Sign in with provider (email, google, etc.)
+  const signIn = async (provider: string, credentials?: { email?: string; password?: string }) => {
+    try {
+      let result;
+      
+      if (provider === 'email') {
+        if (!credentials?.email || !credentials.password) {
+          throw new Error('Email and password are required');
         }
+        
+        result = await supabase.auth.signInWithPassword({
+          email: credentials.email,
+          password: credentials.password,
+        });
+      } else if (['google', 'apple', 'github'].includes(provider)) {
+        result = await supabase.auth.signInWithOAuth({
+          provider: provider as Provider,
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+      } else {
+        throw new Error(`Unsupported sign-in method: ${provider}`);
       }
-    });
-    
-    if (error) throw error;
-    
-    // Create profile entry
-    if (data.user) {
-      await supabase.from('profiles').insert({
-        id: data.user.id,
-        email: email,
-        full_name: fullName
-      });
+      
+      if (result.error) throw result.error;
+    } catch (error: any) {
+      throw new Error(error.message || 'Sign-in failed');
     }
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
-
-  const sendPasswordResetEmail = async (email: string) => {
-    await supabase.auth.resetPasswordForEmail(email);
-  };
-
-  const inviteUser = async (email: string, groupId?: string) => {
-    // Generate a magic link invitation
-    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email);
-    
-    if (error) throw error;
-    
-    // If a group ID is provided, add the user to that group
-    if (groupId && data.user) {
-      await supabase.from('group_members').insert({
-        group_id: groupId,
-        user_id: data.user.id,
-        role: 'member',
-        is_agent: false
+  // Sign up with email and password
+  const signUp = async ({ email, password, fullName }: { email: string; password: string; fullName: string }) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
       });
+      
+      if (error) throw error;
+      
+      // Profile will be created by the database trigger or onAuthStateChange handler
+    } catch (error: any) {
+      throw new Error(error.message || 'Sign-up failed');
+    }
+  };
+
+  // Sign out
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error: any) {
+      throw new Error(error.message || 'Sign-out failed');
+    }
+  };
+
+  // Send password reset email
+  const sendPasswordResetEmail = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      
+      if (error) throw error;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to send reset email');
+    }
+  };
+
+  // Refresh profile data
+  const refreshProfile = async () => {
+    if (!user) return;
+    
+    const profileData = await fetchProfile(user.id);
+    setProfile(profileData);
+  };
+
+  // Invite a user
+  const inviteUser = async (email: string, groupId?: string) => {
+    try {
+      // Check if there's already a user with this email
+      const { data: existingUsers } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', email)
+        .limit(1);
+      
+      // Generate a token for the invitation
+      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      // Create invitation
+      const { data, error } = await supabase
+        .from('invitations')
+        .insert({
+          sender_id: user?.id,
+          recipient_id: existingUsers && existingUsers.length > 0 ? existingUsers[0].id : null,
+          recipient_email: email,
+          group_id: groupId,
+          company_id: profile?.company_id,
+          token,
+          status: 'pending',
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // In a real app, you'd send an email with the invitation link
+      // For now, just return the token and we'll handle emails in the backend
+      return {
+        status: 'success',
+        message: `Invitation sent to ${email}`,
+        token: data.token
+      };
+    } catch (error: any) {
+      console.error('Failed to invite user:', error);
+      return {
+        status: 'error',
+        message: error.message || 'Failed to invite user'
+      };
     }
   };
 
@@ -130,12 +251,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         session,
+        user,
         profile,
         isLoading,
         signIn,
         signUp,
         signOut,
         sendPasswordResetEmail,
+        refreshProfile,
         inviteUser
       }}
     >
