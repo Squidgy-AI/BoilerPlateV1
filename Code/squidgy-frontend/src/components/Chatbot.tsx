@@ -11,9 +11,6 @@ import WebSocketDebugger from './WebSocketDebugger';
 import ConnectionStatus from './ConnectionStatus';
 import { createOptimizedWebSocketConnection } from './WebSocketUtils';
 
-
-
-
 interface ChatMessage {
   sender: string;
   message: string;
@@ -65,11 +62,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108');
   
-  
   // State for tracking the current request
   const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
   
-  // NEW: State for website data
+  // State for website data
   const [websiteData, setWebsiteData] = useState<{
     url?: string;
     screenshot?: string;
@@ -84,42 +80,32 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Add this with your other state variables and refs at the top of your component
   const lastMessageTimestamp = useRef<number>(Date.now());
   const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
 
-
   // Effect to sync the internal state with the exported singleton
-  // useEffect(() => {
-  //   // Update the exported state whenever internal state changes
-  //   processingState.websocket = websocketRef.current;
-  //   processingState.currentRequestId = currentRequestId;
-  //   processingState.isProcessing = loading;
-  // }, [websocketRef.current, currentRequestId, loading]);
+  useEffect(() => {
+    console.log("Loading state changed:", loading);
+    // Update the exported state whenever internal state changes
+    processingState.websocket = websocketRef.current;
+    processingState.currentRequestId = currentRequestId;
+    processingState.isProcessing = loading;
+  }, [websocketRef.current, currentRequestId, loading]);
 
-  // Add this to the useEffect that updates the processingState
-useEffect(() => {
-  console.log("Loading state changed:", loading);
-  // Update the exported state whenever internal state changes
-  processingState.websocket = websocketRef.current;
-  processingState.currentRequestId = currentRequestId;
-  processingState.isProcessing = loading;
-}, [websocketRef.current, currentRequestId, loading]);
-
-useEffect(() => {
-  // Safety timeout to reset loading state if it gets stuck
-  if (loading) {
-    const safetyTimeout = setTimeout(() => {
-      console.log('Safety timeout triggered - resetting loading state');
-      setLoading(false);
-      if (currentRequestId) {
-        setCurrentRequestId(null);
-      }
-    }, 60000); // 1 minute timeout as safety
-    
-    return () => clearTimeout(safetyTimeout);
-  }
-}, [loading]);
+  useEffect(() => {
+    // Safety timeout to reset loading state if it gets stuck
+    if (loading) {
+      const safetyTimeout = setTimeout(() => {
+        console.log('Safety timeout triggered - resetting loading state');
+        setLoading(false);
+        if (currentRequestId) {
+          setCurrentRequestId(null);
+        }
+      }, 60000); // 1 minute timeout as safety
+      
+      return () => clearTimeout(safetyTimeout);
+    }
+  }, [loading]);
 
   // Handler for avatar change
   const handleAvatarChange = (avatarId: string) => {
@@ -134,439 +120,349 @@ useEffect(() => {
       chatContainerRef.current.scrollTop = scrollHeight;
     }
   }, [chatHistory, agentThinking]);
-  // useEffect(() => {
-  //   if (chatContainerRef.current) {
-  //     chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-  //   }
-  // }, [chatHistory, agentThinking]);
 
-  // Effect to handle initialTopic
-// In Chatbot.tsx - add this effect to load chat history on session change
-useEffect(() => {
-  // Function to fetch chat history
-  const fetchChatHistory = async () => {
-    try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-      const response = await fetch(`https://${apiBase}/chat-history?session_id=${sessionId}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Fetched initial chat history:", data);
+  // Effect to handle initialTopic and session changes
+  useEffect(() => {
+    // Function to fetch chat history
+    const fetchChatHistory = async () => {
+      try {
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+        const response = await fetch(`https://${apiBase}/chat-history?session_id=${sessionId}`);
         
-        if (data.history && data.history.length > 0) {
-          // Convert the backend format to our chat message format
-          const formattedHistory = data.history.map(msg => ({
-            sender: msg.sender,
-            message: msg.message,
-            status: 'complete'
-          }));
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Fetched initial chat history:", data);
           
-          setChatHistory([...formattedHistory]);
+          if (data.history && data.history.length > 0) {
+            // Convert the backend format to our chat message format
+            const formattedHistory = data.history.map(msg => ({
+              sender: msg.sender,
+              message: msg.message,
+              status: 'complete'
+            }));
+            
+            setChatHistory([...formattedHistory]);
+          }
         }
+      } catch (error) {
+        console.error("Error fetching chat history:", error);
       }
-    } catch (error) {
-      console.error("Error fetching chat history:", error);
-    }
-  };
+    };
 
-  // Reset state for new session
-  initialMessageSent.current = false;
-  setAgentThinking(null);
-  setCurrentRequestId(null);
-  setWebsiteData({});
-  
-  // Clean up any pending reconnect timers
-  if (reconnectTimeoutRef.current) {
-    clearTimeout(reconnectTimeoutRef.current);
-    reconnectTimeoutRef.current = null;
-  }
-  
-  // Set connection status to connecting
-  setConnectionStatus('connecting');
-  
-  // Optimize the session change flow:
-  // 1. Start WebSocket connection immediately (don't wait)
-  // 2. Fetch chat history in parallel with the connection
-  
-  // Start a new WebSocket connection immediately 
-  if (websocketRef.current) {
-    websocketRef.current.close();
-    websocketRef.current = null;
-  }
-  
-  // Connect to WebSocket immediately without delay
-  connectWebSocket();
-  
-  // Fetch chat history in parallel
-  fetchChatHistory();
-  
-}, [sessionId]);
+    // Reset state for new session
+    initialMessageSent.current = false;
+    setAgentThinking(null);
+    setCurrentRequestId(null);
+    setWebsiteData({});
+    
+    // Clean up any pending reconnect timers
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    // Set connection status to connecting
+    setConnectionStatus('connecting');
+    
+    // Optimize the session change flow:
+    // 1. Start WebSocket connection immediately (don't wait)
+    // 2. Fetch chat history in parallel with the connection
+    
+    // Start a new WebSocket connection immediately 
+    if (websocketRef.current) {
+      websocketRef.current.close();
+      websocketRef.current = null;
+    }
+    
+    // Connect to WebSocket immediately without delay
+    connectWebSocket();
+    
+    // Fetch chat history in parallel
+    fetchChatHistory();
+    
+  }, [sessionId]);
 
   // Function to connect WebSocket
   const connectWebSocket = () => {
-  if (!userId || !sessionId) return;
+    if (!userId || !sessionId) return;
 
-  // Close existing connection if any
-  if (websocketRef.current) {
-    websocketRef.current.close();
-    websocketRef.current = null;
-  }
-  
-  // Make sure connection status is set to connecting
-  setConnectionStatus('connecting');
-  console.log("Setting connection status to 'connecting'");
-
-  const wsProtocol = 'wss:'; // Always use secure WebSockets with Heroku
-  const wsBase = process.env.NEXT_PUBLIC_API_BASE;
-  const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
-  
-  console.log("Connecting to WebSocket URL:", wsUrl);
-
-  try {
-    const ws = new WebSocket(wsUrl);
-    
-    // Set a shorter connection timeout (3 seconds instead of 8)
-    const connectionTimeout = setTimeout(() => {
-      if (ws.readyState !== 1) {
-        console.log("WebSocket connection timeout");
-        if (ws.readyState === 0) { // Still in CONNECTING state
-          ws.close();
-        }
-      }
-    }, 3000);
-    
-    ws.onopen = () => {
-      clearTimeout(connectionTimeout);
-      console.log('WebSocket connected');
-      setConnectionStatus('connected');
-      console.log("Setting connection status to 'connected'");
-      reconnectAttemptsRef.current = 0;
-      websocketRef.current = ws;
-      
-      // Update the exported state with the new WebSocket
-      processingState.websocket = ws;
-      
-      // Start chat immediately without delay
-      if (!chatStarted && !initialMessageSent.current) {
-        startChat();
-      }
-    };
-    
-    
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('WebSocket message:', data, 'final flag:', data.final); // Debug logging
-
-        if (data.type === 'connection_status') {
-          if (data.status === 'connected') {
-            setConnectionStatus('connected');
-          } else if (data.status === 'connecting') {
-            setConnectionStatus('connecting');
-          } else if (data.status === 'disconnected') {
-            setConnectionStatus('disconnected');
-          }
-          return; // Skip further processing for status messages
-        }
-
-        
-        switch (data.type) {
-          case 'ack':
-            // Acknowledgment of message receipt
-            console.log(`Request ${data.requestId} acknowledged`);
-            break;
-            
-          case 'processing_start':
-            // Agents have started processing
-            setAgentThinking('Squidgy is thinking...');
-            break;
-            
-          case 'agent_thinking':
-            // Update which agent is currently thinking
-            setAgentThinking(`${data.agent} is thinking...`);
-            break;
-            
-          case 'agent_update':
-            // Update from an agent during processing
-            setAgentThinking(`${data.agent}: ${data.message}`);
-            break;
-
-          case 'agent_response':
-              // Final response from the agent
-              console.log('Received agent_response with final flag:', data.final);
-              
-              if (data.final === true) {
-                console.log('Setting loading to false because final flag is true');
-                setLoading(false);
-                setAgentThinking(null);
-                
-                // Clear message timeout if it exists
-                if (data.requestId && messageTimeoutsRef.current[data.requestId]) {
-                  clearTimeout(messageTimeoutsRef.current[data.requestId]);
-                  delete messageTimeoutsRef.current[data.requestId];
-                }
-                
-                // Clear current request ID when complete
-                if (currentRequestId === data.requestId) {
-                  setCurrentRequestId(null);
-                }
-                
-                // Only add the AI response to chat history if text is enabled
-                if (textEnabled) {
-                  console.log('Adding message to chat history:', {
-                    sender: 'AI',
-                    message: data.message,
-                    requestId: data.requestId,
-                    status: 'complete'
-                  });
-                  
-                  setChatHistory(prevHistory => {
-                    const newHistory = [
-                      ...prevHistory.filter(msg => 
-                        !(msg.requestId === data.requestId && msg.sender === 'AI')
-                      ),
-                      { 
-                        sender: 'AI', 
-                        message: data.message, 
-                        requestId: data.requestId, 
-                        status: 'complete' 
-                      }
-                    ];
-                    console.log('New chat history after adding message:', newHistory);
-                    return newHistory;
-                  });
-                }
-                
-                // Speak the response if avatar and voice are enabled
-                if (avatarRef.current && videoEnabled && voiceEnabled) {
-                  speakWithAvatar(data.message);
-                }
-              } else {
-                console.log('Received agent_response without final flag set to true:', data);
-              }
-            break;  
-            
-          case 'tool_execution':
-            // Tool execution started
-            console.log(`Tool execution started: ${data.tool} with ID ${data.executionId}`);
-            console.log(`Tool result received for tool:`, data.tool);
-            console.log(`Tool result full data:`, data);
-        
-              // Extract URL from tool parameters if available and it's a website tool
-              if (data.tool === 'capture_website_screenshot' || 
-                  data.tool === 'get_website_favicon' || 
-                  data.tool === 'analyze_with_perplexity') {
-                if (data.params && data.params.url) {
-                  // Update website data with the URL
-                  setWebsiteData(prev => ({
-                    ...prev,
-                    url: data.params.url
-                  }));
-                }
-              }
-            break;
-            
-          // Replace the existing tool_result case handler in the ws.onmessage function with this one:
-
-          case 'tool_result':
-            // Find the case 'tool_result': section in ws.onmessage handler and replace it with this:
-            console.log(`Tool result received: ${data.executionId}`);
-            
-            // Process tool results based on the tool type
-            if (data.executionId) {
-              // Extract tool name from executionId (e.g., "screenshot-12345" -> "screenshot")
-              const toolName = data.tool || data.executionId.split('-')[0];
-              
-              // Handle screenshot result
-              // Inside Chatbot.tsx, find the websocket message handler for tool_result 
-              // and update the screenshot handling code:
-
-              // For handling screenshot result
-              if (data.tool === 'capture_website_screenshot') {
-                // Log the entire result for debugging
-                console.log("Screenshot tool result:", data.result);
-                
-                let screenshotPath = '';
-                
-                // Handle different result formats
-                if (typeof data.result === 'object' && data.result && data.result.status === 'success' && data.result.path) {
-                  console.log("Result is success object with path:", data.result.path);
-                  screenshotPath = data.result.path;
-                } else if (typeof data.result === 'object' && data.result && data.result.path) {
-                  console.log("Result is object with path property:", data.result.path);
-                  screenshotPath = data.result.path;
-                } else if (typeof data.result === 'string') {
-                  console.log("Result is string:", data.result);
-                  screenshotPath = data.result;
-                } else {
-                  console.warn("Unexpected result format:", typeof data.result);
-                }
-                
-                // Ensure path has the correct format
-                if (screenshotPath && typeof screenshotPath === 'string') {
-                  console.log("Processing screenshot path:", screenshotPath);
-                  
-                  // If path is just a filename, add the full path
-                  if (!screenshotPath.startsWith('/') && !screenshotPath.startsWith('http')) {
-                    screenshotPath = `/static/screenshots/${screenshotPath}`;
-                    console.log("Added directory to path:", screenshotPath);
-                  }
-                  
-                  // If path doesn't include the backend URL, add it
-                  if (screenshotPath.startsWith('/static/')) {
-                    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-                    screenshotPath = `https://${apiBase}${screenshotPath}`;
-                    console.log("Added API base to path:", screenshotPath);
-                  }
-                } else {
-                  console.warn("Invalid screenshot path:", screenshotPath);
-                }
-                
-                console.log("Final screenshot path:", screenshotPath);
-                
-                // Only update if we have a valid path
-                if (screenshotPath) {
-                  setWebsiteData(prev => ({
-                    ...prev,
-                    screenshot: screenshotPath
-                  }));
-                }
-              }
-              
-              // Handle favicon result
-              if (data.tool === 'get_website_favicon' && data.result) {
-                let faviconPath = '';
-                
-                if (typeof data.result === 'object' && data.result && data.result.path) {
-                  faviconPath = data.result.path;
-                } else if (typeof data.result === 'string') {
-                  faviconPath = data.result;
-                }
-                
-                // Ensure path has the correct format
-                if (faviconPath && typeof faviconPath === 'string') {
-                  // If path is just a filename, add the full path
-                  if (!faviconPath.startsWith('/') && !faviconPath.startsWith('http')) {
-                    faviconPath = `/static/favicons/${faviconPath}`;
-                  }
-                  
-                  // If path doesn't include the backend URL, add it
-                  if (faviconPath.startsWith('/static/')) {
-                    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-                    faviconPath = `https://${apiBase}${faviconPath}`;
-                  }
-                } else {
-                  // Set default empty string if path is not a string
-                  faviconPath = '';
-                }
-                
-                console.log("Setting favicon path:", faviconPath);
-                setWebsiteData(prev => ({
-                  ...prev,
-                  favicon: faviconPath
-                }));
-              }
-              
-              // Handle perplexity analysis result
-              if (data.tool === 'analyze_with_perplexity' && data.result) {
-                let analysis = null;
-                if (typeof data.result === 'object' && data.result && data.result.analysis) {
-                  analysis = data.result.analysis;
-                } else if (typeof data.result === 'string') {
-                  analysis = data.result;
-                }
-                
-                if (analysis) {
-                  console.log("Setting website analysis:", analysis);
-                  setWebsiteData(prev => ({
-                    ...prev,
-                    analysis: analysis
-                  }));
-                }
-              }
-            }
-            break;
-        }
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    };
-    
-    ws.onclose = (event) => {
-      clearTimeout(connectionTimeout);
-      console.log('WebSocket disconnected:', event.code, event.reason);
+    // Close existing connection if any
+    if (websocketRef.current) {
+      websocketRef.current.close();
       websocketRef.current = null;
+    }
+    
+    // Make sure connection status is set to connecting
+    setConnectionStatus('connecting');
+    console.log("Setting connection status to 'connecting'");
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsBase = process.env.NEXT_PUBLIC_API_BASE;
+    const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
+    
+    console.log("Connecting to WebSocket URL:", wsUrl);
+
+    try {
+      const ws = new WebSocket(wsUrl);
+      
+      // Set a shorter connection timeout (3 seconds instead of 8)
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState !== 1) {
+          console.log("WebSocket connection timeout");
+          if (ws.readyState === 0) { // Still in CONNECTING state
+            ws.close();
+          }
+        }
+      }, 3000);
+      
+      ws.onopen = () => {
+        clearTimeout(connectionTimeout);
+        console.log('WebSocket connected');
+        setConnectionStatus('connected');
+        console.log("Setting connection status to 'connected'");
+        reconnectAttemptsRef.current = 0;
+        websocketRef.current = ws;
+        
+        // Update the exported state with the new WebSocket
+        processingState.websocket = ws;
+        
+        // Start chat immediately without delay
+        if (!chatStarted && !initialMessageSent.current) {
+          startChat();
+        }
+      };
+      
+      ws.onmessage = handleWebSocketMessage;
+      
+      ws.onclose = handleWebSocketClose;
+      
+      ws.onerror = handleWebSocketError;
+      
+    }
+    catch (error) {
+      console.error('Error creating WebSocket:', error);
       setConnectionStatus('disconnected');
       
-      // Update the exported state when WebSocket disconnects
-      processingState.websocket = null;
+      // Set up faster auto-reconnect (1 second instead of 3)
+      const reconnectDelay = 1000;
+      console.log(`WebSocket creation error. Retrying in ${reconnectDelay/1000} seconds...`);
       
-      // Use much shorter reconnect delays
-      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-        reconnectAttemptsRef.current++;
-        // Exponential backoff but with much shorter times
-        // 300ms, 600ms, 1200ms, etc. instead of seconds
-        const reconnectDelay = Math.min(300 * 2 ** reconnectAttemptsRef.current, 5000);
-        
-        console.log(`Attempting to reconnect in ${reconnectDelay / 1000} seconds...`);
-        
-        reconnectTimeoutRef.current = setTimeout(() => {
-          setConnectionStatus('connecting');
-          connectWebSocket();
-        }, reconnectDelay);
-      } else {
-        console.error('Max reconnection attempts reached. Please refresh the page.');
-        setAgentThinking('Connection lost. Please refresh the page.');
-      }
-    };
-    
-    ws.onerror = (event) => {
-      console.error('WebSocket error:', event);
-      console.log('WebSocket error occurred on URL:', wsUrl);
-      console.log('WebSocket readyState:', ws.readyState);
-      
-      // Don't update connection status here, as onclose will be called next
-      // Just log that we received an error event
-      
-      // Show error in UI if needed
-      if (ws.readyState === 3) { // CLOSED
-        setAgentThinking("Cannot connect to server. Please check if the server is running.");
-      }
-      // The onclose handler will be called after this
-    };
-  }
-  catch (error) {
-    console.error('Error creating WebSocket:', error);
+      reconnectTimeoutRef.current = setTimeout(() => {
+        setConnectionStatus('connecting');
+        connectWebSocket();
+      }, reconnectDelay);
+    }
+  };
+
+  const handleWebSocketClose = (event: CloseEvent) => {
+    console.log('WebSocket disconnected:', event.code, event.reason);
+    websocketRef.current = null;
     setConnectionStatus('disconnected');
     
-    // Set up faster auto-reconnect (1 second instead of 3)
-    const reconnectDelay = 1000;
-    console.log(`WebSocket creation error. Retrying in ${reconnectDelay/1000} seconds...`);
+    // Update the exported state when WebSocket disconnects
+    processingState.websocket = null;
     
-    reconnectTimeoutRef.current = setTimeout(() => {
-      setConnectionStatus('connecting');
-      connectWebSocket();
-    }, reconnectDelay);
-  }
-};
+    // Use shorter reconnect delays
+    if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+      reconnectAttemptsRef.current++;
+      const reconnectDelay = Math.min(300 * 2 ** reconnectAttemptsRef.current, 5000);
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        setConnectionStatus('connecting');
+        connectWebSocket();
+      }, reconnectDelay);
+    } else {
+      setAgentThinking('Connection lost. Please refresh the page.');
+    }
+  };
 
-  // Effect to establish WebSocket connection on component mount
-  // useEffect(() => {
-  //   // connectWebSocket();
-  //   const timer = setTimeout(() => {
-  //     connectWebSocket();
-  //   }, 300);
+  const handleWebSocketError = (event: Event) => {
+    console.error('WebSocket error:', event);
     
-  //   // Cleanup on component unmount
-  //   return () => {
-  //     if (websocketRef.current) {
-  //       websocketRef.current.close();
-  //     }
-  //     if (reconnectTimeoutRef.current) {
-  //       clearTimeout(reconnectTimeoutRef.current);
-  //     }
-  //   };
-  // }, []);
+    // Only show error if already closed
+    if (websocketRef.current && websocketRef.current.readyState === 3) {
+      setAgentThinking("Cannot connect to server. Please check if the server is running.");
+    }
+  };
+
+  const handleWebSocketMessage = (event: MessageEvent) => {
+    try {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'connection_status') {
+        setConnectionStatus(data.status);
+        return;
+      }
+      
+      switch (data.type) {
+        case 'ack':
+          console.log(`Request ${data.requestId} acknowledged`);
+          break;
+          
+        case 'processing_start':
+          setAgentThinking('Squidgy is thinking...');
+          break;
+          
+        case 'agent_thinking':
+          setAgentThinking(`${data.agent} is thinking...`);
+          break;
+          
+        case 'agent_update':
+          setAgentThinking(`${data.agent}: ${data.message}`);
+          break;
+          
+        case 'agent_response':
+          handleAgentResponse(data);
+          break;
+          
+        case 'tool_execution':
+          handleToolExecution(data);
+          break;
+          
+        case 'tool_result':
+          handleToolResult(data);
+          break;
+      }
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error);
+    }
+  };
+
+  // Function to handle tool execution events
+  const handleToolExecution = (data: any) => {
+    console.log(`Tool execution started: ${data.tool} with ID ${data.executionId}`);
+    
+    // Extract URL from tool parameters if available
+    if (data.tool === 'capture_website_screenshot' || 
+        data.tool === 'get_website_favicon' || 
+        data.tool === 'analyze_with_perplexity') {
+      if (data.params && data.params.url) {
+        // Update website data with the URL
+        setWebsiteData(prev => ({
+          ...prev,
+          url: data.params.url
+        }));
+      }
+    }
+  };
+
+  // Function to handle tool result events
+  const handleToolResult = (data: any) => {
+    console.log(`Tool result received: ${data.executionId}`);
+    
+    // Find the case 'tool_result': section in ws.onmessage handler and replace it with this:
+    console.log(`Tool result received: ${data.executionId}`);
+    
+    // Process tool results based on the tool type
+    if (data.executionId) {
+      // Extract tool name from executionId (e.g., "screenshot-12345" -> "screenshot")
+      const toolName = data.tool || data.executionId.split('-')[0];
+      
+      // Handle screenshot result
+      if (data.tool === 'capture_website_screenshot') {
+        // Log the entire result for debugging
+        console.log("Screenshot tool result:", data.result);
+        
+        let screenshotPath = '';
+        
+        // Handle different result formats
+        if (typeof data.result === 'object' && data.result && data.result.status === 'success' && data.result.path) {
+          console.log("Result is success object with path:", data.result.path);
+          screenshotPath = data.result.path;
+        } else if (typeof data.result === 'object' && data.result && data.result.path) {
+          console.log("Result is object with path property:", data.result.path);
+          screenshotPath = data.result.path;
+        } else if (typeof data.result === 'string') {
+          console.log("Result is string:", data.result);
+          screenshotPath = data.result;
+        } else {
+          console.warn("Unexpected result format:", typeof data.result);
+        }
+        
+        // Ensure path has the correct format
+        if (screenshotPath && typeof screenshotPath === 'string') {
+          console.log("Processing screenshot path:", screenshotPath);
+          
+          // If path is just a filename, add the full path
+          if (!screenshotPath.startsWith('/') && !screenshotPath.startsWith('http')) {
+            screenshotPath = `/static/screenshots/${screenshotPath}`;
+            console.log("Added directory to path:", screenshotPath);
+          }
+          
+          // If path doesn't include the backend URL, add it
+          if (screenshotPath.startsWith('/static/')) {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+            screenshotPath = `https://${apiBase}${screenshotPath}`;
+            console.log("Added API base to path:", screenshotPath);
+          }
+        } else {
+          console.warn("Invalid screenshot path:", screenshotPath);
+        }
+        
+        console.log("Final screenshot path:", screenshotPath);
+        
+        // Only update if we have a valid path
+        if (screenshotPath) {
+          setWebsiteData(prev => ({
+            ...prev,
+            screenshot: screenshotPath
+          }));
+        }
+      }
+      
+      // Handle favicon result
+      else if (data.tool === 'get_website_favicon' && data.result) {
+        let faviconPath = '';
+        
+        if (typeof data.result === 'object' && data.result && data.result.path) {
+          faviconPath = data.result.path;
+        } else if (typeof data.result === 'string') {
+          faviconPath = data.result;
+        }
+        
+        // Ensure path has the correct format
+        if (faviconPath && typeof faviconPath === 'string') {
+          // If path is just a filename, add the full path
+          if (!faviconPath.startsWith('/') && !faviconPath.startsWith('http')) {
+            faviconPath = `/static/favicons/${faviconPath}`;
+          }
+          
+          // If path doesn't include the backend URL, add it
+          if (faviconPath.startsWith('/static/')) {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+            faviconPath = `https://${apiBase}${faviconPath}`;
+          }
+        } else {
+          // Set default empty string if path is not a string
+          faviconPath = '';
+        }
+        
+        console.log("Setting favicon path:", faviconPath);
+        setWebsiteData(prev => ({
+          ...prev,
+          favicon: faviconPath
+        }));
+      }
+      
+      // Handle perplexity analysis result
+      else if (data.tool === 'analyze_with_perplexity' && data.result) {
+        let analysis = null;
+        if (typeof data.result === 'object' && data.result && data.result.analysis) {
+          analysis = data.result.analysis;
+        } else if (typeof data.result === 'string') {
+          analysis = data.result;
+        }
+        
+        if (analysis) {
+          console.log("Setting website analysis:", analysis);
+          setWebsiteData(prev => ({
+            ...prev,
+            analysis: analysis
+          }));
+        }
+      }
+    }
+  };
 
   // Function to start chat via WebSocket
   const startChat = () => {
@@ -594,8 +490,45 @@ useEffect(() => {
     }));
   };
 
+  const handleAgentResponse = (data: any) => {
+    if (data.final === true) {
+      setLoading(false);
+      setAgentThinking(null);
+      
+      // Clear message timeout if it exists
+      if (data.requestId && messageTimeoutsRef.current[data.requestId]) {
+        clearTimeout(messageTimeoutsRef.current[data.requestId]);
+        delete messageTimeoutsRef.current[data.requestId];
+      }
+      
+      // Clear current request ID when complete
+      if (currentRequestId === data.requestId) {
+        setCurrentRequestId(null);
+      }
+      
+      // Only add the AI response to chat history if text is enabled
+      if (textEnabled) {
+        setChatHistory(prevHistory => [
+          ...prevHistory.filter(msg => 
+            !(msg.requestId === data.requestId && msg.sender === 'AI')
+          ),
+          { 
+            sender: 'AI', 
+            message: data.message, 
+            requestId: data.requestId, 
+            status: 'complete' 
+          }
+        ]);
+      }
+      
+      // Speak the response if avatar and voice are enabled
+      if (avatarRef.current && videoEnabled && voiceEnabled) {
+        speakWithAvatar(data.message);
+      }
+    }
+  };
+
   // Function to send a message via WebSocket
-  // Find this code in Chatbot.tsx
   const sendMessage = () => {
     if (!userInput.trim()) return;
     
@@ -676,7 +609,6 @@ useEffect(() => {
       }, 60000); // 1 minute timeout
       
       // Store the timeout ID to clear it if response is received
-      // You'll need to add this to your state or ref
       messageTimeoutsRef.current[requestId] = messageTimeout;
       
       setUserInput(""); // Clear input field immediately for better UX
@@ -690,7 +622,7 @@ useEffect(() => {
         ...prevHistory,
         { 
           sender: "System", 
-          message: `Error sending message: ${error.message}`, 
+          message: `Error sending message: ${(error as Error).message}`, 
           requestId, 
           status: 'error' 
         }
@@ -722,7 +654,7 @@ useEffect(() => {
     }
   };
 
-  // Function to handle new session requests - ADDING THIS WAS MISSING
+  // Function to handle new session requests
   const handleNewSession = () => {
     // Generate a new session ID
     const newSessionId = `${userId}_${Date.now()}`;
@@ -733,7 +665,7 @@ useEffect(() => {
     }
   };
 
-  // Function to handle session selection - ADDING THIS WAS MISSING
+  // Function to handle session selection
   const handleSessionSelect = (selectedSessionId: string) => {
     // Notify parent component about session change
     if (onSessionChange) {
@@ -913,25 +845,22 @@ useEffect(() => {
                 </div>
               ) : (
                 <>
-                  {chatHistory.map((msg, index) => {
-                    console.log(`Rendering message ${index}:`, msg);
-                    return (
-                      <div
-                        key={`chat-msg-${index}`}
-                        className={`p-4 border-b border-gray-700 ${
-                          msg.sender === "System" ? "bg-red-900 bg-opacity-20" : ""
-                        }`}
-                      >
-                        <span className={`font-bold ${
-                          msg.sender === "AI" ? "text-blue-400" :
-                          msg.sender === "User" ? "text-green-400" : "text-red-400"
-                        }`}>
-                          {msg.sender}: 
-                        </span>
-                        <span className="text-white ml-2">{msg.message}</span>
-                      </div>
-                    );
-                  })}
+                  {chatHistory.map((msg, index) => (
+                    <div
+                      key={`chat-msg-${index}`}
+                      className={`p-4 border-b border-gray-700 ${
+                        msg.sender === "System" ? "bg-red-900 bg-opacity-20" : ""
+                      }`}
+                    >
+                      <span className={`font-bold ${
+                        msg.sender === "AI" ? "text-blue-400" :
+                        msg.sender === "User" ? "text-green-400" : "text-red-400"
+                      }`}>
+                        {msg.sender}: 
+                      </span>
+                      <span className="text-white ml-2">{msg.message}</span>
+                    </div>
+                  ))}
                   
                   {/* Show agent thinking status */}
                   {agentThinking && (
