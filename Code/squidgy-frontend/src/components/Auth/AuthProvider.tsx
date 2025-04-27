@@ -2,9 +2,9 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../lib/supabase';
 import type { Provider, Session, User } from '@supabase/supabase-js';
-import type { Profile } from '@/lib/supabase';
+import type { Profile } from '../../lib/supabase';
 
 type AuthContextType = {
   session: Session | null;
@@ -237,11 +237,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       // In a real app, you'd send an email with the invitation link
-      // For now, just return the token and we'll handle emails in the backend
+      // For now, just return the token
       return {
         status: 'success',
-        message: `Invitation sent to ${email}`,
-        token: data.token
+        message: `Invitation sent to ${email}`
       };
     } catch (error: any) {
       console.error('Failed to invite user:', error);
