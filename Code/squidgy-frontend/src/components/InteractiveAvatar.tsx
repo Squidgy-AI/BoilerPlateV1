@@ -38,6 +38,19 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const currentAvatarIdRef = useRef<string>(avatarId);
 
   // Dynamic fallback image based on selected avatar
+
+  const avatarMapping = {
+    'agent1': 'Anna_public_3_20240108',
+    'agent2': 'sol',
+    'agent3': 'Sarah_public_1_20240315',
+    'agent4': 'James_public_2_20240210',
+    'Anna_public_3_20240108': 'Anna_public_3_20240108',
+    'sol': 'sol'
+  };
+
+  // Use the mapped value or the default
+  const actualAvatarId = avatarMapping[avatarId] || 'Anna_public_3_20240108';
+
   const fallbackImagePath = avatarId === 'sol' ? "/sol.jpg" : "/seth.JPG";
 
   const actualAvatarRef = avatarRef || localAvatarRef;
@@ -90,7 +103,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       try {
         const res = await actualAvatarRef.current.createStartAvatar({
           quality: AvatarQuality.Low,
-          avatarName: avatarId, // Use the avatarId prop
+          avatarName: actualAvatarId, // Use the avatarId prop
           voice: {
             rate: 1.2,
             emotion: VoiceEmotion.NEUTRAL,
@@ -108,7 +121,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   
         setSessionActive(true);
         currentSessionIdRef.current = sessionId;
-        currentAvatarIdRef.current = avatarId;
+        currentAvatarIdRef.current = actualAvatarId;
   
         if (onAvatarReady) {
           onAvatarReady();
@@ -189,7 +202,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
 
   // Effect to handle avatar ID changes
   useEffect(() => {
-    if (sessionActive && currentAvatarIdRef.current !== avatarId) {
+    if (sessionActive && currentAvatarIdRef.current !== actualAvatarId) {
       // Need to reset the session when avatar changes
       endSession().then(() => {
         startAvatarSession();
@@ -198,7 +211,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       // Start session if not active but should be enabled
       startAvatarSession();
     }
-  }, [avatarId, enabled]);
+  }, [actualAvatarId, enabled]);
 
   // Effect to start session initially if enabled
   useEffect(() => {

@@ -1,6 +1,7 @@
+// src/app/page.tsx
 'use client';
 
-import WelcomeScreen from '@/components/Auth/WelcomeScreen';
+import WelcomeScreen from '@/components/WelcomeScreen';
 
 export default function Home() {
   return (

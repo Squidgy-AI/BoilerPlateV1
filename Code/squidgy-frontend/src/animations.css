@@ -1,35 +1,26 @@
-/* Tool Execution Animation Styles */
-
-/* Loading animation for progress bars */
-@keyframes loading {
-  0% {
-    width: 0%;
-  }
-  50% {
-    width: 70%;
-  }
-  100% {
-    width: 100%;
-  }
-}
-
-/* Typing animation for console output */
-@keyframes typing {
+/* src/animations.css */
+@keyframes fadeIn {
   from {
-    width: 0;
+    opacity: 0;
+    transform: translateY(10px);
   }
   to {
-    width: 100%;
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* Cursor blink animation for console output */
-@keyframes blink-caret {
-  from, to { border-color: transparent }
-  50% { border-color: #3b82f6 }
+@keyframes slideIn {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
-/* Pulse animation for status indicators */
 @keyframes pulse {
   0% {
     transform: scale(0.95);
@@ -45,371 +36,68 @@
   }
 }
 
-/* Map pin drop animation */
-@keyframes pin-drop {
-  0% {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  60% {
-    transform: translateY(5px);
-    opacity: 1;
-  }
-  80% {
-    transform: translateY(-2px);
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* Ripple effect for map pins */
-@keyframes ping {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  70%, 100% {
-    transform: scale(2);
-    opacity: 0;
-  }
-}
-
-/* Shimmer effect for cards */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-/* Fade in animation for results */
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  100% {
-    opacity: 1;
+@keyframes bounce {
+  0%, 100% {
     transform: translateY(0);
   }
-}
-
-/* Document assembly animation for reports */
-@keyframes stack-pages {
-  0% {
-    transform: translateY(20px) rotate(0deg);
-    opacity: 0;
-  }
-  30% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(0) rotate(var(--rotate-angle));
-    opacity: 1;
+  50% {
+    transform: translateY(-10px);
   }
 }
 
-/* Shadow grow animation for pin drop */
-@keyframes shadow-grow {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: white }
 }
 
 /* Animation utility classes */
-.animate-pulse {
-  animation: pulse 2s infinite ease-in-out;
-}
-
 .animate-fadeIn {
-  animation: fadeIn 0.5s ease-in-out;
+  animation: fadeIn 0.5s ease forwards;
 }
 
-.animate-typewriter {
-  display: inline-block;
+.animate-slideIn {
+  animation: slideIn 0.3s ease forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+.animate-bounce {
+  animation: bounce 1s infinite;
+}
+
+.animate-typing {
   overflow: hidden;
   white-space: nowrap;
-  animation: typing 2s steps(40, end);
-  border-right: 2px solid #fff;
-  padding-right: 5px;
+  border-right: 2px solid transparent;
+  animation: 
+    typing 3.5s steps(40, end),
+    blink-caret .75s step-end infinite;
 }
 
-.animate-ping {
-  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+/* Animation delays */
+.delay-100 {
+  animation-delay: 0.1s;
 }
 
-.animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.05) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
+.delay-200 {
+  animation-delay: 0.2s;
 }
 
-.animate-pin-drop {
-  animation: pin-drop 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+.delay-300 {
+  animation-delay: 0.3s;
 }
 
-.animate-shadow-grow {
-  animation: shadow-grow 0.5s ease-out forwards 0.8s;
+.delay-400 {
+  animation-delay: 0.4s;
 }
 
-.animate-stack {
-  animation: stack-pages 0.8s var(--delay, 0s) cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  opacity: 0;
-}
-
-/* For the bouncing pin drop animation */
-.ease-bounce {
-  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* Agent background styling for the thinking process component */
-.bg-agent-productmanager {
-  background-color: rgba(59, 130, 246, 0.1);
-  border-left: 3px solid #3b82f6;
-}
-
-.bg-agent-pre-sales {
-  background-color: rgba(16, 185, 129, 0.1);
-  border-left: 3px solid #10b981;
-}
-
-.bg-agent-socialmediamanager {
-  background-color: rgba(236, 72, 153, 0.1);
-  border-left: 3px solid #ec4899;
-}
-
-.bg-agent-leadgen {
-  background-color: rgba(245, 158, 11, 0.1);
-  border-left: 3px solid #f59e0b;
-}
-
-/* Tool execution visualization styling */
-.tool-card {
-  border-radius: 0.5rem;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  animation: fadeIn 0.3s ease-out forwards;
-}
-
-.tool-card-perplexity {
-  border-left: 4px solid #3b82f6;
-  background-color: rgba(59, 130, 246, 0.1);
-}
-
-.tool-card-screenshot {
-  border-left: 4px solid #10b981;
-  background-color: rgba(16, 185, 129, 0.1);
-}
-
-.tool-card-favicon {
-  border-left: 4px solid #8b5cf6;
-  background-color: rgba(139, 92, 246, 0.1);
-}
-
-/* Solar tool card styles */
-.tool-card-insights {
-  border-left: 4px solid #f59e0b;
-  background-color: rgba(245, 158, 11, 0.1);
-}
-
-.tool-card-datalayers {
-  border-left: 4px solid #10b981;
-  background-color: rgba(16, 185, 129, 0.1);
-}
-
-.tool-card-report {
-  border-left: 4px solid #3b82f6;
-  background-color: rgba(59, 130, 246, 0.1);
-}
-
-/* Map element styling */
-.map-container {
-  position: relative;
-  height: 200px;
-  background-color: #2d3748;
-  border-radius: 0.5rem;
-  overflow: hidden;
-}
-
-.map-overlay {
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(to bottom, transparent, rgba(15, 23, 42, 0.7));
-}
-
-.map-pin {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%) translateY(-100%);
-}
-
-.map-pin.dropped {
-  animation: pin-drop 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-
-.map-pin-shadow {
-  position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background-color: rgba(0, 0, 0, 0.3);
-}
-
-.map-pin-shadow.active {
-  animation: shadow-grow 0.5s ease-out forwards 0.8s;
-  width: 16px;
-  height: 3px;
-}
-
-/* Report document styling */
-.report-page {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background-color: white;
-  border-radius: 0.375rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.report-page:nth-child(1) {
-  --rotate-angle: -3deg;
-  --delay: 0s;
-}
-
-.report-page:nth-child(2) {
-  --rotate-angle: 2deg;
-  --delay: 0.2s;
-}
-
-.report-page:nth-child(3) {
-  --rotate-angle: 0deg;
-  --delay: 0.4s;
-}
-
-/* Data layers grid styling */
-.data-layer-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.5rem;
-}
-
-.data-layer-item {
-  position: relative;
-  height: 120px;
-  background-color: #2d3748;
-  border-radius: 0.375rem;
-  overflow: hidden;
-}
-
-.data-layer-label {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 0.25rem 0.5rem;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  font-size: 0.75rem;
-}
-
-.data-layer-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 2px;
-  background-color: #10b981;
-  transition: width 0.8s ease-in-out;
-}
-
-/* Toggle switch styling */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: .4s;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .4s;
-}
-
-input:checked + .slider {
-  background-color: #2196F3;
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
-}
-
-input:checked + .slider:before {
-  transform: translateX(20px);
-}
-
-.slider.round {
-  border-radius: 24px;
-}
-
-.slider.round:before {
-  border-radius: 50%;
-}
-
-/* Add to your CSS file */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #1E293B;
-  border-radius: 3px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 3px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #64748B;
+.delay-500 {
+  animation-delay: 0.5s;
 }
