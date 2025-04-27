@@ -5,32 +5,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/Auth/AuthProvider';
 import { useChat } from '@/context/ChatContext';
 import { supabase } from '@/lib/supabase';
-import { Users, User, Bot, UserPlus, FolderPlus, LogOut, Settings, MessageSquare, Search, X, Plus } from 'lucide-react';
+import { Users, User, Bot, UserPlus, FolderPlus, LogOut, Settings, MessageSquare, Search, X } from 'lucide-react';
 import InvitationList from '../Invitations/InvitationList';
 
-interface Profile {
-  id: string;
-  full_name: string;
-  email: string;
-  avatar_url?: string;
+interface SidebarProps {
+  onSettingsOpen: () => void;
 }
 
-interface Group {
-  id: string;
-  name: string;
-  created_by: string;
-  created_at: string;
-}
-
-interface Agent {
-  id: string;
-  name: string;
-  type: string;
-  avatar: string;
-  description: string;
-}
-
-const EnhancedSidebar: React.FC = () => {
+const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
   const { profile, signOut } = useAuth();
   const { 
     currentSessionId, 
@@ -43,9 +25,9 @@ const EnhancedSidebar: React.FC = () => {
   } = useChat();
   
   const [activeSection, setActiveSection] = useState<'people' | 'agents' | 'groups'>('agents');
-  const [people, setPeople] = useState<Profile[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [agents, setAgents] = useState<Agent[]>([
+  const [people, setPeople] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [agents, setAgents] = useState([
     { 
       id: 'ProductManager', 
       name: 'Product Manager', 
@@ -85,7 +67,6 @@ const EnhancedSidebar: React.FC = () => {
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<Profile[]>([]);
   
   // Fetch people and groups
   useEffect(() => {
@@ -358,6 +339,13 @@ const EnhancedSidebar: React.FC = () => {
         <div className="flex space-x-2">
           <InvitationList />
           <button 
+            onClick={onSettingsOpen}
+            className="text-gray-400 hover:text-white p-2 rounded-full"
+            title="Settings"
+          >
+            <Settings size={18} />
+          </button>
+          <button 
             onClick={() => signOut()}
             className="text-gray-400 hover:text-white p-2 rounded-full"
             title="Logout"
@@ -509,7 +497,8 @@ const EnhancedSidebar: React.FC = () => {
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         // Fallback for image loading errors
-                        (e.target as HTMLImageElement).src = '/avatars/fallback-avatar.jpg';
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/avatars/fallback-avatar.jpg';
                       }}
                     />
                   </div>
@@ -661,7 +650,8 @@ const EnhancedSidebar: React.FC = () => {
                         alt={agent.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/avatars/fallback-avatar.jpg';
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/avatars/fallback-avatar.jpg';
                         }}
                       />
                     </div>

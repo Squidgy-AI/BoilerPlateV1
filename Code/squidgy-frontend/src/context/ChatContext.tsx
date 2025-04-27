@@ -2,20 +2,20 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import WebSocketService, { WebSocketMessage, getWebSocketService } from '@/services/WebSocketService';
-import { useAuth } from '@/components/Auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/components/Auth/AuthProvider';
+import WebSocketService from '@/services/WebSocketService';
 
+// Define types for messages, sessions, and other data
 export interface ChatMessage {
   id: string;
-  sender: string;
+  sender: string; 
   message: string;
   timestamp: string;
-  sender_name?: string;
-  is_agent?: boolean;
-  agent_type?: string;
   requestId?: string;
   status?: 'complete' | 'thinking' | 'error';
+  is_agent?: boolean;
+  agent_type?: string;
 }
 
 interface WebsiteData {
@@ -27,35 +27,29 @@ interface WebsiteData {
 
 interface SolarResult {
   id: string;
+  timestamp: number;
   address: string;
   type: 'insights' | 'datalayers' | 'report';
-  timestamp: number;
   data: any;
 }
 
-export interface ChatContextType {
-  // Session management
+// Define the context interface
+interface ChatContextType {
   currentSessionId: string;
-  setCurrentSessionId: (sessionId: string) => void;
+  setCurrentSessionId: (id: string) => void;
   isGroupSession: boolean;
   setIsGroupSession: (isGroup: boolean) => void;
-  
-  // WebSocket management
-  websocket: WebSocketService | null;
-  connectionStatus: 'connected' | 'connecting' | 'disconnected';
-  
-  // Messages and chat state
   messages: ChatMessage[];
   sendMessage: (message: string) => Promise<void>;
   isProcessing: boolean;
   agentThinking: string | null;
   currentRequestId: string | null;
-  
-  // Tool execution results
   websiteData: WebsiteData;
   solarResults: SolarResult[];
+  websocket: WebSocketService | null;
+  connectionStatus: 'connected' | 'connecting' | 'disconnected';
   
-  // UI state
+  // UI preferences
   textEnabled: boolean;
   setTextEnabled: (enabled: boolean) => void;
   voiceEnabled: boolean;
@@ -63,9 +57,9 @@ export interface ChatContextType {
   videoEnabled: boolean;
   setVideoEnabled: (enabled: boolean) => void;
   selectedAvatarId: string;
-  setSelectedAvatarId: (avatarId: string) => void;
+  setSelectedAvatarId: (id: string) => void;
   
-  // Session functions
+  // Session management
   createNewSession: () => Promise<string>;
   fetchSessionMessages: (sessionId: string, isGroup: boolean) => Promise<void>;
   clearSessionMessages: () => void;
@@ -78,63 +72,47 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentSessionId, setCurrentSessionId] = useState<string>('');
   const [isGroupSession, setIsGroupSession] = useState<boolean>(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [websocket, setWebsocket] = useState<WebSocketService | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
   const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
   const [websiteData, setWebsiteData] = useState<WebsiteData>({});
   const [solarResults, setSolarResults] = useState<SolarResult[]>([]);
+  const [websocket, setWebsocket] = useState<WebSocketService | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   
-  // UI Preferences
+  // UI preferences
   const [textEnabled, setTextEnabled] = useState<boolean>(true);
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [videoEnabled, setVideoEnabled] = useState<boolean>(true);
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108');
   
-  // Reference to keep track of message timeouts
+  // Track message timeouts
   const messageTimeoutsRef = useRef<{[key: string]: NodeJS.Timeout}>({});
-  
+
   // Initialize WebSocket when session changes
   useEffect(() => {
     if (!profile || !currentSessionId) return;
     
-    // Clean up any existing WebSocket
+    // Clean up existing WebSocket
     if (websocket) {
       websocket.close();
     }
     
-    // Clear any pending message timeouts
+    // Clear any pending timeouts
     Object.values(messageTimeoutsRef.current).forEach(timeout => clearTimeout(timeout));
     messageTimeoutsRef.current = {};
     
-    // Create a new WebSocket service
-    const wsService = getWebSocketService({
+    // Create new WebSocket service
+    const wsService = new WebSocketService({
       userId: profile.id,
       sessionId: currentSessionId,
-      onOpen: () => {
-        console.log('WebSocket opened');
+      onStatusChange: (status) => {
+        setConnectionStatus(status);
       },
-      onClose: () => {
-        console.log('WebSocket closed');
-      },
-      onError: (error) => {
-        console.error('WebSocket error:', error);
-      },
-      onReconnect: (attempt) => {
-        console.log(`Reconnect attempt ${attempt}`);
-      }
+      onMessage: handleWebSocketMessage
     });
     
-    // Listen for status changes
-    wsService.on('status_change', (status) => {
-      setConnectionStatus(status);
-    });
-    
-    // Listen for WebSocket messages
-    wsService.on('message', handleWebSocketMessage);
-    
-    // Connect to the WebSocket server
+    // Connect to WebSocket server
     wsService.connect().catch((error) => {
       console.error('Error connecting to WebSocket:', error);
     });
@@ -147,17 +125,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setWebsiteData({});
     setSolarResults([]);
     
-    // Clean up function
+    // Clean up on unmount
     return () => {
       if (wsService) {
-        wsService.removeAllListeners();
         wsService.close();
       }
     };
   }, [profile, currentSessionId]);
-  
+
   // Handle WebSocket messages
-  const handleWebSocketMessage = (data: WebSocketMessage) => {
+  const handleWebSocketMessage = (data: any) => {
     console.log('WebSocket message:', data);
     
     switch (data.type) {
@@ -201,7 +178,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           
           // Only add the AI response to chat history if text is enabled
-          if (textEnabled && data.message) {
+          if (textEnabled) {
             const newMessage: ChatMessage = {
               id: `ai-${Date.now()}`,
               sender: data.agent || 'AI',
@@ -220,25 +197,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             // Save message to database
             saveMessageToDatabase(newMessage);
+            
+            // Send to n8n for processing
+            sendToN8n(data.agent, data.message);
           }
         }
         break;
         
       case 'tool_execution':
-        console.log(`Tool execution: ${data.tool}`, data);
         handleToolExecution(data);
         break;
         
       case 'tool_result':
-        console.log(`Tool result: ${data.executionId}`, data);
         handleToolResult(data);
         break;
     }
   };
   
-  // Handle tool execution event
-  const handleToolExecution = (data: WebSocketMessage) => {
-    // Track tool execution and update UI as needed
+  // Handle tool execution events
+  const handleToolExecution = (data: any) => {
     if (data.tool === 'analyze_with_perplexity' || 
         data.tool === 'capture_website_screenshot' || 
         data.tool === 'get_website_favicon') {
@@ -253,19 +230,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   
-  // Handle tool result event
-  const handleToolResult = (data: WebSocketMessage) => {
-    if (!data.tool && data.executionId) {
-      // Extract tool from executionId if not provided directly
-      const parts = data.executionId.split('-');
-      if (parts.length > 0) {
-        data.tool = parts[0];
-      }
-    }
+  // Handle tool result events
+  const handleToolResult = (data: any) => {
+    // Extract tool name from executionId if not provided directly
+    const toolName = data.tool || (data.executionId ? data.executionId.split('-')[0] : null);
     
-    // Handle different types of tool results
-    switch (data.tool) {
+    if (!toolName) return;
+    
+    switch (toolName) {
       case 'analyze_with_perplexity':
+      case 'perplexity':
         if (data.result?.analysis) {
           setWebsiteData(prev => ({
             ...prev,
@@ -275,6 +249,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         break;
         
       case 'capture_website_screenshot':
+      case 'screenshot':
         if (data.result?.path) {
           const path = processImagePath(data.result.path, 'screenshot');
           setWebsiteData(prev => ({
@@ -285,6 +260,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         break;
         
       case 'get_website_favicon':
+      case 'favicon':
         if (data.result?.path) {
           const path = processImagePath(data.result.path, 'favicon');
           setWebsiteData(prev => ({
@@ -296,26 +272,23 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       case 'get_insights':
       case 'insights':
-        // Add to solar results
         addSolarResult('insights', data);
         break;
         
       case 'get_datalayers':
       case 'datalayers':
-        // Add to solar results
         addSolarResult('datalayers', data);
         break;
         
       case 'get_report':
       case 'report':
-        // Add to solar results
         addSolarResult('report', data);
         break;
     }
   };
   
   // Add a solar result to the list
-  const addSolarResult = (type: 'insights' | 'datalayers' | 'report', data: WebSocketMessage) => {
+  const addSolarResult = (type: 'insights' | 'datalayers' | 'report', data: any) => {
     const address = data.params?.address || 'Unknown Address';
     
     setSolarResults(prev => [{
@@ -355,8 +328,31 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   
+  // Send a message to n8n
+  const sendToN8n = async (agent: string, message: string) => {
+    const n8nEndpoint = process.env.NEXT_PUBLIC_N8N_ENDPOINT;
+    if (!n8nEndpoint) return;
+    
+    try {
+      await fetch(n8nEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          agent,
+          message,
+          sessionId: currentSessionId,
+          timestamp: new Date().toISOString()
+        })
+      });
+    } catch (error) {
+      console.error('Error sending to n8n:', error);
+    }
+  };
+  
   // Send a chat message
-  const sendMessage = async (message: string): Promise<void> => {
+  const sendMessage = async (message: string) => {
     if (!websocket || !profile || !message.trim() || !currentSessionId) {
       return;
     }
@@ -446,7 +442,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Save message to database
-  const saveMessageToDatabase = async (message: ChatMessage): Promise<void> => {
+  const saveMessageToDatabase = async (message: ChatMessage) => {
     if (!profile || !currentSessionId) return;
     
     try {
@@ -463,7 +459,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Save to messages (direct messages)
         await supabase.from('messages').insert({
           sender_id: message.sender === 'User' ? profile.id : 'system',
-          recipient_id: message.sender === 'User' ? 'system' : profile.id,
+          recipient_id: message.sender === 'User' ? currentSessionId : profile.id,
           message: message.message
         });
       }
@@ -473,17 +469,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Create a new session
-  const createNewSession = async (): Promise<string> => {
+  const createNewSession = async () => {
     if (!profile) throw new Error('User not authenticated');
     
+    // Generate a new session ID
     const newSessionId = `${profile.id}_${Date.now()}`;
     
     try {
-      // Create session in database
+      // Save session to database
       await supabase.from('sessions').insert({
         id: newSessionId,
         user_id: profile.id,
-        is_group: false
+        is_group: false,
+        last_active: new Date().toISOString()
       });
       
       return newSessionId;
@@ -494,7 +492,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Fetch messages for a session
-  const fetchSessionMessages = async (sessionId: string, isGroup: boolean): Promise<void> => {
+  const fetchSessionMessages = async (sessionId: string, isGroup: boolean) => {
     if (!profile) return;
     
     try {
@@ -558,14 +556,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMessages([]);
   };
   
-  // Create context value object
-  const contextValue: ChatContextType = {
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      // Clear any pending timeouts
+      Object.values(messageTimeoutsRef.current).forEach(timeout => clearTimeout(timeout));
+      messageTimeoutsRef.current = {};
+      
+      // Close WebSocket
+      if (websocket) {
+        websocket.close();
+      }
+    };
+  }, []);
+
+  const contextValue = {
     currentSessionId,
     setCurrentSessionId,
     isGroupSession,
     setIsGroupSession,
-    websocket,
-    connectionStatus,
     messages,
     sendMessage,
     isProcessing,
@@ -581,11 +590,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setVideoEnabled,
     selectedAvatarId,
     setSelectedAvatarId,
+    websocket,
+    connectionStatus,
     createNewSession,
     fetchSessionMessages,
     clearSessionMessages
   };
-  
+
   return (
     <ChatContext.Provider value={contextValue}>
       {children}
@@ -595,8 +606,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useChat = () => {
   const context = useContext(ChatContext);
-  if (context === undefined) {
-    throw new Error('useChat must be used within a ChatProvider');
+  if (!context) {
+    throw new Error('useChat must be used within ChatProvider');
   }
   return context;
 };

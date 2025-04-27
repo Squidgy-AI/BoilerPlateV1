@@ -1,41 +1,29 @@
 // src/services/WebSocketService.ts
-import { EventEmitter } from 'events';
 
-export interface WebSocketMessage {
-  type: string;
-  agent?: string;
-  message?: string;
-  requestId?: string;
-  executionId?: string;
-  tool?: string;
-  params?: any;
-  result?: any;
-  final?: boolean;
-  timestamp?: number;
-}
+export type WebSocketStatus = 'connected' | 'connecting' | 'disconnected';
 
 export interface WebSocketConfig {
   userId: string;
   sessionId: string;
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
+  onStatusChange?: (status: WebSocketStatus) => void;
+  onMessage?: (data: any) => void;
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (error: Event) => void;
   onReconnect?: (attempt: number) => void;
 }
 
-class WebSocketService extends EventEmitter {
+class WebSocketService {
   private ws: WebSocket | null = null;
   private config: WebSocketConfig;
   private reconnectAttempts = 0;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private pingInterval: NodeJS.Timeout | null = null;
-  private connectionStatus: 'connected' | 'connecting' | 'disconnected' = 'disconnected';
-  private pendingMessages: { data: any, resolver: Function, rejecter: Function }[] = [];
+  private status: WebSocketStatus = 'disconnected';
 
   constructor(config: WebSocketConfig) {
-    super();
     this.config = {
       reconnectInterval: 2000,
       maxReconnectAttempts: 10,
@@ -43,9 +31,6 @@ class WebSocketService extends EventEmitter {
     };
   }
 
-  /**
-   * Connect to the WebSocket server
-   */
   public connect(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -53,8 +38,7 @@ class WebSocketService extends EventEmitter {
         return;
       }
       
-      this.connectionStatus = 'connecting';
-      this.emit('status_change', 'connecting');
+      this.setStatus('connecting');
       
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsBase = process.env.NEXT_PUBLIC_API_BASE;
@@ -73,14 +57,10 @@ class WebSocketService extends EventEmitter {
         
         this.ws.onopen = () => {
           clearTimeout(connectionTimeout);
-          this.connectionStatus = 'connected';
+          this.setStatus('connected');
           this.reconnectAttempts = 0;
-          this.emit('status_change', 'connected');
           
-          // Process any pending messages
-          this.processPendingMessages();
-          
-          // Start ping interval to keep connection alive
+          // Start ping interval
           this.startPingInterval();
           
           if (this.config.onOpen) {
@@ -93,7 +73,9 @@ class WebSocketService extends EventEmitter {
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            this.emit('message', data);
+            if (this.config.onMessage) {
+              this.config.onMessage(data);
+            }
           } catch (error) {
             console.error('Error parsing WebSocket message:', error);
           }
@@ -101,8 +83,7 @@ class WebSocketService extends EventEmitter {
         
         this.ws.onclose = (event) => {
           clearTimeout(connectionTimeout);
-          this.connectionStatus = 'disconnected';
-          this.emit('status_change', 'disconnected');
+          this.setStatus('disconnected');
           this.stopPingInterval();
           
           if (this.config.onClose) {
@@ -117,15 +98,13 @@ class WebSocketService extends EventEmitter {
         
         this.ws.onerror = (error) => {
           console.error('WebSocket error:', error);
-          this.emit('error', error);
           
           if (this.config.onError) {
             this.config.onError(error);
           }
         };
       } catch (error) {
-        this.connectionStatus = 'disconnected';
-        this.emit('status_change', 'disconnected');
+        this.setStatus('disconnected');
         console.error('Error creating WebSocket:', error);
         
         // Attempt to reconnect
@@ -136,63 +115,34 @@ class WebSocketService extends EventEmitter {
     });
   }
   
-  /**
-   * Send a message via WebSocket
-   */
-  public sendMessage(message: string, requestId?: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        // Queue the message to send when connection is established
-        this.pendingMessages.push({
-          data: { message, requestId: requestId || `req_${Date.now()}` },
-          resolver: resolve,
-          rejecter: reject
-        });
-        
-        // Try to connect
-        this.connect().catch(() => {
-          // Connection attempt will be made by scheduleReconnect
-        });
-        
-        return;
-      }
-      
+  public async sendMessage(message: string, requestId?: string): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       try {
-        this.ws.send(JSON.stringify({
-          message,
-          requestId: requestId || `req_${Date.now()}`
-        }));
-        resolve();
+        await this.connect();
       } catch (error) {
-        console.error('Error sending WebSocket message:', error);
-        reject(error);
+        throw new Error('Failed to connect to WebSocket server');
       }
-    });
+    }
+    
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        message,
+        requestId: requestId || `req_${Date.now()}`
+      }));
+    } else {
+      throw new Error('WebSocket not connected');
+    }
   }
   
-  /**
-   * Process any pending messages after connection is established
-   */
-  private processPendingMessages(): void {
-    while (this.pendingMessages.length > 0) {
-      const { data, resolver, rejecter } = this.pendingMessages.shift()!;
-      
-      try {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(JSON.stringify(data));
-          resolver();
-        } else {
-          rejecter(new Error('WebSocket not connected'));
-        }
-      } catch (error) {
-        rejecter(error);
+  private setStatus(status: WebSocketStatus): void {
+    if (this.status !== status) {
+      this.status = status;
+      if (this.config.onStatusChange) {
+        this.config.onStatusChange(status);
       }
     }
   }
   
-  /**
-   * Start a ping interval to keep the connection alive
-   */
   private startPingInterval(): void {
     this.stopPingInterval();
     
@@ -205,9 +155,6 @@ class WebSocketService extends EventEmitter {
     }, 30000);
   }
   
-  /**
-   * Stop the ping interval
-   */
   private stopPingInterval(): void {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
@@ -215,9 +162,6 @@ class WebSocketService extends EventEmitter {
     }
   }
   
-  /**
-   * Schedule a reconnection attempt
-   */
   private scheduleReconnect(): void {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -248,9 +192,6 @@ class WebSocketService extends EventEmitter {
     }, delay);
   }
   
-  /**
-   * Close the WebSocket connection
-   */
   public close(): void {
     this.stopPingInterval();
     
@@ -264,35 +205,12 @@ class WebSocketService extends EventEmitter {
       this.ws = null;
     }
     
-    this.connectionStatus = 'disconnected';
-    this.emit('status_change', 'disconnected');
+    this.setStatus('disconnected');
   }
   
-  /**
-   * Get the current connection status
-   */
-  public getStatus(): 'connected' | 'connecting' | 'disconnected' {
-    return this.connectionStatus;
+  public getStatus(): WebSocketStatus {
+    return this.status;
   }
 }
-
-// Singleton instance
-let websocketInstance: WebSocketService | null = null;
-
-export const getWebSocketService = (config: WebSocketConfig): WebSocketService => {
-  if (!websocketInstance || 
-      websocketInstance.config.userId !== config.userId || 
-      websocketInstance.config.sessionId !== config.sessionId) {
-    
-    // Close existing instance if it exists
-    if (websocketInstance) {
-      websocketInstance.close();
-    }
-    
-    websocketInstance = new WebSocketService(config);
-  }
-  
-  return websocketInstance;
-};
 
 export default WebSocketService;
