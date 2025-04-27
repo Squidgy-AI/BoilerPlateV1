@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/Auth/AuthProvider';
 import InteractiveAvatar from './InteractiveAvatar';
 import { Mic, Video, MessageSquare, Send, X } from 'lucide-react';
-import { processAgentResponse } from '@/services/n8nService';
+import { processAgentResponse } from '../services/n8nService';
 import ToolExecutionVisualizer from './ToolExecutionVisualizer';
 
 interface ChatMessage {
