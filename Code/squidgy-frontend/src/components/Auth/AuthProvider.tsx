@@ -132,7 +132,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: credentials.email,
           password: credentials.password,
         });
-      } else if (['google', 'apple', 'github'].includes(provider)) {
+      } else if (['google', 'apple', 'github', 'whatsapp'].includes(provider)) {
+        // Handle whatsapp special case
+        if (provider === 'whatsapp') {
+          throw new Error('WhatsApp login is not yet implemented');
+        }
+        
         result = await supabase.auth.signInWithOAuth({
           provider: provider as Provider,
           options: {

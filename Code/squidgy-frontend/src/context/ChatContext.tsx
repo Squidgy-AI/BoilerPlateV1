@@ -582,6 +582,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentRequestId,
     websiteData,
     solarResults,
+    websocket,
+    connectionStatus,
     textEnabled,
     setTextEnabled,
     voiceEnabled,
@@ -590,8 +592,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setVideoEnabled,
     selectedAvatarId,
     setSelectedAvatarId,
-    websocket,
-    connectionStatus,
     createNewSession,
     fetchSessionMessages,
     clearSessionMessages

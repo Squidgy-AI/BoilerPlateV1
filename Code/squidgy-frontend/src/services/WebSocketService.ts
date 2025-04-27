@@ -134,6 +134,26 @@ class WebSocketService {
     }
   }
   
+  public getStatus(): WebSocketStatus {
+    return this.status;
+  }
+  
+  public close(): void {
+    this.stopPingInterval();
+    
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    
+    this.setStatus('disconnected');
+  }
+  
   private setStatus(status: WebSocketStatus): void {
     if (this.status !== status) {
       this.status = status;
@@ -190,26 +210,6 @@ class WebSocketService {
         // Reconnect will be scheduled again by the onclose handler
       });
     }, delay);
-  }
-  
-  public close(): void {
-    this.stopPingInterval();
-    
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    
-    this.setStatus('disconnected');
-  }
-  
-  public getStatus(): WebSocketStatus {
-    return this.status;
   }
 }
 
