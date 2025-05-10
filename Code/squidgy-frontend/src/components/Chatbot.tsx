@@ -96,7 +96,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
    * @param requestId - Unique identifier for this request
    * @returns Promise with n8n response
    */
-  const callN8nEndpoint = async (userInput: string, requestId: string) => {
+  const callN8nEndpoint = async (userInput: string, requestId: string, agentType: string = 're-engage') => {
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_BASE;
       const response = await fetch(`https://${apiBase}/n8n_main_req`, {
@@ -106,17 +106,17 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         },
         body: JSON.stringify({
           user_id: userId,
-          user_message: userInput,
+          user_mssg: userInput,  // Changed from user_message to user_mssg
           session_id: sessionId,
-          agent_names: 're-engage', // Default agent, can be changed dynamically
+          agent_name: agentType, // Changed from agent_names to agent_name (singular)
           timestamp_of_call_made: new Date().toISOString()
         })
       });
-
+  
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+  
       const data = await response.json();
       return data;
     } catch (error) {
@@ -131,7 +131,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
    * @param userInput - The user's message
    * @param requestId - Unique identifier for this request
    */
-  const callN8nStreamEndpoint = async (userInput: string, requestId: string) => {
+  const callN8nStreamEndpoint = async (userInput: string, requestId: string, agentType: string = 're-engage') => {
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_BASE;
       const response = await fetch(`https://${apiBase}/n8n_main_req_stream`, {
@@ -141,23 +141,23 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         },
         body: JSON.stringify({
           user_id: userId,
-          user_message: userInput,
+          user_mssg: userInput,  // Changed from user_message to user_mssg
           session_id: sessionId,
-          agent_names: 're-engage',
+          agent_name: agentType, // Changed from agent_names to agent_name (singular)
           timestamp_of_call_made: new Date().toISOString()
         })
       });
-
+  
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+  
       // Process Server-Sent Events (SSE) stream
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       
       if (!reader) throw new Error('No response body');
-
+  
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -254,10 +254,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
           
           if (data.history && data.history.length > 0) {
             // Convert the backend format to our chat message format
-            const formattedHistory = data.history.map(msg => ({
+            const formattedHistory = data.history.map((msg: any) => ({
               sender: msg.sender,
               message: msg.message,
-              status: 'complete'
+              status: 'complete' as 'complete'  // Explicitly type this
             }));
             
             setChatHistory([...formattedHistory]);
@@ -592,7 +592,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
               ...prevHistory,
               { 
                 sender: 'AI', 
-                message: n8nResponse.agent_responses, 
+                message: n8nResponse.agent_response, 
                 requestId, 
                 status: 'complete' 
               }
@@ -601,7 +601,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
           
           // Speak with avatar if enabled
           if (avatarRef.current && videoEnabled && voiceEnabled) {
-            await speakWithAvatar(n8nResponse.agent_responses);
+            await speakWithAvatar(n8nResponse.agent_response);
           }
         }
       } catch (error) {
@@ -732,7 +732,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
               ...prevHistory,
               { 
                 sender: 'AI', 
-                message: n8nResponse.agent_responses, 
+                message: n8nResponse.agent_response, 
                 requestId, 
                 status: 'complete' 
               }
@@ -741,7 +741,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
           
           // Speak with avatar if enabled
           if (avatarRef.current && videoEnabled && voiceEnabled) {
-            await speakWithAvatar(n8nResponse.agent_responses);
+            await speakWithAvatar(n8nResponse.agent_response);
           }
         } else {
           throw new Error(n8nResponse.error || 'Unknown error from n8n');
