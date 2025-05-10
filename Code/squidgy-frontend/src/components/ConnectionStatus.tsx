@@ -1,150 +1,90 @@
+// src/components/ConnectionStatus.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
 interface ConnectionStatusProps {
-  websocket: WebSocket | null;
-  isAttemptingConnection?: boolean;
+  status: 'connected' | 'connecting' | 'disconnected';
   className?: string;
   showLabel?: boolean;
   size?: 'sm' | 'md' | 'lg';
-  onStatusChange?: (status: 'connected' | 'connecting' | 'disconnected') => void;
 }
 
 const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
-  websocket,
-  isAttemptingConnection = false,
+  status,
   className = '',
   showLabel = true,
-  size = 'md',
-  onStatusChange
+  size = 'md'
 }) => {
-  // Current connection status
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>(
-    websocket ? 
-      websocket.readyState === WebSocket.OPEN ? 'connected' : 
-      websocket.readyState === WebSocket.CONNECTING ? 'connecting' : 'disconnected' 
-    : isAttemptingConnection ? 'connecting' : 'disconnected'
-  );
-
-  // Update status when websocket or isAttemptingConnection changes
-  useEffect(() => {
-    let newStatus: 'connected' | 'connecting' | 'disconnected';
-    
-    if (websocket) {
-      // Determine status based on WebSocket readyState
-      if (websocket.readyState === WebSocket.OPEN) {
-        newStatus = 'connected';
-      } else if (websocket.readyState === WebSocket.CONNECTING) {
-        newStatus = 'connecting';
-      } else {
-        newStatus = 'disconnected';
-      }
-    } else {
-      // No WebSocket, determine status based on isAttemptingConnection
-      newStatus = isAttemptingConnection ? 'connecting' : 'disconnected';
-    }
-    
-    // Only update if the status has changed
-    if (newStatus !== connectionStatus) {
-      setConnectionStatus(newStatus);
-      
-      // Notify parent component if callback provided
-      if (onStatusChange) {
-        onStatusChange(newStatus);
-      }
-    }
-  }, [websocket, isAttemptingConnection, connectionStatus, onStatusChange]);
-
-  // Set up WebSocket event listeners
-  useEffect(() => {
-    if (!websocket) return;
-
-    // Define event handlers
-    const handleOpen = () => {
-      setConnectionStatus('connected');
-      if (onStatusChange) onStatusChange('connected');
-    };
-    
-    const handleClose = () => {
-      setConnectionStatus('disconnected');
-      if (onStatusChange) onStatusChange('disconnected');
-    };
-    
-    const handleError = () => {
-      setConnectionStatus('disconnected');
-      if (onStatusChange) onStatusChange('disconnected');
-    };
-
-    // Add event listeners
-    websocket.addEventListener('open', handleOpen);
-    websocket.addEventListener('close', handleClose);
-    websocket.addEventListener('error', handleError);
-
-    // Clean up on unmount
-    return () => {
-      websocket.removeEventListener('open', handleOpen);
-      websocket.removeEventListener('close', handleClose);
-      websocket.removeEventListener('error', handleError);
-    };
-  }, [websocket, onStatusChange]);
-
-  // Get indicator size
-  const getIndicatorSize = () => {
-    switch (size) {
-      case 'sm': return 'w-2 h-2';
-      case 'lg': return 'w-4 h-4';
-      default: return 'w-3 h-3';
+  // Get status colors and text
+  const getStatusConfig = () => {
+    switch (status) {
+      case 'connected':
+        return {
+          bgColor: 'bg-green-600',
+          dotColor: 'bg-green-500',
+          text: 'Connected',
+          animate: false
+        };
+      case 'connecting':
+        return {
+          bgColor: 'bg-yellow-600',
+          dotColor: 'bg-yellow-500',
+          text: 'Connecting...',
+          animate: true
+        };
+      case 'disconnected':
+      default:
+        return {
+          bgColor: 'bg-red-600',
+          dotColor: 'bg-red-500',
+          text: 'Disconnected',
+          animate: false
+        };
     }
   };
 
-  // Get container classes
-  const getContainerClasses = () => {
-    switch (size) {
-      case 'sm': return 'py-0.5 px-2 text-xs';
-      case 'lg': return 'py-2 px-4 text-base';
-      default: return 'py-1 px-3 text-sm';
-    }
-  };
+  const config = getStatusConfig();
 
-  // Status colors and styles
-  const statusStyles = {
-    connected: {
-      bg: 'bg-green-600', 
-      text: 'text-white',
-      dot: 'bg-green-300'
+  // Get size styles
+  const sizeStyles = {
+    sm: {
+      dot: 'w-2 h-2',
+      text: 'text-xs',
+      padding: 'px-2 py-1'
     },
-    connecting: {
-      bg: 'bg-yellow-600', 
-      text: 'text-white',
-      dot: 'bg-yellow-300 animate-pulse'
+    md: {
+      dot: 'w-2.5 h-2.5',
+      text: 'text-sm',
+      padding: 'px-3 py-1.5'
     },
-    disconnected: {
-      bg: 'bg-red-600', 
-      text: 'text-white',
-      dot: 'bg-red-300'
+    lg: {
+      dot: 'w-3 h-3',
+      text: 'text-base',
+      padding: 'px-4 py-2'
     }
   };
 
-  const currentStyle = statusStyles[connectionStatus];
+  const styles = sizeStyles[size];
 
   return (
-    <div className={`
-      inline-flex items-center rounded-full 
-      ${getContainerClasses()} 
-      ${currentStyle.bg} 
-      ${currentStyle.text}
-      ${className}
-    `}>
+    <div className={`flex items-center ${className}`}>
       <div className={`
-        ${getIndicatorSize()} 
-        rounded-full mr-2 
-        ${currentStyle.dot}
+        ${styles.dot} 
+        rounded-full 
+        mr-2 
+        ${config.dotColor} 
+        ${config.animate ? 'animate-pulse' : ''}
       `} />
       {showLabel && (
-        <span>
-          {connectionStatus === 'connected' ? 'Connected' : 
-           connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+        <span className={`
+          ${styles.text} 
+          ${config.bgColor} 
+          text-white 
+          ${styles.padding} 
+          rounded
+        `}>
+          {config.text}
         </span>
       )}
     </div>

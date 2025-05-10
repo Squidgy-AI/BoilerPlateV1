@@ -27,7 +27,7 @@ const WelcomeScreenContent: React.FC = () => {
     );
   }
   
-  // If authenticated, show the dashboard
+  // If authenticated, show the enhanced dashboard
   return <EnhancedDashboard />;
 };
 

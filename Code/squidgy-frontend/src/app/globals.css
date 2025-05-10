@@ -34,3 +34,228 @@ html, body {
   height: 100%;
   width: 100%;
 }
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+/* Custom scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
+}
+
+/* Animation for loading states */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Connection status animations */
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Sidebar animation */
+.sidebar-transition {
+  transition: width 300ms ease-in-out;
+}
+
+/* Chat message animations */
+.message-appear {
+  animation: messageSlideIn 300ms ease-out;
+}
+
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Debug console styles */
+.debug-console {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.debug-timestamp {
+  color: #9ca3af;
+  margin-right: 8px;
+}
+
+.debug-message {
+  color: #22c55e;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+/* Button hover effects */
+.btn-hover {
+  transition: all 150ms ease;
+}
+
+.btn-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Avatar loading placeholder */
+.avatar-loading {
+  background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Status indicator dots */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: relative;
+}
+
+.status-dot.online {
+  background-color: #22c55e;
+}
+
+.status-dot.connecting {
+  background-color: #eab308;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.offline {
+  background-color: #ef4444;
+}
+
+/* Enhanced chat bubbles */
+.chat-bubble {
+  position: relative;
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  max-width: 80%;
+}
+
+.chat-bubble.user {
+  background-color: #2563eb;
+  color: white;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble.agent {
+  background-color: #374151;
+  color: white;
+  border-bottom-left-radius: 4px;
+}
+
+/* Collapsible sidebar */
+.sidebar-collapsed {
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: all 300ms ease-in-out;
+}
+
+.sidebar-expanded {
+  width: 320px;
+  opacity: 1;
+  transition: all 300ms ease-in-out;
+}
+
+/* Interactive elements */
+.interactive-element {
+  transition: all 150ms ease;
+  cursor: pointer;
+}
+
+.interactive-element:hover {
+  background-color: rgba(55, 65, 81, 0.5);
+}
+
+.interactive-element:active {
+  transform: scale(0.98);
+}
+
+/* Typography enhancements */
+.text-gradient {
+  background: linear-gradient(to right, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .sidebar-expanded {
+    width: 100%;
+    position: absolute;
+    z-index: 40;
+  }
+  
+  .chat-window {
+    width: 100%;
+  }
+}
+
+/* Enhanced focus states */
+input:focus,
+button:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, #1f2937 0%, #374151 50%, #1f2937 100%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}

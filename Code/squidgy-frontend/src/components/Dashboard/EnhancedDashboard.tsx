@@ -3,267 +3,845 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import Header from '../Header/Header';
-import Sidebar from '../Sidebar/Sidebar';
-import EnhancedChat from '../EnhancedChat';
-import ProfileSettings from '../ProfileSettings';
-import { X } from 'lucide-react';
+import { 
+  User, 
+  Users, 
+  Bot, 
+  MessageSquare, 
+  Send, 
+  Video, 
+  Mic, 
+  ChevronDown, 
+  ChevronUp, 
+  Code2, 
+  Settings, 
+  LogOut, 
+  UserPlus, 
+  FolderPlus, 
+  X, 
+  PlusCircle 
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import ProfileSettings from '../ProfileSettings';
 import GroupManagement from '../Groups/GroupManagement';
+import InteractiveAvatar from '../InteractiveAvatar';
+import WebSocketService from '@/services/WebSocketService';
+import StreamingAvatar from "@heygen/streaming-avatar";
 
 const EnhancedDashboard: React.FC = () => {
-  const { profile, isLoading } = useAuth();
-  const [showSidebar, setShowSidebar] = useState(true);
+  const { profile, signOut } = useAuth();
+  const [activeSection, setActiveSection] = useState<'people' | 'agents' | 'groups'>('agents');
   const [currentSessionId, setCurrentSessionId] = useState<string>('');
   const [isGroupSession, setIsGroupSession] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showGroupManagement, setShowGroupManagement] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [sessionName, setSessionName] = useState('');
-  const [groupMembers, setGroupMembers] = useState<any[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showAddPeopleModal, setShowAddPeopleModal] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [newGroupName, setNewGroupName] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+  const [showDebugConsole, setShowDebugConsole] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
+  const [agentThinking, setAgentThinking] = useState<string | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [textEnabled, setTextEnabled] = useState(true);
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
+  const [websocket, setWebsocket] = useState<WebSocketService | null>(null);
+  const [people, setPeople] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedAvatarId, setSelectedAvatarId] = useState('Anna_public_3_20240108');
+  const avatarRef = React.useRef<StreamingAvatar | null>(null);
   
-  // Check if mobile on initial load and when window is resized
-  useEffect(() => {
-    const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    // Check initially
-    checkIfMobile();
-    
-    // Add resize listener
-    window.addEventListener('resize', checkIfMobile);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('resize', checkIfMobile);
-    };
-  }, []);
-  
-  // Close sidebar on mobile when session selected
-  useEffect(() => {
-    if (isMobile && currentSessionId) {
-      setShowSidebar(false);
+  const agents = [
+    { 
+      id: 'agent1', 
+      name: 'Product Manager', 
+      avatar: '/seth.JPG', 
+      type: 'ProductManager',
+      avatarId: 'Anna_public_3_20240108'
+    },
+    { 
+      id: 'agent2', 
+      name: 'Pre-Sales Consultant', 
+      avatar: '/sol.jpg', 
+      type: 'PreSalesConsultant',
+      avatarId: 'sol'
+    },
+    { 
+      id: 'agent3', 
+      name: 'Social Media Manager', 
+      avatar: '/sarah.jpg', 
+      type: 'SocialMediaManager',
+      avatarId: 'Anna_public_3_20240108'
+    },
+    { 
+      id: 'agent4', 
+      name: 'Lead Gen Specialist', 
+      avatar: '/james.jpg', 
+      type: 'LeadGenSpecialist',
+      avatarId: 'sol'
     }
-  }, [currentSessionId, isMobile]);
+  ];
   
-  // Fetch session details when session changes
+  // Initialize with first agent on mount
   useEffect(() => {
-    if (!currentSessionId || !profile) return;
+    setSelectedAgent(agents[0]);
+    setCurrentSessionId(`${profile?.id}_${agents[0].id}`);
+  }, [profile]);
+  
+  // Fetch people and groups
+  useEffect(() => {
+    if (profile) {
+      fetchPeople();
+      fetchGroups();
+    }
+  }, [profile]);
+  
+  // Connect WebSocket when session changes
+  useEffect(() => {
+    if (!profile || !currentSessionId) return;
     
-    const fetchSessionDetails = async () => {
-      try {
-        if (isGroupSession) {
-          // Fetch group details
-          const { data: groupData, error: groupError } = await supabase
-            .from('groups')
-            .select('*')
-            .eq('id', currentSessionId)
-            .single();
-            
-          if (groupError) throw groupError;
+    // Disconnect existing WebSocket
+    if (websocket) {
+      websocket.close();
+    }
+    
+    // Create new WebSocket connection
+    const ws = new WebSocketService({
+      userId: profile.id,
+      sessionId: currentSessionId,
+      onStatusChange: setConnectionStatus,
+      onMessage: handleWebSocketMessage
+    });
+    
+    ws.connect();
+    setWebsocket(ws);
+    
+    return () => {
+      ws.close();
+    };
+  }, [profile, currentSessionId]);
+  
+  const fetchPeople = async () => {
+    if (!profile) return;
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .neq('id', profile.id);
+      
+    if (!error && data) {
+      setPeople(data);
+    }
+  };
+  
+  const fetchGroups = async () => {
+    if (!profile) return;
+    
+    // Get groups where the current user is a member
+    const { data: memberData, error: memberError } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', profile.id);
+      
+    if (memberError || !memberData) return;
+    
+    const groupIds = memberData.map(item => item.group_id);
+    
+    if (groupIds.length === 0) return;
+    
+    // Get group details
+    const { data, error } = await supabase
+      .from('groups')
+      .select('*')
+      .in('id', groupIds);
+      
+    if (!error && data) {
+      setGroups(data);
+    }
+  };
+  
+  const handleWebSocketMessage = (data: any) => {
+    console.log('WebSocket message:', data);
+    
+    switch (data.type) {
+      case 'agent_thinking':
+        setAgentThinking(`${data.agent} is thinking...`);
+        break;
+        
+      case 'agent_response':
+        if (data.final) {
+          setAgentThinking(null);
+          setMessages(prev => [...prev, { 
+            sender: 'agent', 
+            text: data.message 
+          }]);
           
-          setSessionName(groupData.name);
-          
-          // Fetch group members
-          const { data: membersData, error: membersError } = await supabase
-            .from('group_members')
-            .select('user_id, role, is_agent, agent_type, profiles(full_name, avatar_url)')
-            .eq('group_id', currentSessionId);
-            
-          if (membersError) throw membersError;
-          
-          const formattedMembers = membersData.map(member => ({
-            id: member.user_id,
-            name: member.profiles?.full_name || 'Unknown',
-            avatar: member.profiles?.avatar_url || '',
-            role: member.role,
-            isAgent: member.is_agent,
-            agentType: member.agent_type
-          }));
-          
-          setGroupMembers(formattedMembers);
-        } else {
-          // Check if this is an agent
-          const agents = [
-            { id: 'agent1', name: 'Product Manager', type: 'ProductManager' },
-            { id: 'agent2', name: 'Pre-Sales Consultant', type: 'PreSalesConsultant' },
-            { id: 'agent3', name: 'Social Media Manager', type: 'SocialMediaManager' },
-            { id: 'agent4', name: 'Lead Gen Specialist', type: 'LeadGenSpecialist' }
-          ];
-          
-          const agent = agents.find(a => a.id === currentSessionId);
-          
-          if (agent) {
-            setSessionName(agent.name);
-            setGroupMembers([]);
-          } else {
-            // Fetch user details
-            const { data: userData, error: userError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', currentSessionId)
-              .single();
-              
-            if (userError) throw userError;
-            
-            setSessionName(userData.full_name);
-            setGroupMembers([]);
+          // Speak with avatar if enabled
+          if (avatarRef.current && videoEnabled && voiceEnabled) {
+            avatarRef.current.speak({
+              text: data.message,
+              taskType: "REPEAT",
+              taskMode: "SYNC"
+            });
           }
         }
-      } catch (error) {
-        console.error('Error fetching session details:', error);
-      }
-    };
-    
-    fetchSessionDetails();
-  }, [currentSessionId, isGroupSession, profile]);
+        break;
+    }
+  };
   
-  // Handle session selection
   const handleSessionSelect = (sessionId: string, isGroup: boolean = false) => {
     setCurrentSessionId(sessionId);
     setIsGroupSession(isGroup);
+    setMessages([]); // Clear messages for new session
   };
   
-  // Create a new session
   const handleNewSession = () => {
-    const newSessionId = 'agent1'; // ProductManager agent
+    // Create new session with default agent
+    const newSessionId = `${profile?.id}_${agents[0].id}`;
     setCurrentSessionId(newSessionId);
+    setSelectedAgent(agents[0]);
     setIsGroupSession(false);
+    setMessages([]);
   };
   
-  // Show loading screen while checking auth state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#1B2431] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  const sendMessage = async () => {
+    if (!inputMessage.trim() || !websocket) return;
+    
+    // Add user message
+    setMessages(prev => [...prev, { sender: 'user', text: inputMessage.trim() }]);
+    
+    // Send via WebSocket
+    await websocket.sendMessage(inputMessage.trim());
+    
+    setInputMessage('');
+    setAgentThinking('AI is thinking...');
+  };
   
-  // Make sure user is authenticated
-  if (!profile) {
-    return null; // Let the parent component handle authentication
-  }
+  const handleAvatarReady = () => {
+    console.log("Avatar is ready");
+  };
+  
+  const handleInviteUser = async () => {
+    if (!profile || !inviteEmail) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Simplified invitation logic
+      console.log('Inviting:', inviteEmail);
+      setInviteEmail('');
+      setShowAddPeopleModal(false);
+      fetchPeople();
+    } catch (error) {
+      console.error('Error inviting user:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleCreateGroup = async () => {
+    if (!profile || !newGroupName) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Create the group
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .insert({
+          name: newGroupName,
+          created_by: profile.id
+        })
+        .select()
+        .single();
+        
+      if (groupError || !groupData) throw groupError;
+      
+      // Add members and agents...
+      // Reset state
+      setNewGroupName('');
+      setSelectedMembers([]);
+      setSelectedAgents([]);
+      setShowCreateGroupModal(false);
+      fetchGroups();
+      handleSessionSelect(groupData.id, true);
+    } catch (error) {
+      console.error('Error creating group:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   return (
-    <div className="flex flex-col w-full h-screen overflow-hidden bg-[#1E2A3B]">
-      <Header 
-        onToggleSidebar={() => setShowSidebar(!showSidebar)}
-        onNewChat={handleNewSession}
-        onOpenSettings={() => setShowProfileSettings(true)}
-      />
-      
-      <div className="flex w-full h-full pt-16">
-        {/* Mobile sidebar overlay */}
-        {showSidebar && isMobile && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-20"
-            onClick={() => setShowSidebar(false)}
-          />
-        )}
-        
-        {/* Sidebar with visibility toggle for mobile */}
-        <div className={`${
-          showSidebar ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0 transition-transform w-full md:w-80 fixed md:relative left-0 top-16 bottom-0 z-20 bg-[#1B2431] border-r border-gray-700 overflow-hidden`}>
-          <Sidebar 
-            onSessionSelect={handleSessionSelect}
-            onNewSession={handleNewSession}
-            currentSessionId={currentSessionId}
-          />
+    <div className="h-screen flex flex-col bg-[#1B2431] text-white">
+      {/* Top Header Bar */}
+      <div className="h-14 bg-[#2D3B4F] border-b border-gray-700 flex items-center justify-between px-6">
+        <div className="flex items-center">
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 hover:bg-gray-700 rounded mr-3"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-2">
+              <span className="text-lg font-bold">S</span>
+            </div>
+            <h1 className="text-xl font-bold">Squidgy</h1>
+          </div>
+          <div className="ml-4 flex items-center">
+            <div className={`w-2 h-2 rounded-full mr-2 ${
+              connectionStatus === 'connected' ? 'bg-green-500' : 
+              connectionStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'
+            }`} />
+            <span className={`text-sm px-2 py-1 rounded ${
+              connectionStatus === 'connected' ? 'bg-green-600' : 
+              connectionStatus === 'connecting' ? 'bg-yellow-600' : 'bg-red-600'
+            } text-white`}>
+              {connectionStatus === 'connected' ? 'Connected' : 
+               connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+            </span>
+          </div>
         </div>
         
-        {/* Chat Area */}
-        <div className="flex-1 h-full overflow-hidden flex flex-col">
-          {/* Session Header */}
-          {currentSessionId && (
-            <div className="p-3 border-b border-gray-700 flex items-center justify-between bg-[#2D3B4F]">
-              <div className="flex items-center">
-                {/* Back button on mobile */}
-                {isMobile && (
-                  <button
-                    onClick={() => setShowSidebar(true)}
-                    className="p-1 mr-2 text-gray-400 hover:text-white rounded-full"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M15 18l-6-6 6-6" />
-                    </svg>
-                  </button>
-                )}
-                <h2 className="font-medium text-white">{sessionName}</h2>
-                {isGroupSession && (
-                  <button
-                    onClick={() => setShowGroupManagement(true)}
-                    className="ml-2 p-1 text-xs text-blue-400 hover:text-blue-300 hover:underline"
-                  >
-                    Manage Group
-                  </button>
-                )}
-              </div>
-              
-              {/* Group members preview */}
-              {isGroupSession && groupMembers.length > 0 && (
-                <div className="flex -space-x-2">
-                  {groupMembers.slice(0, 3).map((member) => (
-                    <div 
-                      key={member.id}
-                      className="w-6 h-6 rounded-full bg-gray-600 border-2 border-[#2D3B4F] flex items-center justify-center overflow-hidden"
-                      title={member.name}
-                    >
-                      {member.avatar ? (
-                        <img 
-                          src={member.avatar} 
-                          alt={member.name} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xs">{member.name.charAt(0)}</span>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {groupMembers.length > 3 && (
-                    <div 
-                      className="w-6 h-6 rounded-full bg-gray-700 border-2 border-[#2D3B4F] flex items-center justify-center text-xs text-white"
-                    >
-                      +{groupMembers.length - 3}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          
-          {currentSessionId ? (
-            <div className="flex-1 overflow-hidden">
-              <EnhancedChat 
-                sessionId={currentSessionId}
-                isGroup={isGroupSession}
-                onNewSession={handleNewSession}
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={handleNewSession}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center"
+          >
+            <PlusCircle size={16} className="mr-2" />
+            New Chat
+          </button>
+          <button 
+            onClick={() => setShowProfileSettings(true)}
+            className="p-2 hover:bg-gray-700 rounded"
+          >
+            <Settings size={20} />
+          </button>
+          <button 
+            onClick={() => signOut()} 
+            className="p-2 hover:bg-gray-700 rounded"
+          >
+            <LogOut size={20} />
+          </button>
+          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
+            {profile?.avatar_url ? (
+              <img 
+                src={profile.avatar_url} 
+                alt={profile.full_name || 'User'} 
+                className="h-full w-full object-cover"
               />
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center bg-[#1E2A3B] text-gray-400">
-              <div className="text-center px-6">
-                <img 
-                  src="/welcome-illustration.svg" 
-                  alt="Welcome to Squidgy" 
-                  className="w-64 h-64 mx-auto mb-6 opacity-60"
-                />
-                <h2 className="text-xl mb-4">Welcome to Squidgy</h2>
-                <p className="mb-6 max-w-md">Select a conversation from the sidebar or start a new chat with one of our AI agents.</p>
-                <button
-                  onClick={handleNewSession}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
-                >
-                  Start New Chat
-                </button>
-              </div>
-            </div>
-          )}
+            ) : (
+              <span className="text-lg font-bold">{profile?.full_name?.charAt(0) || 'U'}</span>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - Collapsible */}
+        <div className={`bg-[#1E2A3B] border-r border-gray-700 flex flex-col transition-all duration-300 ${
+          sidebarOpen ? 'w-80' : 'w-0 overflow-hidden'
+        }`}>
+          {/* User Profile Section */}
+          <div className="p-4 border-b border-gray-700">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center mr-3 overflow-hidden">
+                {profile?.avatar_url ? (
+                  <img 
+                    src={profile.avatar_url} 
+                    alt={profile.full_name || 'User'} 
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-lg font-bold">{profile?.full_name?.charAt(0) || 'U'}</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{profile?.full_name || 'User'}</p>
+                <p className="text-xs text-gray-400 truncate">{profile?.email || ''}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex border-b border-gray-700">
+            <button
+              onClick={() => setActiveSection('people')}
+              className={`flex-1 py-3 text-center text-sm ${
+                activeSection === 'people' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'
+              }`}
+            >
+              <User size={16} className="inline mr-1" />
+              People
+            </button>
+            <button
+              onClick={() => setActiveSection('agents')}
+              className={`flex-1 py-3 text-center text-sm ${
+                activeSection === 'agents' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'
+              }`}
+            >
+              <Bot size={16} className="inline mr-1" />
+              Agents
+            </button>
+            <button
+              onClick={() => setActiveSection('groups')}
+              className={`flex-1 py-3 text-center text-sm ${
+                activeSection === 'groups' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400'
+              }`}
+            >
+              <Users size={16} className="inline mr-1" />
+              Groups
+            </button>
+          </div>
+
+          {/* Action Buttons based on active section */}
+          <div className="p-3">
+            {activeSection === 'people' && (
+              <button 
+                onClick={() => setShowAddPeopleModal(true)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center"
+              >
+                <UserPlus size={16} className="mr-2" />
+                Invite People
+              </button>
+            )}
+            
+            {activeSection === 'groups' && (
+              <button 
+                onClick={() => setShowCreateGroupModal(true)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center"
+              >
+                <FolderPlus size={16} className="mr-2" />
+                Create Group
+              </button>
+            )}
+            
+            {activeSection === 'agents' && (
+              <button 
+                onClick={handleNewSession}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center"
+              >
+                <MessageSquare size={16} className="mr-2" />
+                New Chat
+              </button>
+            )}
+          </div>
+
+          {/* Content List */}
+          <div className="flex-1 overflow-y-auto p-3">
+            {/* People List */}
+            {activeSection === 'people' && (
+              <div>
+                {people.length > 0 ? (
+                  people.map(person => (
+                    <div
+                      key={person.id}
+                      onClick={() => handleSessionSelect(person.id)}
+                      className={`p-2 rounded mb-2 cursor-pointer flex items-center hover:bg-[#2D3B4F]/50 ${
+                        currentSessionId === person.id ? 'bg-[#2D3B4F]' : ''
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-gray-600 mr-2 flex items-center justify-center">
+                        <span className="text-sm">{person.full_name?.charAt(0) || 'U'}</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm">{person.full_name}</p>
+                        <p className="text-xs text-gray-400">{person.email}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-400 py-4">
+                    No people added yet
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Agents List */}
+            {activeSection === 'agents' && agents.map(agent => (
+              <div
+                key={agent.id}
+                onClick={() => {
+                  setSelectedAgent(agent);
+                  setSelectedAvatarId(agent.avatarId);
+                  handleSessionSelect(`${profile?.id}_${agent.id}`);
+                }}
+                className={`p-2 rounded mb-2 cursor-pointer flex items-center ${
+                  selectedAgent?.id === agent.id ? 'bg-[#2D3B4F]' : 'hover:bg-[#2D3B4F]/50'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-full bg-gray-600 mr-2 overflow-hidden">
+                  <img 
+                    src={agent.avatar}
+                    alt={agent.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = '/fallback-avatar.jpg';
+                    }}
+                  />
+                </div>
+                <span className="text-sm">{agent.name}</span>
+              </div>
+            ))}
+            
+            {/* Groups List */}
+            {activeSection === 'groups' && (
+              <div>
+                {groups.length > 0 ? (
+                  groups.map(group => (
+                    <div
+                      key={group.id}
+                      onClick={() => handleSessionSelect(group.id, true)}
+                      className={`p-2 rounded mb-2 cursor-pointer flex items-center hover:bg-[#2D3B4F]/50 ${
+                        currentSessionId === group.id ? 'bg-[#2D3B4F]' : ''
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-purple-600 mr-2 flex items-center justify-center">
+                        <Users size={16} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm">{group.name}</p>
+                        <p className="text-xs text-gray-400">Group chat</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-400 py-4">
+                    No groups created yet
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Main Content - Center and Right */}
+        <div className="flex-1 flex flex-col">
+          {/* Chat Header Bar */}
+          <div className="h-14 bg-[#2D3B4F] border-b border-gray-700 flex items-center justify-between px-6">
+            <h2 className="text-lg font-semibold">{selectedAgent?.name || 'Select an Agent'}</h2>
+            
+            {/* Control Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setTextEnabled(!textEnabled)}
+                className={`p-2 rounded ${textEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}
+              >
+                <MessageSquare size={16} />
+              </button>
+              <button
+                onClick={() => setVoiceEnabled(!voiceEnabled)}
+                className={`p-2 rounded ${voiceEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}
+              >
+                <Mic size={16} />
+              </button>
+              <button
+                onClick={() => setVideoEnabled(!videoEnabled)}
+                className={`p-2 rounded ${videoEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}
+              >
+                <Video size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Main Content with Animation and Chat */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Animation/Avatar Area */}
+            <div className="flex-1 bg-[#1B2431] p-6">
+              <div className="h-full rounded-lg bg-[#2D3B4F] flex items-center justify-center relative">
+                {videoEnabled ? (
+                  <>
+                    <InteractiveAvatar
+                      onAvatarReady={handleAvatarReady}
+                      avatarRef={avatarRef}
+                      enabled={videoEnabled}
+                      sessionId={currentSessionId}
+                      voiceEnabled={voiceEnabled}
+                      avatarId={selectedAvatarId}
+                    />
+                    
+                    {/* Fallback when avatar is loading */}
+                    {!avatarRef.current && (
+                      <div className="text-center">
+                        <div className="w-64 h-64 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                          <span className="text-8xl">🤖</span>
+                        </div>
+                        <div className="animate-pulse text-xl text-blue-400">
+                          Loading avatar...
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-gray-400">Video is disabled</div>
+                )}
+                
+                {agentThinking && (
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
+                    <div className="flex items-center">
+                      <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
+                      {agentThinking}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Chat Window */}
+            <div className="w-96 bg-[#2D3B4F] flex flex-col">
+              {/* Chat Messages Area */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {messages.length === 0 ? (
+                  <div className="text-center text-gray-400 mt-10">
+                    Start a conversation...
+                  </div>
+                ) : (
+                  messages.map((msg, index) => (
+                    <div
+                      key={index}
+                      className={`mb-4 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}
+                    >
+                      <div className={`inline-block p-3 rounded-2xl max-w-[80%] ${
+                        msg.sender === 'user'
+                          ? 'bg-blue-600 text-white rounded-br-sm'
+                          : 'bg-gray-700 text-white rounded-bl-sm'
+                      }`}>
+                        {msg.text}
+                      </div>
+                      <div className={`text-xs text-gray-400 mt-1 ${
+                        msg.sender === 'user' ? 'text-right' : 'text-left'
+                      }`}>
+                        {new Date().toLocaleTimeString()}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Message Input Area */}
+              <div className="p-4 border-t border-gray-700">
+                <div className="flex">
+                  <input
+                    type="text"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    placeholder="Type a message..."
+                    className="flex-1 bg-[#1B2431] text-white px-4 py-2 rounded-l-lg focus:outline-none"
+                    disabled={!textEnabled}
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={!textEnabled}
+                    className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-r-lg transition-colors disabled:opacity-50"
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* WebSocket Debug Console */}
+          <div className={`bg-black border-t border-gray-700 transition-all duration-300 ${
+            showDebugConsole ? 'h-40' : 'h-10'
+          }`}>
+            <div className="flex items-center justify-between px-4 py-2 cursor-pointer" 
+                 onClick={() => setShowDebugConsole(!showDebugConsole)}>
+              <div className="flex items-center gap-2">
+                <Code2 size={14} className="text-green-400" />
+                <span className="text-sm">WebSocket Debug Console</span>
+                <span className={`text-xs px-2 py-1 rounded ${
+                  connectionStatus === 'connected' ? 'bg-green-900 text-green-400' : 
+                  connectionStatus === 'connecting' ? 'bg-yellow-900 text-yellow-400' : 
+                  'bg-red-900 text-red-400'
+                }`}>
+                  {connectionStatus}
+                </span>
+              </div>
+              <button className="text-gray-400 hover:text-white">
+                {showDebugConsole ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+              </button>
+            </div>
+            
+            {showDebugConsole && (
+              <div className="h-32 overflow-y-auto p-3 font-mono text-xs text-green-400">
+                <div>[{new Date().toLocaleTimeString()}] WebSocket connection established</div>
+                <div>[{new Date().toLocaleTimeString()}] Agent initialized: {selectedAgent?.name}</div>
+                <div>[{new Date().toLocaleTimeString()}] Session ID: {currentSessionId}</div>
+                <div>[{new Date().toLocaleTimeString()}] Ready for messages</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Add People Modal */}
+      {showAddPeopleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#2D3B4F] rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Invite People</h3>
+              <button 
+                onClick={() => setShowAddPeopleModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-300 mb-2">Email Address</label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="w-full p-3 bg-[#1E2A3B] text-white rounded-md"
+                placeholder="Enter email address"
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowAddPeopleModal(false)}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleInviteUser}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md"
+              >
+                Send Invitation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Create Group Modal */}
+      {showCreateGroupModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#2D3B4F] rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Create New Group</h3>
+              <button 
+                onClick={() => setShowCreateGroupModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-300 mb-2">Group Name</label>
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                className="w-full p-3 bg-[#1E2A3B] text-white rounded-md"
+                placeholder="Enter group name"
+              />
+            </div>
+            
+            {/* Add People to Group */}
+            <div className="mb-4">
+              <label className="block text-gray-300 mb-2">Add People</label>
+              <div className="max-h-40 overflow-y-auto bg-[#1E2A3B] rounded-md">
+                {people.map(person => (
+                  <div 
+                    key={person.id}
+                    className="p-2 hover:bg-[#374863] flex items-center cursor-pointer"
+                    onClick={() => {
+                      if (selectedMembers.includes(person.id)) {
+                        setSelectedMembers(selectedMembers.filter(id => id !== person.id));
+                      } else {
+                        setSelectedMembers([...selectedMembers, person.id]);
+                      }
+                    }}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={selectedMembers.includes(person.id)}
+                      onChange={() => {}}
+                      className="mr-2"
+                    />
+                    <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center mr-2">
+                      <span className="text-xs">{person.full_name?.charAt(0) || 'U'}</span>
+                    </div>
+                    <span className="text-sm">{person.full_name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Add Agents to Group */}
+            <div className="mb-6">
+              <label className="block text-gray-300 mb-2">Add Agents</label>
+              <div className="max-h-40 overflow-y-auto bg-[#1E2A3B] rounded-md">
+                {agents.map(agent => (
+                  <div 
+                    key={agent.id}
+                    className="p-2 hover:bg-[#374863] flex items-center cursor-pointer"
+                    onClick={() => {
+                      if (selectedAgents.includes(agent.id)) {
+                        setSelectedAgents(selectedAgents.filter(id => id !== agent.id));
+                      } else {
+                        setSelectedAgents([...selectedAgents, agent.id]);
+                      }
+                    }}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={selectedAgents.includes(agent.id)}
+                      onChange={() => {}}
+                      className="mr-2"
+                    />
+                    <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center mr-2 overflow-hidden">
+                      <img 
+                        src={agent.avatar}
+                        alt={agent.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = '/fallback-avatar.jpg';
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm">{agent.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowCreateGroupModal(false)}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateGroup}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md"
+              >
+                Create Group
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Profile Settings Modal */}
       {showProfileSettings && (
