@@ -49,6 +49,7 @@ export const getChatProcessingState = (): ChatProcessingState => {
 };
 
 const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic }) => {
+  // State management
   const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,6 +63,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108');
   
+  // New state for n8n backend toggle
+  // Set to true to use n8n backend, false for direct WebSocket
+  const [useN8nBackend, setUseN8nBackend] = useState(true);
+  
   // State for tracking the current request
   const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
   
@@ -73,6 +78,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     analysis?: string;
   }>({});
   
+  // Refs
   const avatarRef = useRef<StreamingAvatar | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const initialMessageSent = useRef<boolean>(false);
@@ -83,6 +89,119 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const lastMessageTimestamp = useRef<number>(Date.now());
   const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
 
+  /**
+   * Function to call n8n webhook endpoint
+   * This sends a request to the backend which routes it through n8n workflows
+   * @param userInput - The user's message
+   * @param requestId - Unique identifier for this request
+   * @returns Promise with n8n response
+   */
+  const callN8nEndpoint = async (userInput: string, requestId: string) => {
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+      const response = await fetch(`https://${apiBase}/n8n_main_req`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          user_message: userInput,
+          session_id: sessionId,
+          agent_names: 're-engage', // Default agent, can be changed dynamically
+          timestamp_of_call_made: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error calling n8n endpoint:', error);
+      throw error;
+    }
+  };
+
+  /**
+   * Function to call n8n streaming endpoint (OPTIONAL)
+   * This enables real-time streaming of responses from n8n
+   * @param userInput - The user's message
+   * @param requestId - Unique identifier for this request
+   */
+  const callN8nStreamEndpoint = async (userInput: string, requestId: string) => {
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+      const response = await fetch(`https://${apiBase}/n8n_main_req_stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          user_message: userInput,
+          session_id: sessionId,
+          agent_names: 're-engage',
+          timestamp_of_call_made: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Process Server-Sent Events (SSE) stream
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (!reader) throw new Error('No response body');
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              // Handle different types of streaming data
+              if (data.type === 'intermediate') {
+                setAgentThinking(data.message);
+              } else if (data.type === 'tool_execution') {
+                handleToolExecution(data);
+              } else if (data.type === 'tool_result') {
+                handleToolResult(data);
+              } else if (data.type === 'final') {
+                // Handle final response
+                setChatHistory(prevHistory => [
+                  ...prevHistory,
+                  { 
+                    sender: 'AI', 
+                    message: data.message, 
+                    requestId, 
+                    status: 'complete' 
+                  }
+                ]);
+                setAgentThinking(null);
+              }
+            } catch (e) {
+              console.error('Error parsing streaming data:', e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error calling n8n stream endpoint:', error);
+      throw error;
+    }
+  };
+
   // Effect to sync the internal state with the exported singleton
   useEffect(() => {
     console.log("Loading state changed:", loading);
@@ -92,8 +211,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     processingState.isProcessing = loading;
   }, [websocketRef.current, currentRequestId, loading]);
 
+  // Safety timeout to reset loading state if it gets stuck
   useEffect(() => {
-    // Safety timeout to reset loading state if it gets stuck
     if (loading) {
       const safetyTimeout = setTimeout(() => {
         console.log('Safety timeout triggered - resetting loading state');
@@ -164,18 +283,16 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     // Set connection status to connecting
     setConnectionStatus('connecting');
     
-    // Optimize the session change flow:
-    // 1. Start WebSocket connection immediately (don't wait)
-    // 2. Fetch chat history in parallel with the connection
-    
-    // Start a new WebSocket connection immediately 
+    // Start WebSocket connection immediately 
     if (websocketRef.current) {
       websocketRef.current.close();
       websocketRef.current = null;
     }
     
-    // Connect to WebSocket immediately without delay
-    connectWebSocket();
+    // Connect to WebSocket only if not using n8n backend
+    if (!useN8nBackend) {
+      connectWebSocket();
+    }
     
     // Fetch chat history in parallel
     fetchChatHistory();
@@ -350,58 +467,35 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const handleToolResult = (data: any) => {
     console.log(`Tool result received: ${data.executionId}`);
     
-    // Find the case 'tool_result': section in ws.onmessage handler and replace it with this:
-    console.log(`Tool result received: ${data.executionId}`);
-    
     // Process tool results based on the tool type
     if (data.executionId) {
-      // Extract tool name from executionId (e.g., "screenshot-12345" -> "screenshot")
-      const toolName = data.tool || data.executionId.split('-')[0];
-      
       // Handle screenshot result
       if (data.tool === 'capture_website_screenshot') {
-        // Log the entire result for debugging
-        console.log("Screenshot tool result:", data.result);
-        
         let screenshotPath = '';
         
         // Handle different result formats
         if (typeof data.result === 'object' && data.result && data.result.status === 'success' && data.result.path) {
-          console.log("Result is success object with path:", data.result.path);
           screenshotPath = data.result.path;
         } else if (typeof data.result === 'object' && data.result && data.result.path) {
-          console.log("Result is object with path property:", data.result.path);
           screenshotPath = data.result.path;
         } else if (typeof data.result === 'string') {
-          console.log("Result is string:", data.result);
           screenshotPath = data.result;
-        } else {
-          console.warn("Unexpected result format:", typeof data.result);
         }
         
         // Ensure path has the correct format
         if (screenshotPath && typeof screenshotPath === 'string') {
-          console.log("Processing screenshot path:", screenshotPath);
-          
           // If path is just a filename, add the full path
           if (!screenshotPath.startsWith('/') && !screenshotPath.startsWith('http')) {
             screenshotPath = `/static/screenshots/${screenshotPath}`;
-            console.log("Added directory to path:", screenshotPath);
           }
           
           // If path doesn't include the backend URL, add it
           if (screenshotPath.startsWith('/static/')) {
             const apiBase = process.env.NEXT_PUBLIC_API_BASE;
             screenshotPath = `https://${apiBase}${screenshotPath}`;
-            console.log("Added API base to path:", screenshotPath);
           }
-        } else {
-          console.warn("Invalid screenshot path:", screenshotPath);
         }
         
-        console.log("Final screenshot path:", screenshotPath);
-        
-        // Only update if we have a valid path
         if (screenshotPath) {
           setWebsiteData(prev => ({
             ...prev,
@@ -464,9 +558,12 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     }
   };
 
-  // Function to start chat via WebSocket
-  const startChat = () => {
-    if (!websocketRef.current || initialMessageSent.current) {
+  /**
+   * Main function to start chat - supports both n8n and WebSocket modes
+   * This initializes the conversation with the AI
+   */
+  const startChat = async () => {
+    if (initialMessageSent.current) {
       return;
     }
     
@@ -483,11 +580,57 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     processingState.currentRequestId = requestId;
     processingState.isProcessing = true;
     
-    // Send empty message to start the conversation
-    websocketRef.current.send(JSON.stringify({
-      message: "",
-      requestId
-    }));
+    if (useN8nBackend) {
+      // Start chat using n8n backend
+      try {
+        const n8nResponse = await callN8nEndpoint("", requestId);
+        
+        if (n8nResponse.status === 'success') {
+          // Add the greeting to chat
+          if (textEnabled) {
+            setChatHistory(prevHistory => [
+              ...prevHistory,
+              { 
+                sender: 'AI', 
+                message: n8nResponse.agent_responses, 
+                requestId, 
+                status: 'complete' 
+              }
+            ]);
+          }
+          
+          // Speak with avatar if enabled
+          if (avatarRef.current && videoEnabled && voiceEnabled) {
+            await speakWithAvatar(n8nResponse.agent_responses);
+          }
+        }
+      } catch (error) {
+        console.error("Error starting chat with n8n:", error);
+        setChatHistory(prevHistory => [
+          ...prevHistory,
+          { 
+            sender: 'System', 
+            message: `Error starting chat: ${(error as Error).message}`, 
+            requestId, 
+            status: 'error' 
+          }
+        ]);
+      } finally {
+        setLoading(false);
+        setCurrentRequestId(null);
+      }
+    } else {
+      // Start chat using WebSocket
+      if (!websocketRef.current) {
+        setLoading(false);
+        return;
+      }
+      
+      websocketRef.current.send(JSON.stringify({
+        message: "",
+        requestId
+      }));
+    }
   };
 
   const handleAgentResponse = (data: any) => {
@@ -528,20 +671,14 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     }
   };
 
-  // Function to send a message via WebSocket
-  const sendMessage = () => {
+  /**
+   * Main function to send messages - supports both n8n and WebSocket modes
+   * This is called when the user clicks send or presses enter
+   */
+  const sendMessage = async () => {
     if (!userInput.trim()) return;
     
-    // Check connection status before sending
-    if (!websocketRef.current || connectionStatus !== 'connected') {
-      console.log("Cannot send message: WebSocket not connected");
-      // Update UI to show connection issue
-      setAgentThinking("Connection issue. Attempting to reconnect...");
-      // Attempt to reconnect
-      connectWebSocket();
-      return;
-    }
-    
+    // Check if we're already processing a request
     if (loading) {
       console.log("Cannot send message: Still processing previous request");
       return;
@@ -549,7 +686,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     
     setLoading(true);
     setAvatarError(null);
-  
+    
     lastMessageTimestamp.current = Date.now();
     
     // Generate a unique request ID
@@ -579,54 +716,96 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       ]);
     }
     
-    // Send message with timeout
     try {
-      // Send message via WebSocket
-      websocketRef.current.send(JSON.stringify({
-        message: userInput,
-        requestId
-      }));
-      
-      // Set a timeout to reset loading state if no response is received
-      const messageTimeout = setTimeout(() => {
-        if (loading && currentRequestId === requestId) {
-          console.log(`Message timeout for request ${requestId}`);
-          setLoading(false);
-          setCurrentRequestId(null);
+      if (useN8nBackend) {
+        // Send message using n8n backend
+        const n8nResponse = await callN8nEndpoint(userInput, requestId);
+        
+        // Process n8n response
+        if (n8nResponse.status === 'success') {
+          // Clear thinking state
           setAgentThinking(null);
           
-          // Add timeout message to chat
-          setChatHistory(prevHistory => [
-            ...prevHistory,
-            { 
-              sender: "System", 
-              message: "Message timed out. The server may be busy. Please try again.", 
-              requestId, 
-              status: 'error' 
-            }
-          ]);
+          // Add AI response to chat
+          if (textEnabled) {
+            setChatHistory(prevHistory => [
+              ...prevHistory,
+              { 
+                sender: 'AI', 
+                message: n8nResponse.agent_responses, 
+                requestId, 
+                status: 'complete' 
+              }
+            ]);
+          }
+          
+          // Speak with avatar if enabled
+          if (avatarRef.current && videoEnabled && voiceEnabled) {
+            await speakWithAvatar(n8nResponse.agent_responses);
+          }
+        } else {
+          throw new Error(n8nResponse.error || 'Unknown error from n8n');
         }
-      }, 60000); // 1 minute timeout
+      } else {
+        // Send message using WebSocket
+        if (!websocketRef.current || connectionStatus !== 'connected') {
+          console.log("Cannot send message: WebSocket not connected");
+          setAgentThinking("Connection issue. Attempting to reconnect...");
+          connectWebSocket();
+          return;
+        }
+        
+        // Send message via WebSocket
+        websocketRef.current.send(JSON.stringify({
+          message: userInput,
+          requestId
+        }));
+        
+        // Set a timeout for WebSocket response
+        const messageTimeout = setTimeout(() => {
+          if (loading && currentRequestId === requestId) {
+            console.log(`Message timeout for request ${requestId}`);
+            setLoading(false);
+            setCurrentRequestId(null);
+            setAgentThinking(null);
+            
+            setChatHistory(prevHistory => [
+              ...prevHistory,
+              { 
+                sender: "System", 
+                message: "Message timed out. The server may be busy. Please try again.", 
+                requestId, 
+                status: 'error' 
+              }
+            ]);
+          }
+        }, 60000); // 1 minute timeout
+        
+        messageTimeoutsRef.current[requestId] = messageTimeout;
+      }
       
-      // Store the timeout ID to clear it if response is received
-      messageTimeoutsRef.current[requestId] = messageTimeout;
-      
-      setUserInput(""); // Clear input field immediately for better UX
+      setUserInput(""); // Clear input field
     } catch (error) {
       console.error("Error sending message:", error);
-      setLoading(false);
-      setAgentThinking(null);
       
       // Add error message to chat
       setChatHistory(prevHistory => [
         ...prevHistory,
         { 
           sender: "System", 
-          message: `Error sending message: ${(error as Error).message}`, 
+          message: `Error: ${(error as Error).message}`, 
           requestId, 
           status: 'error' 
         }
       ]);
+    } finally {
+      // Only reset loading state for n8n mode here
+      // For WebSocket mode, it will be reset in handleAgentResponse
+      if (useN8nBackend) {
+        setLoading(false);
+        setCurrentRequestId(null);
+        setAgentThinking(null);
+      }
     }
   };
 
@@ -649,7 +828,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   // Function to handle when the avatar is ready
   const handleAvatarReady = () => {
     console.log("Avatar is ready");
-    if (!chatStarted && websocketRef.current && connectionStatus === 'connected') {
+    if (!chatStarted && ((websocketRef.current && connectionStatus === 'connected') || useN8nBackend)) {
       startChat();
     }
   };
@@ -682,6 +861,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     }, 100);
   };
 
+  // Cleanup effect
   useEffect(() => {
     return () => {
       // Clean up message timeouts
@@ -692,7 +872,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     };
   }, []);
 
-  // The return statement - fixed version
+  // Render the component
   return (
     <>
       {/* Left side - User dashboard */}
@@ -732,16 +912,16 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
           {/* Connection Status Indicator */}
           <div className="absolute top-2 left-20 z-10">
             <div className={`flex items-center px-3 py-1 rounded-full text-xs transition-all duration-300 ${
-              connectionStatus === 'connected' ? 'bg-green-600' : 
+              connectionStatus === 'connected' || useN8nBackend ? 'bg-green-600' : 
               connectionStatus === 'connecting' ? 'bg-yellow-600 animate-pulse' : 'bg-red-600'
             } text-white`}>
               <div className={`w-2 h-2 rounded-full mr-2 ${
-                connectionStatus === 'connected' ? 'bg-green-300' : 
+                connectionStatus === 'connected' || useN8nBackend ? 'bg-green-300' : 
                 connectionStatus === 'connecting' ? 'bg-yellow-300 animate-pulse' : 'bg-red-300'
               }`}></div>
-              {connectionStatus === 'connected' ? 'Connected' : 
+              {useN8nBackend ? 'N8N Connected' : 
+              connectionStatus === 'connected' ? 'Connected' : 
               connectionStatus === 'connecting' ? (
-                // Show connection attempt count and improve message
                 <span className="flex items-center">
                   Connecting
                   <span className="ml-1 flex space-x-1">
@@ -765,6 +945,19 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
           
           {/* Avatar Controls */}
           <div className="absolute top-4 right-4 z-10 flex space-x-4">
+            {/* Backend Toggle (OPTIONAL) */}
+            <div className="flex items-center">
+              <span className="text-white mr-2 text-sm">Backend</span>
+              <label className="switch">
+                <input 
+                  type="checkbox" 
+                  checked={useN8nBackend} 
+                  onChange={() => setUseN8nBackend(!useN8nBackend)} 
+                />
+                <span className="slider round"></span>
+              </label>
+            </div>
+            
             <div className="flex items-center">
               <span className="text-white mr-2 text-sm">Text</span>
               <label className="switch">
@@ -881,26 +1074,30 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
                 type="text"
                 className="flex-1 bg-[#2D3B4F] text-white rounded-lg px-4 py-3"
                 placeholder={
-                  connectionStatus === 'connecting' 
-                    ? "Connecting to server..." 
-                    : connectionStatus === 'disconnected'
-                      ? "Disconnected from server..."
-                      : "Type your message..."
+                  loading
+                    ? "Processing..." 
+                    : useN8nBackend
+                      ? "Type your message..."
+                      : connectionStatus === 'connecting' 
+                        ? "Connecting to server..." 
+                        : connectionStatus === 'disconnected'
+                          ? "Disconnected from server..."
+                          : "Type your message..."
                 }
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
                 onKeyPress={(e) => {
-                  // Allow sending message as soon as we're connected, even if still loading
-                  if (e.key === "Enter" && connectionStatus === 'connected') {
+                  if (e.key === "Enter" && !loading) {
                     sendMessage();
                   }
                 }}
-                // Only disable when actually disconnected
-                disabled={connectionStatus === 'disconnected'}
+                disabled={loading || (!useN8nBackend && connectionStatus === 'disconnected')}
               />
               <button
                 onClick={() => {
-                  if (connectionStatus !== 'connected') {
+                  if (loading) return;
+                  
+                  if (!useN8nBackend && connectionStatus !== 'connected') {
                     // Try to reconnect if disconnected
                     if (connectionStatus === 'disconnected') {
                       connectWebSocket();
@@ -908,22 +1105,26 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
                     return;
                   }
                   
-                  // Always allow sending new messages when connected
                   sendMessage();
                 }}
                 className={`
                   text-white px-8 py-3 rounded-lg font-medium transition-colors
-                  ${connectionStatus === 'connecting'
-                    ? "bg-yellow-600 cursor-wait"
-                    : connectionStatus === 'disconnected'
-                      ? "bg-gray-600"
-                      : "bg-blue-600 hover:bg-blue-700"
+                  ${loading
+                    ? "bg-gray-600 cursor-not-allowed"
+                    : useN8nBackend
+                      ? "bg-blue-600 hover:bg-blue-700"
+                      : connectionStatus === 'connecting'
+                        ? "bg-yellow-600 cursor-wait"
+                        : connectionStatus === 'disconnected'
+                          ? "bg-gray-600"
+                          : "bg-blue-600 hover:bg-blue-700"
                   }
                 `}
-                disabled={connectionStatus !== 'connected'}
+                disabled={loading || (!useN8nBackend && connectionStatus !== 'connected')}
               >
-                {connectionStatus === 'connecting' ? "Connecting..." : 
-                connectionStatus === 'disconnected' ? "Disconnected" : "Send"}
+                {loading ? "Processing..." :
+                connectionStatus === 'connecting' && !useN8nBackend ? "Connecting..." : 
+                connectionStatus === 'disconnected' && !useN8nBackend ? "Disconnected" : "Send"}
               </button>
             </div>
           </div>
