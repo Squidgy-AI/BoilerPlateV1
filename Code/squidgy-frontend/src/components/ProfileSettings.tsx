@@ -1,8 +1,8 @@
-// Enhanced ProfileSettings.tsx with robust image upload
-import React, { useState, useEffect } from 'react';
+// src/components/ProfileSettings.tsx
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './Auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
-import { Settings, Camera, Save, X, Upload, AlertCircle } from 'lucide-react';
+import { Settings, Camera, Save, X } from 'lucide-react';
 
 interface ProfileSettingsProps {
   isOpen: boolean;
@@ -18,43 +18,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [bucketExists, setBucketExists] = useState(true);
-  
-  // Check if the 'profiles' bucket exists when component mounts
-  useEffect(() => {
-    async function checkBucket() {
-      try {
-        const { data: buckets, error } = await supabase.storage.listBuckets();
-        
-        if (error) {
-          console.error('Error checking buckets:', error);
-          return;
-        }
-        
-        const exists = buckets.some(bucket => bucket.name === 'profiles');
-        setBucketExists(exists);
-        
-        if (!exists) {
-          console.warn('Profiles bucket does not exist. Creating it...');
-          // Try to create the bucket
-          const { error: createError } = await supabase.storage.createBucket('profiles', {
-            public: true, // Make files publicly accessible
-            fileSizeLimit: 5 * 1024 * 1024 // 5MB limit
-          });
-          
-          if (createError) {
-            console.error('Error creating profiles bucket:', createError);
-          } else {
-            setBucketExists(true);
-          }
-        }
-      } catch (err) {
-        console.error('Error in bucket check:', err);
-      }
-    }
-    
-    checkBucket();
-  }, []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
     if (profile) {
@@ -63,32 +27,23 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
     }
   }, [profile]);
   
-  const validateFile = (file: File): string | null => {
-    // Check file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      return 'Please select a valid image file (JPEG, PNG, GIF, WEBP)';
-    }
-    
-    // Check file size (5MB max)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      return 'Image file is too large (max 5MB)';
-    }
-    
-    return null;
-  };
-  
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
     const file = files[0];
     
-    // Validate file
-    const validationError = validateFile(file);
-    if (validationError) {
-      setMessage({ type: 'error', text: validationError });
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setMessage({ type: 'error', text: 'Please select a valid image file (JPEG, PNG, GIF, WEBP)' });
+      return;
+    }
+    
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      setMessage({ type: 'error', text: 'Image file is too large (max 5MB)' });
       return;
     }
     
@@ -102,32 +57,22 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
     reader.readAsDataURL(file);
     
     setAvatarFile(file);
-    // Clear any previous error messages
     setMessage(null);
   };
   
   const uploadAvatar = async (file: File): Promise<string | null> => {
     if (!profile) return null;
     
+    setIsUploading(true);
+    setUploadProgress(0);
+    
     try {
       // Generate a unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const filePath = `avatars/${fileName}`; // Store in avatars folder
       
-      setIsUploading(true);
-      setUploadProgress(0);
-      
-      // Create a FormData for upload tracking
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      // Check if bucket exists before attempting upload
-      if (!bucketExists) {
-        throw new Error('Storage bucket "profiles" does not exist');
-      }
-      
-      // Upload the file with progress tracking
+      // Upload to profiles bucket
       const { data, error } = await supabase
         .storage
         .from('profiles')
@@ -145,7 +90,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
         .storage
         .from('profiles')
         .getPublicUrl(filePath);
-      
+        
       if (!urlData || !urlData.publicUrl) {
         throw new Error('Failed to get public URL for uploaded file');
       }
@@ -177,8 +122,8 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
           if (uploadedUrl) {
             newAvatarUrl = uploadedUrl;
           }
-        } catch (uploadError: any) {
-          throw new Error(`Avatar upload failed: ${uploadError.message}`);
+        } catch (error: any) {
+          throw new Error(`Avatar upload failed: ${error.message}`);
         }
       }
       
@@ -195,9 +140,17 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
       if (error) throw error;
       
       // Refresh profile in AuthContext
-      await refreshProfile();
+      if (refreshProfile) {
+        await refreshProfile();
+      }
       
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setAvatarFile(null);
     } catch (error: any) {
       console.error('Error updating profile:', error);
       setMessage({ 
@@ -228,18 +181,10 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
         </div>
         
         {message && (
-          <div className={`mb-4 p-3 rounded flex items-center ${
+          <div className={`mb-4 p-3 rounded ${
             message.type === 'success' ? 'bg-green-600' : 'bg-red-600'
           } text-white`}>
-            <AlertCircle size={16} className="mr-2" />
             {message.text}
-          </div>
-        )}
-        
-        {!bucketExists && (
-          <div className="mb-4 p-3 rounded bg-yellow-600 text-white flex items-center">
-            <AlertCircle size={16} className="mr-2" />
-            Storage not properly configured. Avatar uploads may not work.
           </div>
         )}
         
@@ -264,6 +209,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
               <Camera size={16} className="mr-2" />
               {isUploading ? 'Uploading...' : 'Change Profile Picture'}
               <input 
+                ref={fileInputRef}
                 type="file" 
                 accept="image/*" 
                 className="hidden" 
@@ -274,7 +220,10 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
             
             {isUploading && (
               <div className="w-full mt-2">
-                <div className="w-full h-2 bg-gray-700 rounded-full mt-1">
+                <div className="text-xs text-gray-400 mb-1">
+                  Uploading... {Math.round(uploadProgress)}%
+                </div>
+                <div className="w-full h-2 bg-gray-700 rounded-full">
                   <div 
                     className="h-full bg-blue-500 rounded-full transition-all duration-300"
                     style={{ width: `${uploadProgress}%` }}

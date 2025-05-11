@@ -2,9 +2,9 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
 import type { Provider, Session, User } from '@supabase/supabase-js';
-import type { Profile } from '../../lib/supabase';
+import { supabase } from '@/lib/supabase';
+import type { Profile } from '@/lib/supabase';
 
 type AuthContextType = {
   session: Session | null;
@@ -198,11 +198,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Refresh profile data
+  // Make sure this function exists in your AuthProvider.tsx
   const refreshProfile = async () => {
     if (!user) return;
     
-    const profileData = await fetchProfile(user.id);
-    setProfile(profileData);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (error) throw error;
+      
+      setProfile(data);
+    } catch (error) {
+      console.error('Failed to refresh profile:', error);
+    }
   };
 
   // Invite a user
