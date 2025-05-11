@@ -48,7 +48,10 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!profile) return;
+    if (!profile) {
+      setMessage({ type: 'error', text: 'No profile found. Please log in again.' });
+      return;
+    }
     
     setIsSaving(true);
     setMessage(null);
@@ -60,45 +63,61 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
       if (avatarFile) {
         setIsUploading(true);
         
-        const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
-        const filePath = `avatars/${fileName}`;
+        const formData = new FormData();
+        formData.append('file', avatarFile);
+        formData.append('userId', profile.id);
         
-        const { error: uploadError } = await supabase
-          .storage
-          .from('profiles')
-          .upload(filePath, avatarFile);
-          
-        if (uploadError) throw uploadError;
+        const uploadResponse = await fetch('/api/upload-avatar', {
+          method: 'POST',
+          body: formData
+        });
         
-        // Get public URL
-        const { data } = supabase
-          .storage
-          .from('profiles')
-          .getPublicUrl(filePath);
-          
-        newAvatarUrl = data.publicUrl;
+        const uploadResult = await uploadResponse.json();
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Failed to upload avatar');
+        }
+        
+        newAvatarUrl = uploadResult.url;
         setIsUploading(false);
       }
       
-      // Update profile
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: fullName,
-          avatar_url: newAvatarUrl,
-          updated_at: new Date().toISOString()
+      // Update profile through API route
+      const response = await fetch('/api/update-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: profile.id,
+          fullName: fullName,
+          avatarUrl: newAvatarUrl
         })
-        .eq('id', profile.id);
-        
-      if (error) throw error;
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update profile');
+      }
       
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
-    } catch (error) {
+      
+      // Update the AuthContext with new profile data
+      if (result.data) {
+        // Call refreshProfile from AuthContext if available
+        // Or update the profile state directly
+      }
+      
+    } catch (error: any) {
       console.error('Error updating profile:', error);
-      setMessage({ type: 'error', text: 'Error updating profile. Please try again.' });
+      setMessage({ 
+        type: 'error', 
+        text: error.message || 'Error updating profile. Please try again.' 
+      });
     } finally {
       setIsSaving(false);
+      setIsUploading(false);
     }
   };
   
