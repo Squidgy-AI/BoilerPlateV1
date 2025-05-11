@@ -12,7 +12,7 @@ interface ProfileSettingsProps {
 }
 
 const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) => {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const [fullName, setFullName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -60,61 +60,114 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
       if (avatarFile) {
         setIsUploading(true);
         
-        const formData = new FormData();
-        formData.append('file', avatarFile);
-        formData.append('userId', profile.id);
+        // Generate a unique filename
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `public/${profile.id}-${Date.now()}.${fileExt}`;
         
-        const uploadResponse = await fetch('/api/upload-avatar', {
-          method: 'POST',
-          body: formData
-        });
+        console.log("Uploading file to 'avatars' bucket:", fileName);
         
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text();
-          throw new Error(`Upload failed: ${errorText}`);
+        // Create a storage bucket if it doesn't exist (this is an admin operation that might not work)
+        try {
+          const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('avatars');
+          if (bucketError) {
+            console.log('Bucket does not exist, trying to create it...');
+            // Attempt to create bucket, but this might fail without admin rights
+            await supabase.storage.createBucket('avatars', {
+              public: true
+            });
+          }
+        } catch (bucketError) {
+          console.log('Cannot create/check bucket, will try to upload anyway:', bucketError);
         }
         
-        const uploadResult = await uploadResponse.json();
-        
-        if (!uploadResult.success) {
-          throw new Error(uploadResult.error || 'Failed to upload avatar');
+        // Upload directly to storage
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage
+          .from('avatars') 
+          .upload(fileName, avatarFile, {
+            cacheControl: '3600',
+            upsert: true
+          });
+          
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          
+          if (uploadError.message.includes("bucket") || uploadError.message.includes("permission")) {
+            // Try an alternative approach - upload directly to the profiles bucket
+            const altFileName = `profiles/${profile.id}-${Date.now()}.${fileExt}`;
+            console.log("Trying alternative upload to 'profiles' bucket:", altFileName);
+            
+            const { data: altUploadData, error: altUploadError } = await supabase
+              .storage
+              .from('profiles') // Try the profiles bucket as fallback
+              .upload(altFileName, avatarFile, {
+                cacheControl: '3600',
+                upsert: true
+              });
+              
+            if (altUploadError) {
+              console.error("Alternative upload error:", altUploadError);
+              throw new Error(`Avatar upload failed: ${altUploadError.message}`);
+            }
+            
+            // Get public URL from the alternative bucket
+            const { data: altUrlData } = supabase
+              .storage
+              .from('profiles')
+              .getPublicUrl(altFileName);
+              
+            newAvatarUrl = altUrlData.publicUrl;
+          } else {
+            throw new Error(`Avatar upload failed: ${uploadError.message}`);
+          }
+        } else {
+          // Get public URL
+          const { data: urlData } = supabase
+            .storage
+            .from('avatars')
+            .getPublicUrl(fileName);
+            
+          newAvatarUrl = urlData.publicUrl;
         }
         
-        newAvatarUrl = uploadResult.url;
+        console.log("New avatar URL:", newAvatarUrl);
         setIsUploading(false);
       }
       
-      // Update profile
-      const response = await fetch('/api/update-profile', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: profile.id,
-          fullName: fullName,
-          avatarUrl: newAvatarUrl
+      console.log("Updating profile with avatar URL:", newAvatarUrl);
+      
+      // Update profile directly
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: fullName,
+          avatar_url: newAvatarUrl,
+          updated_at: new Date().toISOString()
         })
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Profile update failed: ${errorText}`);
+        .eq('id', profile.id);
+        
+      if (error) {
+        console.error("Profile update error:", error);
+        
+        // Try RPC method as fallback
+        console.log("Trying RPC method...");
+        const { data: rpcData, error: rpcError } = await supabase.rpc('update_profile', {
+          p_user_id: profile.id,
+          p_full_name: fullName,
+          p_avatar_url: newAvatarUrl
+        });
+        
+        if (rpcError) {
+          console.error("RPC update error:", rpcError);
+          throw rpcError;
+        }
       }
       
-      const result = await response.json();
+      // Refresh profile to get updated data
+      await refreshProfile();
       
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update profile');
-      }
-      
+      // Success message
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
-      
-      // Update the avatar URL state
-      if (newAvatarUrl !== avatarUrl) {
-        setAvatarUrl(newAvatarUrl);
-      }
-      
     } catch (error: any) {
       console.error('Error updating profile:', error);
       setMessage({ 
@@ -224,10 +277,10 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
               disabled={isSaving || isUploading}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center"
             >
-              {isSaving ? (
+              {isSaving || isUploading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                  Saving...
+                  {isUploading ? 'Uploading...' : 'Saving...'}
                 </>
               ) : (
                 <>
