@@ -60,65 +60,60 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
       if (avatarFile) {
         setIsUploading(true);
         
-        try {
-          const fileExt = avatarFile.name.split('.').pop();
-          const fileName = `${Date.now()}.${fileExt}`;
-          
-          // Upload directly to storage
-          const { data, error } = await supabase
-            .storage
-            .from('profiles')
-            .upload(`${profile.id}/${fileName}`, avatarFile, {
-              cacheControl: '3600',
-              upsert: true
-            });
-          
-          if (error) throw error;
-          
-          // Get public URL
-          const { data: urlData } = supabase
-            .storage
-            .from('profiles')
-            .getPublicUrl(`${profile.id}/${fileName}`);
-          
-          newAvatarUrl = urlData.publicUrl;
-        } catch (uploadError) {
-          console.error('Avatar upload error:', uploadError);
-          throw new Error('Failed to upload avatar: ' + (uploadError.message || 'Unknown error'));
-        } finally {
-          setIsUploading(false);
+        const formData = new FormData();
+        formData.append('file', avatarFile);
+        formData.append('userId', profile.id);
+        
+        const uploadResponse = await fetch('/api/upload-avatar', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          throw new Error(`Upload failed: ${errorText}`);
         }
+        
+        const uploadResult = await uploadResponse.json();
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Failed to upload avatar');
+        }
+        
+        newAvatarUrl = uploadResult.url;
+        setIsUploading(false);
       }
       
-      // Call the database function to update profile
-      console.log('Updating profile with:', {
-        p_user_id: profile.id,
-        p_full_name: fullName,
-        p_avatar_url: newAvatarUrl
+      // Update profile
+      const response = await fetch('/api/update-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: profile.id,
+          fullName: fullName,
+          avatarUrl: newAvatarUrl
+        })
       });
       
-      const { data, error } = await supabase.rpc('update_profile', {
-        p_user_id: profile.id,
-        p_full_name: fullName,
-        p_avatar_url: newAvatarUrl
-      });
-      
-      if (error) {
-        console.error('Database function error:', error);
-        throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Profile update failed: ${errorText}`);
       }
       
-      console.log('Profile updated successfully:', data);
+      const result = await response.json();
       
-      // If we got back data.success === false, it's an error from the function
-      if (data && data.success === false) {
-        throw new Error(data.error || 'Error in database function');
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update profile');
       }
       
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
       
-      // Update local avatar URL state to show the update immediately
-      setAvatarUrl(newAvatarUrl);
+      // Update the avatar URL state
+      if (newAvatarUrl !== avatarUrl) {
+        setAvatarUrl(newAvatarUrl);
+      }
       
     } catch (error: any) {
       console.error('Error updating profile:', error);
@@ -128,6 +123,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
       });
     } finally {
       setIsSaving(false);
+      setIsUploading(false);
     }
   };
   
