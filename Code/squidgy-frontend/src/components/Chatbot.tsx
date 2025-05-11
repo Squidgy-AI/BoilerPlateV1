@@ -63,9 +63,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108');
   
-  // New state for n8n backend toggle
-  // Set to true to use n8n backend, false for direct WebSocket
+  // New state for n8n backend toggle and streaming
   const [useN8nBackend, setUseN8nBackend] = useState(true);
+  const [streamingProgress, setStreamingProgress] = useState<number>(0);
+  const [streamingStatus, setStreamingStatus] = useState<string>('');
   
   // State for tracking the current request
   const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
@@ -90,7 +91,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
 
   /**
-   * Function to call n8n webhook endpoint
+   * Function to call n8n webhook endpoint with request_id support
    * This sends a request to the backend which routes it through n8n workflows
    * @param userInput - The user's message
    * @param requestId - Unique identifier for this request
@@ -106,9 +107,9 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         },
         body: JSON.stringify({
           user_id: userId,
-          user_mssg: userInput,  // Changed from user_message to user_mssg
+          user_mssg: userInput,
           session_id: sessionId,
-          agent_name: agentType, // Changed from agent_names to agent_name (singular)
+          agent_name: agentType,
           timestamp_of_call_made: new Date().toISOString()
         })
       });
@@ -118,86 +119,13 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       }
   
       const data = await response.json();
+      
+      // The response now includes request_id
+      console.log('n8n response with request_id:', data.session_id);
+      
       return data;
     } catch (error) {
       console.error('Error calling n8n endpoint:', error);
-      throw error;
-    }
-  };
-
-  /**
-   * Function to call n8n streaming endpoint (OPTIONAL)
-   * This enables real-time streaming of responses from n8n
-   * @param userInput - The user's message
-   * @param requestId - Unique identifier for this request
-   */
-  const callN8nStreamEndpoint = async (userInput: string, requestId: string, agentType: string = 're-engage') => {
-    try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-      const response = await fetch(`https://${apiBase}/n8n_main_req_stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          user_mssg: userInput,  // Changed from user_message to user_mssg
-          session_id: sessionId,
-          agent_name: agentType, // Changed from agent_names to agent_name (singular)
-          timestamp_of_call_made: new Date().toISOString()
-        })
-      });
-  
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-  
-      // Process Server-Sent Events (SSE) stream
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      
-      if (!reader) throw new Error('No response body');
-  
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              // Handle different types of streaming data
-              if (data.type === 'intermediate') {
-                setAgentThinking(data.message);
-              } else if (data.type === 'tool_execution') {
-                handleToolExecution(data);
-              } else if (data.type === 'tool_result') {
-                handleToolResult(data);
-              } else if (data.type === 'final') {
-                // Handle final response
-                setChatHistory(prevHistory => [
-                  ...prevHistory,
-                  { 
-                    sender: 'AI', 
-                    message: data.message, 
-                    requestId, 
-                    status: 'complete' 
-                  }
-                ]);
-                setAgentThinking(null);
-              }
-            } catch (e) {
-              console.error('Error parsing streaming data:', e);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error calling n8n stream endpoint:', error);
       throw error;
     }
   };
@@ -257,7 +185,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
             const formattedHistory = data.history.map((msg: any) => ({
               sender: msg.sender,
               message: msg.message,
-              status: 'complete' as 'complete'  // Explicitly type this
+              status: 'complete' as 'complete'
             }));
             
             setChatHistory([...formattedHistory]);
@@ -273,6 +201,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     setAgentThinking(null);
     setCurrentRequestId(null);
     setWebsiteData({});
+    setStreamingProgress(0);
+    setStreamingStatus('');
     
     // Clean up any pending reconnect timers
     if (reconnectTimeoutRef.current) {
@@ -280,26 +210,24 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       reconnectTimeoutRef.current = null;
     }
     
-    // Set connection status to connecting
-    setConnectionStatus('connecting');
+    // Set connection status
+    setConnectionStatus(useN8nBackend ? 'connected' : 'connecting');
     
-    // Start WebSocket connection immediately 
+    // Start WebSocket connection if not using n8n backend
     if (websocketRef.current) {
       websocketRef.current.close();
       websocketRef.current = null;
     }
     
-    // Connect to WebSocket only if not using n8n backend
-    if (!useN8nBackend) {
-      connectWebSocket();
-    }
+    // Connect to WebSocket for receiving streaming updates
+    connectWebSocket();
     
     // Fetch chat history in parallel
     fetchChatHistory();
     
   }, [sessionId]);
 
-  // Function to connect WebSocket
+  // Function to connect WebSocket (now used for streaming updates even with n8n)
   const connectWebSocket = () => {
     if (!userId || !sessionId) return;
 
@@ -405,13 +333,24 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const handleWebSocketMessage = (event: MessageEvent) => {
     try {
       const data = JSON.parse(event.data);
+      console.log('WebSocket message received:', data);
       
-      if (data.type === 'connection_status') {
-        setConnectionStatus(data.status);
+      // Handle streaming updates from n8n via backend
+      if (data.type === 'acknowledgment' || 
+          data.type === 'intermediate' || 
+          data.type === 'tools_usage' || 
+          data.type === 'complete' || 
+          data.type === 'final') {
+        handleStreamingUpdate(data);
         return;
       }
       
+      // Handle existing WebSocket message types
       switch (data.type) {
+        case 'connection_status':
+          setConnectionStatus(data.status);
+          break;
+          
         case 'ack':
           console.log(`Request ${data.requestId} acknowledged`);
           break;
@@ -442,6 +381,71 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       }
     } catch (error) {
       console.error('Error parsing WebSocket message:', error);
+    }
+  };
+
+  // New function to handle streaming updates from n8n
+  const handleStreamingUpdate = (data: any) => {
+    console.log('Handling streaming update:', data);
+    
+    switch (data.type) {
+      case 'acknowledgment':
+        setStreamingProgress(data.progress || 0);
+        setStreamingStatus(data.message);
+        setAgentThinking(data.message);
+        break;
+        
+      case 'intermediate':
+        setStreamingProgress(data.progress || 30);
+        setStreamingStatus(data.message);
+        setAgentThinking(data.message);
+        
+        // Check if this is a tools usage stage
+        if (data.metadata?.stage === 'tools_usage' && data.metadata?.tools) {
+          console.log('Tools being used:', data.metadata.tools);
+        }
+        break;
+        
+      case 'tools_usage':
+        setStreamingProgress(data.progress || 75);
+        setStreamingStatus(`Using tools: ${data.metadata?.tools?.join(', ') || ''}`);
+        setAgentThinking(data.message);
+        break;
+        
+      case 'complete':
+        setStreamingProgress(100);
+        setStreamingStatus('Response ready');
+        
+        // Process the final response
+        if (data.agent_response) {
+          handleAgentResponse({
+            type: 'agent_response',
+            agent: data.agent,
+            message: data.agent_response,
+            requestId: data.requestId || data.metadata?.session_id,
+            final: true
+          });
+        }
+        
+        // Reset streaming states after a short delay
+        setTimeout(() => {
+          setStreamingProgress(0);
+          setStreamingStatus('');
+        }, 1000);
+        break;
+        
+      case 'final':
+        setStreamingProgress(100);
+        setStreamingStatus('All agents completed');
+        setAgentThinking(null);
+        setLoading(false);
+        
+        // Reset after delay
+        setTimeout(() => {
+          setStreamingProgress(0);
+          setStreamingStatus('');
+        }, 1000);
+        break;
     }
   };
 
@@ -593,7 +597,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
               { 
                 sender: 'AI', 
                 message: n8nResponse.agent_response, 
-                requestId, 
+                requestId: n8nResponse.session_id, 
                 status: 'complete' 
               }
             ]);
@@ -733,7 +737,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
               { 
                 sender: 'AI', 
                 message: n8nResponse.agent_response, 
-                requestId, 
+                requestId: n8nResponse.session_id, 
                 status: 'complete' 
               }
             ]);
@@ -799,9 +803,9 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         }
       ]);
     } finally {
-      // Only reset loading state for n8n mode here
-      // For WebSocket mode, it will be reset in handleAgentResponse
-      if (useN8nBackend) {
+      // Only reset loading state for n8n mode here if not streaming
+      // For streaming mode, it will be reset when complete message is received
+      if (useN8nBackend && !websocketRef.current) {
         setLoading(false);
         setCurrentRequestId(null);
         setAgentThinking(null);
@@ -942,6 +946,24 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
               ) : 'Disconnected'}
             </div>
           </div>
+
+          {/* Streaming Progress Indicator - Show when n8n is active with streaming */}
+          {useN8nBackend && streamingProgress > 0 && (
+            <div className="absolute top-2 left-64 z-10">
+              <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs">
+                <div className="flex items-center">
+                  <div className="mr-2">{streamingStatus}</div>
+                  <div className="w-16 bg-blue-800 rounded-full h-2">
+                    <div 
+                      className="bg-blue-300 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${streamingProgress}%` }}
+                    />
+                  </div>
+                  <div className="ml-2">{streamingProgress}%</div>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Avatar Controls */}
           <div className="absolute top-4 right-4 z-10 flex space-x-4">
