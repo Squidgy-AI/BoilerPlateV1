@@ -98,35 +98,35 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
    * @returns Promise with n8n response
    */
   const callN8nEndpoint = async (userInput: string, requestId: string, agentType: string = 're-engage') => {
-    try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-      const response = await fetch(`https://${apiBase}/n8n_main_req`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          user_mssg: userInput,
-          session_id: sessionId,
-          agent_name: agentType,
-          timestamp_of_call_made: new Date().toISOString()
-        })
-      });
-  
+  try {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+    // Include agent name and session_id in the URL
+    const response = await fetch(`https://${apiBase}/n8n_main_req/${agentType}/${sessionId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        user_mssg: userInput,
+        session_id: sessionId,
+        agent_name: agentType,
+        timestamp_of_call_made: new Date().toISOString()
+      })
+    });
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       const data = await response.json();
-      
-      // The response now includes request_id
       console.log('n8n response with request_id:', data.session_id);
-      
+    
       return data;
-    } catch (error) {
-      console.error('Error calling n8n endpoint:', error);
-      throw error;
+    } 
+    catch (error) {
+        console.error('Error calling n8n endpoint:', error);
+        throw error;
     }
   };
 
