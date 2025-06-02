@@ -47,7 +47,6 @@ const WebSocketDebugger: React.FC<WebSocketDebuggerProps> = ({
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [mergedMessages, isExpanded]);
-  }, [messages, isExpanded]);
   
   // Add initial connection status message
   useEffect(() => {
