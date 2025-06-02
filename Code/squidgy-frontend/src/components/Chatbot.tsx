@@ -48,6 +48,8 @@ export const getChatProcessingState = (): ChatProcessingState => {
   };
 };
 
+import ConnectionLostBanner from './ConnectionLostBanner';
+
 const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic }) => {
   // State management
   const [userInput, setUserInput] = useState("");
@@ -60,6 +62,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
+const [showConnectionLost, setShowConnectionLost] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108');
   
@@ -86,6 +89,15 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const websocketRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
+
+// Handler for Retry button
+const handleRetryConnection = () => {
+  setShowConnectionLost(false);
+  setAgentThinking(null);
+  setConnectionStatus('connecting');
+  reconnectAttemptsRef.current = 0;
+  connectWebSocket();
+};
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMessageTimestamp = useRef<number>(Date.now());
   const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
@@ -317,7 +329,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         connectWebSocket();
       }, reconnectDelay);
     } else {
-      setAgentThinking('Connection lost. Please refresh the page.');
+      setAgentThinking(null);
+      setShowConnectionLost(true);
     }
   };
 
@@ -879,6 +892,14 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   // Render the component
   return (
     <>
+      {showConnectionLost && (
+        <ConnectionLostBanner
+          onRetry={handleRetryConnection}
+          message={
+            'Connection to the server was lost after several attempts. Please check your connection or retry.'
+          }
+        />
+      )}
       {/* Left side - User dashboard */}
       <div className="w-[45%] bg-[#1B2431] h-screen overflow-auto fixed left-0 top-0">
         <UserDashboard
