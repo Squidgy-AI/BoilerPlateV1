@@ -30,6 +30,13 @@ import StreamingAvatar from "@heygen/streaming-avatar";
 import WebSocketDebugger from '../WebSocketDebugger';
 
 const EnhancedDashboard: React.FC = () => {
+  type WebSocketLog = {
+    timestamp: Date;
+    type: 'info' | 'error' | 'success' | 'warning';
+    message: string;
+    data?: any;
+  };
+  const [websocketLogs, setWebsocketLogs] = useState<WebSocketLog[]>([]);
   const { profile, signOut } = useAuth();
   const [activeSection, setActiveSection] = useState<'people' | 'agents' | 'groups'>('agents');
   const [currentSessionId, setCurrentSessionId] = useState<string>('');
@@ -118,7 +125,15 @@ const EnhancedDashboard: React.FC = () => {
       userId: profile.id,
       sessionId: currentSessionId,
       onStatusChange: setConnectionStatus,
-      onMessage: handleWebSocketMessage
+      onMessage: handleWebSocketMessage,
+      onLog: (log) => {
+        setWebsocketLogs(prev => [...prev, {
+          timestamp: new Date(),
+          type: log.type,
+          message: log.message,
+          data: log.data
+        }].slice(-100));
+      }
     });
     
     ws.connect();
@@ -660,6 +675,7 @@ const EnhancedDashboard: React.FC = () => {
             <WebSocketDebugger 
               websocket={websocket?.ws || null} 
               status={connectionStatus} 
+              logs={websocketLogs}
               className="bg-black"
             />
           </div>
