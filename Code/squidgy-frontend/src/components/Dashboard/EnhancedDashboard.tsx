@@ -27,6 +27,7 @@ import GroupManagement from '../Groups/GroupManagement';
 import InteractiveAvatar from '../InteractiveAvatar';
 import WebSocketService from '@/services/WebSocketService';
 import StreamingAvatar from "@heygen/streaming-avatar";
+import WebSocketDebugger from '../WebSocketDebugger';
 
 const EnhancedDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
