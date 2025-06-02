@@ -90,14 +90,19 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
 
-// Handler for Retry button
-const handleRetryConnection = () => {
-  setShowConnectionLost(false);
-  setAgentThinking(null);
-  setConnectionStatus('connecting');
-  reconnectAttemptsRef.current = 0;
-  connectWebSocket();
-};
+  // Handler for Retry button
+  const handleRetryConnection = () => {
+    setShowConnectionLost(false);
+    setAgentThinking(null);
+    setConnectionStatus('connecting');
+    reconnectAttemptsRef.current = 0;
+    // Log to debug console
+    if (typeof window !== 'undefined') {
+      console.info('User clicked Retry. Attempting to reconnect WebSocket...');
+    }
+    connectWebSocket();
+  };
+
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMessageTimestamp = useRef<number>(Date.now());
   const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
@@ -110,25 +115,25 @@ const handleRetryConnection = () => {
    * @returns Promise with n8n response
    */
   const callN8nEndpoint = async (userInput: string, requestId: string, agentType: string = 're-engage') => {
-  try {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-    // Include agent name and session_id in the URL
-    const response = await fetch(`https://${apiBase}/n8n_main_req/${agentType}/${sessionId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        user_mssg: userInput,
-        session_id: sessionId,
-        agent_name: agentType,
-        timestamp_of_call_made: new Date().toISOString()
-      })
-    });
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+      // Include agent name and session_id in the URL
+      const response = await fetch(`https://${apiBase}/n8n_main_req/${agentType}/${sessionId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          user_mssg: userInput,
+          session_id: sessionId,
+          agent_name: agentType,
+          timestamp_of_call_made: new Date().toISOString()
+        })
+      });
 
       if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -137,8 +142,8 @@ const handleRetryConnection = () => {
       return data;
     } 
     catch (error) {
-        console.error('Error calling n8n endpoint:', error);
-        throw error;
+      console.error('Error calling n8n endpoint:', error);
+      throw error;
     }
   };
 
@@ -331,6 +336,21 @@ const handleRetryConnection = () => {
     } else {
       setAgentThinking(null);
       setShowConnectionLost(true);
+      // Log to debug console and clear session cookies/localStorage
+      try {
+        if (typeof window !== 'undefined') {
+          // Attempt to clear localStorage/sessionStorage
+          localStorage.clear();
+          sessionStorage.clear();
+          // Attempt to clear cookies (basic)
+          document.cookie.split(';').forEach(function(c) {
+            document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
+          });
+        }
+        console.error('Max reconnect attempts reached. Cleared session/localStorage. User must start over.');
+      } catch (err) {
+        console.error('Error clearing session/localStorage:', err);
+      }
     }
   };
 
@@ -893,12 +913,14 @@ const handleRetryConnection = () => {
   return (
     <>
       {showConnectionLost && (
-        <ConnectionLostBanner
-          onRetry={handleRetryConnection}
-          message={
-            'Connection to the server was lost after several attempts. Please check your connection or retry.'
-          }
-        />
+        <div style={{position: 'fixed', top: 0, left: 0, width: '100vw', zIndex: 9999}}>
+          <ConnectionLostBanner
+            onRetry={handleRetryConnection}
+            message={
+              'Connection to the server was lost after several attempts. Please check your connection or retry.'
+            }
+          />
+        </div>
       )}
       {/* Left side - User dashboard */}
       <div className="w-[45%] bg-[#1B2431] h-screen overflow-auto fixed left-0 top-0">
@@ -914,10 +936,8 @@ const handleRetryConnection = () => {
           currentRequestId={currentRequestId}
           isProcessing={loading}
         />
-  
-        <WebSocketDebugger websocket={websocketRef.current} />
+        <WebSocketDebugger websocket={websocketRef.current} status={connectionStatus} />
       </div>
-  
       {/* Right side - Chat interface */}
       <div className="w-[55%] bg-[#1E2A3B] h-screen overflow-hidden fixed right-0 top-0">
         {/* Tool execution visualizer - Only show during active tool execution */}

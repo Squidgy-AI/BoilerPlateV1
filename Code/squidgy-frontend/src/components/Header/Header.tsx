@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useAuth } from '../Auth/AuthProvider';
+import { useChat } from '../../context/ChatContext';
 import { Menu, X, Settings, PlusCircle, LogOut } from 'lucide-react';
 import ConnectionStatus from '../ConnectionStatus';
 
@@ -17,6 +18,7 @@ const Header: React.FC<HeaderProps> = ({
   onOpenSettings
 }) => {
   const { profile, signOut } = useAuth();
+  const { connectionStatus } = useChat();
   
   return (
     <header className="bg-[#2D3B4F] text-white fixed top-0 left-0 right-0 h-16 z-10 px-4 flex items-center justify-between">
@@ -33,8 +35,7 @@ const Header: React.FC<HeaderProps> = ({
         
         <div className="ml-4">
           <ConnectionStatus 
-            websocket={null} 
-            isAttemptingConnection={false} 
+            status={connectionStatus}
             size="sm" 
             showLabel={true}
           />

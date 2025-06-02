@@ -655,35 +655,12 @@ const EnhancedDashboard: React.FC = () => {
           </div>
 
           {/* WebSocket Debug Console */}
-          <div className={`bg-black border-t border-gray-700 transition-all duration-300 ${
-            showDebugConsole ? 'h-40' : 'h-10'
-          }`}>
-            <div className="flex items-center justify-between px-4 py-2 cursor-pointer" 
-                 onClick={() => setShowDebugConsole(!showDebugConsole)}>
-              <div className="flex items-center gap-2">
-                <Code2 size={14} className="text-green-400" />
-                <span className="text-sm">WebSocket Debug Console</span>
-                <span className={`text-xs px-2 py-1 rounded ${
-                  connectionStatus === 'connected' ? 'bg-green-900 text-green-400' : 
-                  connectionStatus === 'connecting' ? 'bg-yellow-900 text-yellow-400' : 
-                  'bg-red-900 text-red-400'
-                }`}>
-                  {connectionStatus}
-                </span>
-              </div>
-              <button className="text-gray-400 hover:text-white">
-                {showDebugConsole ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-              </button>
-            </div>
-            
-            {showDebugConsole && (
-              <div className="h-32 overflow-y-auto p-3 font-mono text-xs text-green-400">
-                <div>[{new Date().toLocaleTimeString()}] WebSocket connection established</div>
-                <div>[{new Date().toLocaleTimeString()}] Agent initialized: {selectedAgent?.name}</div>
-                <div>[{new Date().toLocaleTimeString()}] Session ID: {currentSessionId}</div>
-                <div>[{new Date().toLocaleTimeString()}] Ready for messages</div>
-              </div>
-            )}
+          <div className="border-t border-gray-700">
+            <WebSocketDebugger 
+              websocket={websocket?.ws || null} 
+              status={connectionStatus} 
+              className="bg-black"
+            />
           </div>
         </div>
       </div>
