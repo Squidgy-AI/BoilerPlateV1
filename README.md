@@ -188,6 +188,7 @@ If you encounter connection issues:
 2. Check that all `127.0.0.1:8080` references were updated to the correct deployment URL
 3. Confirm environment variables are properly set in both backend and frontend
 4. Ensure WebSocket ports are not blocked by firewalls or network policies
+5. update backend url for websocket connection in vercel configs
 
 ## Contact Information
 
