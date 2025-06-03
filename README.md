@@ -1,4 +1,4 @@
-# Squidgy Project Deployment Guide
+# Squidgy Project Deployment Guide For development
 
 This guide provides instructions for deploying the Squidgy application, which consists of a frontend and two backend options (local testing and hosting).
 
