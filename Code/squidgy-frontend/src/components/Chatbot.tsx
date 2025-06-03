@@ -262,7 +262,7 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
     const wsBase = process.env.NEXT_PUBLIC_API_BASE;
     const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
     
-    console.log("Connecting to WebSocket URL:", wsUrl);
+    console.log("[WebSocket] Connecting to WebSocket URL:", wsUrl);
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -270,18 +270,22 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
       // Set a longer connection timeout (6 seconds instead of 3)
       const connectionTimeout = setTimeout(() => {
         if (ws.readyState !== 1) {
-          console.log("WebSocket connection timeout");
+          console.log(`[WebSocket] Connection timeout. readyState: ${ws.readyState}`);
           if (ws.readyState === 0) { // Still in CONNECTING state
             ws.close();
           }
         }
       }, 6000);
       
-      ws.onopen = () => {
+      ws.onopen = (event) => {
         clearTimeout(connectionTimeout);
-        console.log('WebSocket connected');
+        console.log('[WebSocket] Connected', {
+          url: wsUrl,
+          readyState: ws.readyState,
+          eventType: event?.type
+        });
         setConnectionStatus('connected');
-        console.log("Setting connection status to 'connected'");
+        console.log("[WebSocket] Setting connection status to 'connected'");
         reconnectAttemptsRef.current = 0;
         websocketRef.current = ws;
         
@@ -294,21 +298,68 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
         }
       };
       
-      ws.onmessage = handleWebSocketMessage;
+      ws.onmessage = (event) => {
+        console.log('[WebSocket] Message received', {
+          url: wsUrl,
+          data: event.data,
+          eventType: event.type,
+          readyState: ws.readyState
+        });
+        handleWebSocketMessage(event);
+      };
       
-      ws.onclose = handleWebSocketClose;
+      ws.onclose = (event) => {
+        console.log('[WebSocket] Disconnected', {
+          url: wsUrl,
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          eventType: event.type,
+          readyState: ws.readyState
+        });
+        websocketRef.current = null;
+        setConnectionStatus('disconnected');
+        processingState.websocket = null;
+        // Use shorter reconnect delays
+        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current++;
+          const reconnectDelay = Math.min(300 * 2 ** reconnectAttemptsRef.current, 5000);
+          console.log(`[WebSocket] Attempting to reconnect in ${reconnectDelay}ms (attempt ${reconnectAttemptsRef.current})`);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            setConnectionStatus('connecting');
+            connectWebSocket();
+          }, reconnectDelay);
+        } else {
+          try {
+            if (typeof window !== 'undefined') {
+              localStorage.clear();
+              sessionStorage.clear();
+              document.cookie.split(';').forEach(function(c) {
+                document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
+              });
+            }
+            console.error('[WebSocket] Max reconnect attempts reached. Cleared session/localStorage. User must start over.');
+          } catch (err) {
+            console.error('[WebSocket] Error clearing session/localStorage:', err);
+          }
+        }
+      };
       
-      ws.onerror = handleWebSocketError;
+      ws.onerror = (event) => {
+        console.error('[WebSocket] Error occurred', {
+          url: wsUrl,
+          eventType: event.type,
+          readyState: ws.readyState
+        });
+      };
       
     }
     catch (error) {
-      console.error('Error creating WebSocket:', error);
+      console.error('[WebSocket] Error creating WebSocket:', error, { url: wsUrl });
       setConnectionStatus('disconnected');
-      
       // Set up faster auto-reconnect (1 second instead of 3)
       const reconnectDelay = 1000;
-      console.log(`WebSocket creation error. Retrying in ${reconnectDelay/1000} seconds...`);
-      
+      console.log(`[WebSocket] Creation error. Retrying in ${reconnectDelay/1000} seconds...`);
       reconnectTimeoutRef.current = setTimeout(() => {
         setConnectionStatus('connecting');
         connectWebSocket();
