@@ -267,7 +267,7 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
     try {
       const ws = new WebSocket(wsUrl);
       
-      // Set a shorter connection timeout (3 seconds instead of 8)
+      // Set a longer connection timeout (6 seconds instead of 3)
       const connectionTimeout = setTimeout(() => {
         if (ws.readyState !== 1) {
           console.log("WebSocket connection timeout");
@@ -275,7 +275,7 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
             ws.close();
           }
         }
-      }, 3000);
+      }, 6000);
       
       ws.onopen = () => {
         clearTimeout(connectionTimeout);
