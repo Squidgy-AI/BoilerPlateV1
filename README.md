@@ -1,4 +1,4 @@
-# Squidgy Project Deployment Guide
+# Squidgy Project Deployment Guide For development
 
 This guide provides instructions for deploying the Squidgy application, which consists of a frontend and two backend options (local testing and hosting).
 
@@ -188,6 +188,7 @@ If you encounter connection issues:
 2. Check that all `127.0.0.1:8080` references were updated to the correct deployment URL
 3. Confirm environment variables are properly set in both backend and frontend
 4. Ensure WebSocket ports are not blocked by firewalls or network policies
+5. update backend url for websocket connection in Vercel environment variables (NEXT_PUBLIC_API_BASE)
 
 ## Contact Information
 
