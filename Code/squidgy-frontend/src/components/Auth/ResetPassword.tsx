@@ -27,7 +27,7 @@ const ResetPassword: React.FC = () => {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setSuccess('Password has been reset! You can now log in.');
-      setTimeout(() => router.push('/auth/login'), 2000);
+      setTimeout(() => router.push('/'), 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to reset password');
     } finally {
