@@ -13,6 +13,7 @@ export interface WebSocketConfig {
   onClose?: () => void;
   onError?: (error: Event) => void;
   onReconnect?: (attempt: number) => void;
+  onLog?: (log: { type: 'info' | 'error' | 'success' | 'warning', message: string, data?: any }) => void;
 }
 
 class WebSocketService {
@@ -43,6 +44,15 @@ class WebSocketService {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsBase = process.env.NEXT_PUBLIC_API_BASE;
       const wsUrl = `${wsProtocol}//${wsBase}/ws/${this.config.userId}/${this.config.sessionId}`;
+      
+      // Log the connecting destination
+      if (this.config.onLog) {
+        this.config.onLog({
+          type: 'info',
+          message: `Connecting to WebSocket URL: ${wsUrl}`,
+          data: { wsUrl }
+        });
+      }
       
       try {
         this.ws = new WebSocket(wsUrl);
@@ -85,20 +95,30 @@ class WebSocketService {
           clearTimeout(connectionTimeout);
           this.setStatus('disconnected');
           this.stopPingInterval();
-          
+          if (this.config.onLog) {
+            this.config.onLog({
+              type: 'error',
+              message: `WebSocket closed: ${event.code} ${event.reason || 'No reason'}`,
+              data: { code: event.code, reason: event.reason, wasClean: event.wasClean, type: event.type }
+            });
+          }
           if (this.config.onClose) {
             this.config.onClose();
           }
-          
           // Attempt to reconnect
           this.scheduleReconnect();
-          
           reject(new Error(`WebSocket closed: ${event.code} ${event.reason}`));
         };
         
         this.ws.onerror = (error) => {
           console.error('WebSocket error:', error);
-          
+          if (this.config.onLog) {
+            this.config.onLog({
+              type: 'error',
+              message: 'WebSocket error occurred',
+              data: error
+            });
+          }
           if (this.config.onError) {
             this.config.onError(error);
           }
@@ -106,7 +126,13 @@ class WebSocketService {
       } catch (error) {
         this.setStatus('disconnected');
         console.error('Error creating WebSocket:', error);
-        
+        if (this.config.onLog) {
+          this.config.onLog({
+            type: 'error',
+            message: 'Error creating WebSocket',
+            data: error
+          });
+        }
         // Attempt to reconnect
         this.scheduleReconnect();
         

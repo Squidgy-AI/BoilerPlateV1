@@ -48,6 +48,8 @@ export const getChatProcessingState = (): ChatProcessingState => {
   };
 };
 
+import ConnectionLostBanner from './ConnectionLostBanner';
+
 const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic }) => {
   // State management
   const [userInput, setUserInput] = useState("");
@@ -60,6 +62,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
+const [showConnectionLost, setShowConnectionLost] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108');
   
@@ -86,6 +89,20 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const websocketRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
+
+  // Handler for Retry button
+  const handleRetryConnection = () => {
+    setShowConnectionLost(false);
+    setAgentThinking(null);
+    setConnectionStatus('connecting');
+    reconnectAttemptsRef.current = 0;
+    // Log to debug console
+    if (typeof window !== 'undefined') {
+      console.info('User clicked Retry. Attempting to reconnect WebSocket...');
+    }
+    connectWebSocket();
+  };
+
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMessageTimestamp = useRef<number>(Date.now());
   const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
@@ -100,7 +117,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const callN8nEndpoint = async (userInput: string, requestId: string, agentType: string = 're-engage') => {
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-      const response = await fetch(`https://${apiBase}/n8n_main_req`, {
+      // Include agent name and session_id in the URL
+      const response = await fetch(`https://${apiBase}/n8n_main_req/${agentType}/${sessionId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -113,18 +131,17 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
           timestamp_of_call_made: new Date().toISOString()
         })
       });
-  
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       const data = await response.json();
-      
-      // The response now includes request_id
       console.log('n8n response with request_id:', data.session_id);
-      
+    
       return data;
-    } catch (error) {
+    } 
+    catch (error) {
       console.error('Error calling n8n endpoint:', error);
       throw error;
     }
@@ -245,26 +262,30 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     const wsBase = process.env.NEXT_PUBLIC_API_BASE;
     const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
     
-    console.log("Connecting to WebSocket URL:", wsUrl);
+    console.log("[WebSocket] Connecting to WebSocket URL:", wsUrl);
 
     try {
       const ws = new WebSocket(wsUrl);
       
-      // Set a shorter connection timeout (3 seconds instead of 8)
+      // Set a longer connection timeout (6 seconds instead of 3)
       const connectionTimeout = setTimeout(() => {
         if (ws.readyState !== 1) {
-          console.log("WebSocket connection timeout");
+          console.log(`[WebSocket] Connection timeout. readyState: ${ws.readyState}`);
           if (ws.readyState === 0) { // Still in CONNECTING state
             ws.close();
           }
         }
-      }, 3000);
+      }, 6000);
       
-      ws.onopen = () => {
+      ws.onopen = (event) => {
         clearTimeout(connectionTimeout);
-        console.log('WebSocket connected');
+        console.log('[WebSocket] Connected', {
+          url: wsUrl,
+          readyState: ws.readyState,
+          eventType: event?.type
+        });
         setConnectionStatus('connected');
-        console.log("Setting connection status to 'connected'");
+        console.log("[WebSocket] Setting connection status to 'connected'");
         reconnectAttemptsRef.current = 0;
         websocketRef.current = ws;
         
@@ -277,21 +298,68 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         }
       };
       
-      ws.onmessage = handleWebSocketMessage;
+      ws.onmessage = (event) => {
+        console.log('[WebSocket] Message received', {
+          url: wsUrl,
+          data: event.data,
+          eventType: event.type,
+          readyState: ws.readyState
+        });
+        handleWebSocketMessage(event);
+      };
       
-      ws.onclose = handleWebSocketClose;
+      ws.onclose = (event) => {
+        console.log('[WebSocket] Disconnected', {
+          url: wsUrl,
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          eventType: event.type,
+          readyState: ws.readyState
+        });
+        websocketRef.current = null;
+        setConnectionStatus('disconnected');
+        processingState.websocket = null;
+        // Use shorter reconnect delays
+        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current++;
+          const reconnectDelay = Math.min(300 * 2 ** reconnectAttemptsRef.current, 5000);
+          console.log(`[WebSocket] Attempting to reconnect in ${reconnectDelay}ms (attempt ${reconnectAttemptsRef.current})`);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            setConnectionStatus('connecting');
+            connectWebSocket();
+          }, reconnectDelay);
+        } else {
+          try {
+            if (typeof window !== 'undefined') {
+              localStorage.clear();
+              sessionStorage.clear();
+              document.cookie.split(';').forEach(function(c) {
+                document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
+              });
+            }
+            console.error('[WebSocket] Max reconnect attempts reached. Cleared session/localStorage. User must start over.');
+          } catch (err) {
+            console.error('[WebSocket] Error clearing session/localStorage:', err);
+          }
+        }
+      };
       
-      ws.onerror = handleWebSocketError;
+      ws.onerror = (event) => {
+        console.error('[WebSocket] Error occurred', {
+          url: wsUrl,
+          eventType: event.type,
+          readyState: ws.readyState
+        });
+      };
       
     }
     catch (error) {
-      console.error('Error creating WebSocket:', error);
+      console.error('[WebSocket] Error creating WebSocket:', error, { url: wsUrl });
       setConnectionStatus('disconnected');
-      
       // Set up faster auto-reconnect (1 second instead of 3)
       const reconnectDelay = 1000;
-      console.log(`WebSocket creation error. Retrying in ${reconnectDelay/1000} seconds...`);
-      
+      console.log(`[WebSocket] Creation error. Retrying in ${reconnectDelay/1000} seconds...`);
       reconnectTimeoutRef.current = setTimeout(() => {
         setConnectionStatus('connecting');
         connectWebSocket();
@@ -317,7 +385,23 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         connectWebSocket();
       }, reconnectDelay);
     } else {
-      setAgentThinking('Connection lost. Please refresh the page.');
+      setAgentThinking(null);
+      setShowConnectionLost(true);
+      // Log to debug console and clear session cookies/localStorage
+      try {
+        if (typeof window !== 'undefined') {
+          // Attempt to clear localStorage/sessionStorage
+          localStorage.clear();
+          sessionStorage.clear();
+          // Attempt to clear cookies (basic)
+          document.cookie.split(';').forEach(function(c) {
+            document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
+          });
+        }
+        console.error('Max reconnect attempts reached. Cleared session/localStorage. User must start over.');
+      } catch (err) {
+        console.error('Error clearing session/localStorage:', err);
+      }
     }
   };
 
@@ -879,6 +963,16 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   // Render the component
   return (
     <>
+      {showConnectionLost && (
+        <div style={{position: 'fixed', top: 0, left: 0, width: '100vw', zIndex: 9999}}>
+          <ConnectionLostBanner
+            onRetry={handleRetryConnection}
+            message={
+              'Connection to the server was lost after several attempts. Please check your connection or retry.'
+            }
+          />
+        </div>
+      )}
       {/* Left side - User dashboard */}
       <div className="w-[45%] bg-[#1B2431] h-screen overflow-auto fixed left-0 top-0">
         <UserDashboard
@@ -893,10 +987,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
           currentRequestId={currentRequestId}
           isProcessing={loading}
         />
-  
-        <WebSocketDebugger websocket={websocketRef.current} />
+        <WebSocketDebugger websocket={websocketRef.current} status={connectionStatus} />
       </div>
-  
       {/* Right side - Chat interface */}
       <div className="w-[55%] bg-[#1E2A3B] h-screen overflow-hidden fixed right-0 top-0">
         {/* Tool execution visualizer - Only show during active tool execution */}

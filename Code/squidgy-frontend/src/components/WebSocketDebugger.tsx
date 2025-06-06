@@ -1,7 +1,7 @@
 // src/components/WebSocketDebugger.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Code2, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface DebugMessage {
@@ -14,24 +14,39 @@ interface DebugMessage {
 interface WebSocketDebuggerProps {
   websocket: WebSocket | null;
   status: 'connected' | 'connecting' | 'disconnected';
+  logs?: DebugMessage[];
   className?: string;
 }
 
 const WebSocketDebugger: React.FC<WebSocketDebuggerProps> = ({ 
   websocket,
   status,
+  logs = [],
   className = ''
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [messages, setMessages] = useState<DebugMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
+  // Merge logs prop and internal messages, deduplicate by timestamp+message, and sort chronologically
+  const mergedMessages = useMemo(() => {
+    const all = [...messages, ...logs];
+    const seen = new Set();
+    const deduped = all.filter(msg => {
+      const key = msg.timestamp.toString() + msg.message;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return deduped.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [messages, logs]);
+  
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current && isExpanded) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isExpanded]);
+  }, [mergedMessages, isExpanded]);
   
   // Add initial connection status message
   useEffect(() => {
@@ -172,8 +187,16 @@ const WebSocketDebugger: React.FC<WebSocketDebuggerProps> = ({
                   {msg.message}
                 </span>
                 {msg.data && (
-                  <div className="ml-4 text-gray-400 text-[10px] mt-0.5">
-                    {JSON.stringify(msg.data, null, 2)}
+                  <div className="ml-4 text-gray-400 text-[10px] mt-0.5 whitespace-pre-wrap">
+                    {/* Show error code and reason if present, else fallback to JSON */}
+                    {'code' in msg.data || 'reason' in msg.data || 'wasClean' in msg.data ? (
+                      <>
+                        {msg.data.code !== undefined && <div><b>Code:</b> {msg.data.code}</div>}
+                        {msg.data.reason && <div><b>Reason:</b> {msg.data.reason}</div>}
+                        {msg.data.wasClean !== undefined && <div><b>Was clean:</b> {msg.data.wasClean ? 'Yes' : 'No'}</div>}
+                        {msg.data.type && <div><b>Event type:</b> {msg.data.type}</div>}
+                      </>
+                    ) : (typeof msg.data === 'object' ? JSON.stringify(msg.data, null, 2) : String(msg.data))}
                   </div>
                 )}
               </div>

@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client with service role key for admin operations
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
 );
 
 export async function POST(request: NextRequest) {
