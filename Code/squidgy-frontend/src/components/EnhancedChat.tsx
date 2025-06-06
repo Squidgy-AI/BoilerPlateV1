@@ -230,8 +230,8 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
             
             setAgentType(agent.type);
             setSelectedAvatarId(agent.id === 'presaleskb' ? 
-              '12ba58a28ea64c6b9d4366f53e064610' : agent.id === 'socialmediakb' ?
-              'Anna_public_3_20240108' : 'ec31a1654aa847f2baea2e8444988402');
+            '12ba58a28ea64c6b9d4366f53e064610' : agent.id === 'socialmediakb' ?
+            'Anna_public_3_20240108' : 'ec31a1654aa847f2baea2e8444988402'); 
             
             // No need to fetch messages for a new agent chat
             setMessages([]);

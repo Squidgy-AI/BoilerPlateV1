@@ -67,32 +67,32 @@ const EnhancedDashboard: React.FC = () => {
   const avatarRef = React.useRef<StreamingAvatar | null>(null);
   
 // src/components/Dashboard/EnhancedDashboard.tsx
-  const agents = [
-    { 
-      id: 'presaleskb', 
-      name: 'Pre-Sales Consultant', 
-      avatar: '/avatars/presales-consultant.jpg', 
-      type: 'PreSalesConsultant',
-      avatarId: '12ba58a28ea64c6b9d4366f53e064610',
-      fallbackAvatar: '/avatars/presales-fallback.jpg'
-    },
-    { 
-      id: 'socialmediakb', 
-      name: 'Social Media Manager', 
-      avatar: '/avatars/social-media-manager.jpg', 
-      type: 'SocialMediaManager',
-      avatarId: 'Anna_public_3_20240108',
-      fallbackAvatar: '/avatars/social-fallback.jpg'
-    },
-    { 
-      id: 'leadgenkb', 
-      name: 'Lead Generation Specialist', 
-      avatar: '/avatars/lead-gen-specialist.jpg', 
-      type: 'LeadGenSpecialist',
-      avatarId: 'ec31a1654aa847f2baea2e8444988402',
-      fallbackAvatar: '/avatars/leadgen-fallback.jpg'
-    }
-  ];
+ const agents = [
+  { 
+    id: 'presaleskb', 
+    name: 'Pre-Sales Consultant', 
+    avatar: '/avatars/presales-consultant.jpg', 
+    type: 'PreSalesConsultant',
+    avatarId: '12ba58a28ea64c6b9d4366f53e064610',
+    fallbackAvatar: '/avatars/presales-fallback.jpg'
+  },
+  { 
+    id: 'socialmediakb', 
+    name: 'Social Media Manager', 
+    avatar: '/avatars/social-media-manager.jpg', 
+    type: 'SocialMediaManager',
+    avatarId: 'Anna_public_3_20240108',
+    fallbackAvatar: '/avatars/social-fallback.jpg'
+  },
+  { 
+    id: 'leadgenkb', 
+    name: 'Lead Generation Specialist', 
+    avatar: '/avatars/lead-gen-specialist.jpg', 
+    type: 'LeadGenSpecialist',
+    avatarId: 'ec31a1654aa847f2baea2e8444988402',  // This is already correct in your code
+    fallbackAvatar: '/avatars/leadgen-fallback.jpg'
+  }
+];
   
   // Initialize with first agent on mount
   useEffect(() => {
@@ -217,6 +217,7 @@ const EnhancedDashboard: React.FC = () => {
   
   const handleNewSession = () => {
     // Create new session with default agent
+    //const newSessionId = `${profile?.id}_${agent.id}`;
     const newSessionId = `${profile?.id}_${agents[0].id}`;
     setCurrentSessionId(newSessionId);
     setSelectedAgent(agents[0]);

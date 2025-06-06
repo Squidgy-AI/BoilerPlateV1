@@ -29,7 +29,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
   const [groups, setGroups] = useState<any[]>([]);
   const [agents, setAgents] = useState([
     { 
-      id: 'PreSalesConsultant', 
+      id: 'presaleskb', 
       name: 'Pre-Sales Consultant', 
       avatar: '/avatars/presales-consultant.jpg', 
       type: 'PreSalesConsultant',
@@ -37,7 +37,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
       fallbackAvatar: '/avatars/presales-fallback.jpg'
     },
     { 
-      id: 'SocialMediaManager', 
+      id: 'socialmediakb', 
       name: 'Social Media Manager', 
       avatar: '/avatars/social-media-manager.jpg', 
       type: 'SocialMediaManager',
@@ -45,7 +45,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
       fallbackAvatar: '/avatars/social-fallback.jpg'
     },
     { 
-      id: 'LeadGenSpecialist', 
+      id: 'leadgenkb', 
       name: 'Lead Generation Specialist', 
       avatar: '/avatars/lead-gen-specialist.jpg', 
       type: 'LeadGenSpecialist',

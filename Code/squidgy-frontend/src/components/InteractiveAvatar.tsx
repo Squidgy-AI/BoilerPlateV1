@@ -24,7 +24,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   enabled = true,
   sessionId,
   voiceEnabled = true,
-  avatarId = 'Sarah_public_1_20240315' // Default value
+  avatarId = 'ec31a1654aa847f2baea2e8444988402' // Default value
 }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -40,16 +40,16 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   // Dynamic fallback image based on selected avatar
 
   const avatarMapping = {
-    'presaleskb': '12ba58a28ea64c6b9d4366f53e064610',
-    'socialmediakb': 'Anna_public_3_20240108',
-    'leadgenkb': 'Sarah_public_1_20240315',
-    '12ba58a28ea64c6b9d4366f53e064610': '12ba58a28ea64c6b9d4366f53e064610',
-    'Anna_public_3_20240108': 'Anna_public_3_20240108',
-    'ec31a1654aa847f2baea2e8444988402': 'ec31a1654aa847f2baea2e8444988402'
-  };
+  'presaleskb': '12ba58a28ea64c6b9d4366f53e064610',
+  'socialmediakb': 'Anna_public_3_20240108',
+  'leadgenkb': 'ec31a1654aa847f2baea2e8444988402',  // Changed from ec31a1654aa847f2baea2e8444988402
+  '12ba58a28ea64c6b9d4366f53e064610': '12ba58a28ea64c6b9d4366f53e064610',
+  'Anna_public_3_20240108': 'Anna_public_3_20240108',
+  'ec31a1654aa847f2baea2e8444988402': 'ec31a1654aa847f2baea2e8444988402'  // Added this mapping
+};
 
   // Use the mapped value or the default
-  const actualAvatarId = avatarMapping[avatarId] || 'Sarah_public_1_20240315';
+  const actualAvatarId = avatarMapping[avatarId] || 'ec31a1654aa847f2baea2e8444988402';
 
   const fallbackImagePath = avatarId === 'socialmediakb' ? "/avatars/social-fallback.jpg" : 
                            avatarId === 'leadgenkb' ? "/avatars/leadgen-fallback.jpg" : 

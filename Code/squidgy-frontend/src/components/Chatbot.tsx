@@ -924,6 +924,7 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
   // Function to handle new session requests
   const handleNewSession = () => {
     // Generate a new session ID
+    
     const newSessionId = `${userId}_${Date.now()}`;
     
     // Notify parent component about session change
