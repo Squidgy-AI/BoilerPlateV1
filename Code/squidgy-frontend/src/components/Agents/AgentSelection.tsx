@@ -7,34 +7,31 @@ interface AgentSelectionProps {
 }
 
 const AgentSelection: React.FC<AgentSelectionProps> = ({ onSelectAgent }) => {
+  // src/components/Agents/AgentSelection.tsx
   const availableAgents = [
     {
-      id: 'agent1',
-      name: 'Product Manager',
-      avatar: '/seth.JPG',
-      type: 'ProductManager',
-      description: 'Helps coordinate the team and manage product development. Specializes in planning and strategy.'
-    },
-    {
-      id: 'agent2',
+      id: 'presaleskb',
       name: 'Pre-Sales Consultant',
-      avatar: '/sol.jpg',
+      avatar: '/avatars/presales-consultant.jpg',
       type: 'PreSalesConsultant',
-      description: 'Provides technical expertise and solution demonstrations. Helps with pricing and implementation details.'
+      description: 'Provides technical expertise and solution demonstrations. Helps with pricing and implementation details.',
+      fallbackAvatar: '/avatars/presales-fallback.jpg'
     },
     {
-      id: 'agent3',
+      id: 'socialmediakb',
       name: 'Social Media Manager',
-      avatar: '/sarah.jpg',
+      avatar: '/avatars/social-media-manager.jpg',
       type: 'SocialMediaManager',
-      description: 'Creates and manages social media strategies. Specializes in content planning and engagement.'
+      description: 'Creates and manages social media strategies. Specializes in content planning and engagement.',
+      fallbackAvatar: '/avatars/social-fallback.jpg'
     },
     {
-      id: 'agent4',
-      name: 'Lead Gen Specialist',
-      avatar: '/james.jpg',
+      id: 'leadgenkb',
+      name: 'Lead Generation Specialist',
+      avatar: '/avatars/lead-gen-specialist.jpg',
       type: 'LeadGenSpecialist',
-      description: 'Focuses on generating and qualifying leads. Manages follow-ups and appointments.'
+      description: 'Focuses on generating and qualifying leads. Manages follow-ups and appointments.',
+      fallbackAvatar: '/avatars/leadgen-fallback.jpg'
     }
   ];
   

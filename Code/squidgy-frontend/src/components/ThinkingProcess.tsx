@@ -24,13 +24,7 @@ const ThinkingProcess: React.FC<ThinkingProcessProps> = ({
   sessionId
 }) => {
   // State for agent thinking steps
-  const [steps, setSteps] = useState<ThinkingStep[]>([
-    {
-      agent: 'ProductManager',
-      status: 'waiting',
-      message: 'Planning approach...',
-      icon: <Brain className="text-blue-400" size={20} />
-    },
+    const [steps, setSteps] = useState<ThinkingStep[]>([
     {
       agent: 'PreSalesConsultant',
       status: 'waiting', 
@@ -42,6 +36,12 @@ const ThinkingProcess: React.FC<ThinkingProcessProps> = ({
       status: 'waiting',
       message: 'Developing strategy...',
       icon: <Database className="text-purple-400" size={20} />
+    },
+    {
+      agent: 'LeadGenSpecialist',
+      status: 'waiting',
+      message: 'Identifying opportunities...',
+      icon: <Brain className="text-blue-400" size={20} />
     }
   ]);
   

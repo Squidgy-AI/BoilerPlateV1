@@ -23,10 +23,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [people, setPeople] = useState<Profile[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [agents, setAgents] = useState<any[]>([
-    { id: 'agent1', name: 'Product Manager', avatar: '/seth.JPG', type: 'ProductManager' },
-    { id: 'agent2', name: 'Pre-Sales Consultant', avatar: '/sol.jpg', type: 'PreSalesConsultant' },
-    { id: 'agent3', name: 'Social Media Manager', avatar: '/sarah.jpg', type: 'SocialMediaManager' },
-    { id: 'agent4', name: 'Lead Gen Specialist', avatar: '/james.jpg', type: 'LeadGenSpecialist' }
+    { id: 'presaleskb', name: 'Pre-Sales Consultant', avatar: '/avatars/presales-consultant.jpg', type: 'PreSalesConsultant', fallbackAvatar: '/avatars/presales-fallback.jpg' },
+    { id: 'socialmediakb', name: 'Social Media Manager', avatar: '/avatars/social-media-manager.jpg', type: 'SocialMediaManager', fallbackAvatar: '/avatars/social-fallback.jpg' },
+    { id: 'leadgenkb', name: 'Lead Gen Specialist', avatar: '/avatars/lead-gen-specialist.jpg', type: 'LeadGenSpecialist', fallbackAvatar: '/avatars/leadgen-fallback.jpg' }
   ]);
   const [showAddPeopleModal, setShowAddPeopleModal] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);

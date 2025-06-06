@@ -29,32 +29,28 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
   const [groups, setGroups] = useState<any[]>([]);
   const [agents, setAgents] = useState([
     { 
-      id: 'ProductManager', 
-      name: 'Product Manager', 
-      avatar: '/avatars/product-manager.jpg', 
-      type: 'ProductManager',
-      description: 'Handles product strategy and coordinates the team'
-    },
-    { 
       id: 'PreSalesConsultant', 
       name: 'Pre-Sales Consultant', 
       avatar: '/avatars/presales-consultant.jpg', 
       type: 'PreSalesConsultant',
-      description: 'Provides technical expertise and demonstrations'
+      description: 'Provides technical expertise and demonstrations',
+      fallbackAvatar: '/avatars/presales-fallback.jpg'
     },
     { 
       id: 'SocialMediaManager', 
       name: 'Social Media Manager', 
       avatar: '/avatars/social-media-manager.jpg', 
       type: 'SocialMediaManager',
-      description: 'Creates and manages social media strategies'
+      description: 'Creates and manages social media strategies',
+      fallbackAvatar: '/avatars/social-fallback.jpg'
     },
     { 
       id: 'LeadGenSpecialist', 
-      name: 'Lead Gen Specialist', 
+      name: 'Lead Generation Specialist', 
       avatar: '/avatars/lead-gen-specialist.jpg', 
       type: 'LeadGenSpecialist',
-      description: 'Focuses on generating leads and follow-ups'
+      description: 'Focuses on generating leads and follow-ups',
+      fallbackAvatar: '/avatars/leadgen-fallback.jpg'
     }
   ]);
   
@@ -644,14 +640,14 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
                       onChange={() => {}}
                       className="mr-2"
                     />
-                    <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center mr-2 overflow-hidden">
+                    <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center mr-3 overflow-hidden">
                       <img 
                         src={agent.avatar}
                         alt={agent.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          target.src = '/avatars/fallback-avatar.jpg';
+                          target.src = agent.fallbackAvatar || '/avatars/default-agent.jpg';
                         }}
                       />
                     </div>

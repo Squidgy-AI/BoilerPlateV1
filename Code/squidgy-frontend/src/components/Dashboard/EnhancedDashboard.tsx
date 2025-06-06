@@ -58,34 +58,31 @@ const EnhancedDashboard: React.FC = () => {
   const [selectedAvatarId, setSelectedAvatarId] = useState('Anna_public_3_20240108');
   const avatarRef = React.useRef<StreamingAvatar | null>(null);
   
+// src/components/Dashboard/EnhancedDashboard.tsx
   const agents = [
     { 
-      id: 'agent1', 
-      name: 'Product Manager', 
-      avatar: '/seth.JPG', 
-      type: 'ProductManager',
-      avatarId: 'Anna_public_3_20240108'
-    },
-    { 
-      id: 'agent2', 
+      id: 'presaleskb', 
       name: 'Pre-Sales Consultant', 
-      avatar: '/sol.jpg', 
+      avatar: '/avatars/presales-consultant.jpg', 
       type: 'PreSalesConsultant',
-      avatarId: 'sol'
+      avatarId: '12ba58a28ea64c6b9d4366f53e064610',
+      fallbackAvatar: '/avatars/presales-fallback.jpg'
     },
     { 
-      id: 'agent3', 
+      id: 'socialmediakb', 
       name: 'Social Media Manager', 
-      avatar: '/sarah.jpg', 
+      avatar: '/avatars/social-media-manager.jpg', 
       type: 'SocialMediaManager',
-      avatarId: 'Anna_public_3_20240108'
+      avatarId: 'Anna_public_3_20240108',
+      fallbackAvatar: '/avatars/social-fallback.jpg'
     },
     { 
-      id: 'agent4', 
-      name: 'Lead Gen Specialist', 
-      avatar: '/james.jpg', 
+      id: 'leadgenkb', 
+      name: 'Lead Generation Specialist', 
+      avatar: '/avatars/lead-gen-specialist.jpg', 
       type: 'LeadGenSpecialist',
-      avatarId: 'sol'
+      avatarId: 'ec31a1654aa847f2baea2e8444988402',
+      fallbackAvatar: '/avatars/leadgen-fallback.jpg'
     }
   ];
   
@@ -488,7 +485,8 @@ const EnhancedDashboard: React.FC = () => {
                     alt={agent.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.src = '/fallback-avatar.jpg';
+                      const target = e.target as HTMLImageElement;
+                      target.src = agent.fallbackAvatar || '/avatars/default-agent.jpg';
                     }}
                   />
                 </div>

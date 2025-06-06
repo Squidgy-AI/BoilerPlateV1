@@ -24,7 +24,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   enabled = true,
   sessionId,
   voiceEnabled = true,
-  avatarId = 'Anna_public_3_20240108' // Default value
+  avatarId = 'Sarah_public_1_20240315' // Default value
 }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -40,18 +40,20 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   // Dynamic fallback image based on selected avatar
 
   const avatarMapping = {
-    'agent1': 'Anna_public_3_20240108',
-    'agent2': 'sol',
-    'agent3': 'Sarah_public_1_20240315',
-    'agent4': 'James_public_2_20240210',
+    'presaleskb': '12ba58a28ea64c6b9d4366f53e064610',
+    'socialmediakb': 'Anna_public_3_20240108',
+    'leadgenkb': 'Sarah_public_1_20240315',
+    '12ba58a28ea64c6b9d4366f53e064610': '12ba58a28ea64c6b9d4366f53e064610',
     'Anna_public_3_20240108': 'Anna_public_3_20240108',
-    'sol': 'sol'
+    'ec31a1654aa847f2baea2e8444988402': 'ec31a1654aa847f2baea2e8444988402'
   };
 
   // Use the mapped value or the default
-  const actualAvatarId = avatarMapping[avatarId] || 'Anna_public_3_20240108';
+  const actualAvatarId = avatarMapping[avatarId] || 'Sarah_public_1_20240315';
 
-  const fallbackImagePath = avatarId === 'sol' ? "/sol.jpg" : "/seth.JPG";
+  const fallbackImagePath = avatarId === 'socialmediakb' ? "/avatars/social-fallback.jpg" : 
+                           avatarId === 'leadgenkb' ? "/avatars/leadgen-fallback.jpg" : 
+                           "/avatars/presales-fallback.jpg";
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 

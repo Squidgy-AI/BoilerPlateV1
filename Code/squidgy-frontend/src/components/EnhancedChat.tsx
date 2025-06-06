@@ -54,11 +54,10 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   
   // All available agents
   const availableAgents = [
-    { id: 'agent1', name: 'Product Manager', avatar: '/seth.JPG', type: 'ProductManager' },
-    { id: 'agent2', name: 'Pre-Sales Consultant', avatar: '/sol.jpg', type: 'PreSalesConsultant' },
-    { id: 'agent3', name: 'Social Media Manager', avatar: '/sarah.jpg', type: 'SocialMediaManager' },
-    { id: 'agent4', name: 'Lead Gen Specialist', avatar: '/james.jpg', type: 'LeadGenSpecialist' }
-  ];
+    { id: 'presaleskb', name: 'Pre-Sales Consultant', avatar: '/avatars/presales-consultant.jpg', type: 'PreSalesConsultant', fallbackAvatar: '/avatars/presales-fallback.jpg' },
+    { id: 'socialmediakb', name: 'Social Media Manager', avatar: '/avatars/social-media-manager.jpg', type: 'SocialMediaManager', fallbackAvatar: '/avatars/social-fallback.jpg' },
+    { id: 'leadgenkb', name: 'Lead Gen Specialist', avatar: '/avatars/lead-gen-specialist.jpg', type: 'LeadGenSpecialist', fallbackAvatar: '/avatars/leadgen-fallback.jpg' }
+  ];;
   
   // Connect WebSocket
   useEffect(() => {
@@ -230,8 +229,9 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
             });
             
             setAgentType(agent.type);
-            setSelectedAvatarId(agent.id === 'agent1' || agent.id === 'agent2' ? 
-              'Anna_public_3_20240108' : 'sol');
+            setSelectedAvatarId(agent.id === 'presaleskb' ? 
+              '12ba58a28ea64c6b9d4366f53e064610' : agent.id === 'socialmediakb' ?
+              'Anna_public_3_20240108' : 'ec31a1654aa847f2baea2e8444988402');
             
             // No need to fetch messages for a new agent chat
             setMessages([]);
@@ -454,16 +454,24 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
           <>
             <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden bg-gray-600 mr-3">
               {sessionDetails.avatar_url || sessionDetails.avatar ? (
-                <img 
-                  src={sessionDetails.avatar_url || sessionDetails.avatar} 
-                  alt={sessionDetails.full_name || sessionDetails.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  {(sessionDetails.full_name || sessionDetails.name || 'U').charAt(0)}
-                </div>
-              )}
+                  <img 
+                    src={sessionDetails.avatar_url || sessionDetails.avatar} 
+                    alt={sessionDetails.full_name || sessionDetails.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      // Find the agent and use its fallback
+                      const agent = availableAgents.find(a => 
+                        a.id === sessionId || a.type === sessionDetails.agent_type
+                      );
+                      target.src = agent?.fallbackAvatar || '/avatars/default-agent.jpg';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    {(sessionDetails.full_name || sessionDetails.name || 'U').charAt(0)}
+                  </div>
+                )}
             </div>
             <div>
               <h2 className="font-semibold text-white">
