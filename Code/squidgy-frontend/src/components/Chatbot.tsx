@@ -173,7 +173,7 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
 
   // Handler for avatar change
   const handleAvatarChange = (avatarId: string) => {
-    setSelectedAvatarId(avatarId);
+    setSelectedAvatarId(avatarId); // This should be the agent ID
   };
 
   // Effect to scroll chat to bottom when messages change

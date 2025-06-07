@@ -144,8 +144,8 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({ onAvatarChange, current
                 currentAvatarId === 'Anna_public_3_20240108' ? 'bg-blue-100' : 'hover:bg-gray-100'
               }`}
               onClick={(e) => {
-                e.stopPropagation(); // Prevent closing dropdown
-                handleAvatarSelect('Anna_public_3_20240108');
+                e.stopPropagation();
+                handleAvatarSelect('presaleskb'); // Use agent ID instead of HeyGen ID
               }}
             >
               <div className="relative mr-2">
@@ -170,8 +170,8 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({ onAvatarChange, current
                 currentAvatarId === 'sol' ? 'bg-blue-100' : 'hover:bg-gray-100'
               }`}
               onClick={(e) => {
-                e.stopPropagation(); // Prevent closing dropdown
-                handleAvatarSelect('sol');
+                e.stopPropagation();
+                handleAvatarSelect('socialmediakb'); // Use agent ID instead of HeyGen ID
               }}
             >
               <div className="relative mr-2">

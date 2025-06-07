@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/Auth/AuthProvider';
 import { User, Users, Bot, UserPlus, FolderPlus, LogOut, Settings, MessageSquare } from 'lucide-react';
 import { Profile, Group, GroupMember } from '@/lib/supabase';
+import { AGENT_CONFIG } from '@/config/agents';
 
 interface SidebarProps {
   onSessionSelect: (sessionId: string, isGroup?: boolean) => void;
@@ -22,11 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [activeSection, setActiveSection] = useState<'people' | 'agents' | 'groups'>('people');
   const [people, setPeople] = useState<Profile[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [agents, setAgents] = useState<any[]>([
-    { id: 'presaleskb', name: 'Pre-Sales Consultant', avatar: '/avatars/presales-consultant.jpg', type: 'PreSalesConsultant', fallbackAvatar: '/avatars/presales-fallback.jpg' },
-    { id: 'socialmediakb', name: 'Social Media Manager', avatar: '/avatars/social-media-manager.jpg', type: 'SocialMediaManager', fallbackAvatar: '/avatars/social-fallback.jpg' },
-    { id: 'leadgenkb', name: 'Lead Gen Specialist', avatar: '/avatars/lead-gen-specialist.jpg', type: 'LeadGenSpecialist', fallbackAvatar: '/avatars/leadgen-fallback.jpg' }
-  ]);
+  const [agents, setAgents] = useState<any[]>(AGENT_CONFIG);
   const [showAddPeopleModal, setShowAddPeopleModal] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');

@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
+import { AGENT_CONFIG } from '@/config/agents';
 import { 
   User, 
   Users, 
@@ -67,32 +68,7 @@ const EnhancedDashboard: React.FC = () => {
   const avatarRef = React.useRef<StreamingAvatar | null>(null);
   
 // src/components/Dashboard/EnhancedDashboard.tsx
- const agents = [
-  { 
-    id: 'presaleskb', 
-    name: 'Pre-Sales Consultant', 
-    avatar: '/avatars/presales-consultant.jpg', 
-    type: 'PreSalesConsultant',
-    avatarId: '12ba58a28ea64c6b9d4366f53e064610',
-    fallbackAvatar: '/avatars/presales-fallback.jpg'
-  },
-  { 
-    id: 'socialmediakb', 
-    name: 'Social Media Manager', 
-    avatar: '/avatars/social-media-manager.jpg', 
-    type: 'SocialMediaManager',
-    avatarId: 'Anna_public_3_20240108',
-    fallbackAvatar: '/avatars/social-fallback.jpg'
-  },
-  { 
-    id: 'leadgenkb', 
-    name: 'Lead Generation Specialist', 
-    avatar: '/avatars/lead-gen-specialist.jpg', 
-    type: 'LeadGenSpecialist',
-    avatarId: 'ec31a1654aa847f2baea2e8444988402',  // This is already correct in your code
-    fallbackAvatar: '/avatars/leadgen-fallback.jpg'
-  }
-];
+const agents = AGENT_CONFIG;
   
   // Initialize with first agent on mount
   useEffect(() => {
@@ -489,7 +465,7 @@ const EnhancedDashboard: React.FC = () => {
                 key={agent.id}
                 onClick={() => {
                   setSelectedAgent(agent);
-                  setSelectedAvatarId(agent.avatarId);
+                  setSelectedAvatarId(agent.id);
                   handleSessionSelect(`${profile?.id}_${agent.id}`);
                 }}
                 className={`p-2 rounded mb-2 cursor-pointer flex items-center ${

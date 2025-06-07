@@ -8,6 +8,7 @@ import InteractiveAvatar from './InteractiveAvatar';
 import { Mic, Video, MessageSquare, Send, X } from 'lucide-react';
 import { processAgentResponse } from '../services/n8nService';
 import ToolExecutionVisualizer from './ToolExecutionVisualizer';
+import { AGENT_CONFIG, getAgentById } from '@/config/agents';
 
 interface ChatMessage {
   id: string;
@@ -53,11 +54,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   const [websocketStatus, setWebsocketStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   
   // All available agents
-  const availableAgents = [
-    { id: 'presaleskb', name: 'Pre-Sales Consultant', avatar: '/avatars/presales-consultant.jpg', type: 'PreSalesConsultant', fallbackAvatar: '/avatars/presales-fallback.jpg' },
-    { id: 'socialmediakb', name: 'Social Media Manager', avatar: '/avatars/social-media-manager.jpg', type: 'SocialMediaManager', fallbackAvatar: '/avatars/social-fallback.jpg' },
-    { id: 'leadgenkb', name: 'Lead Gen Specialist', avatar: '/avatars/lead-gen-specialist.jpg', type: 'LeadGenSpecialist', fallbackAvatar: '/avatars/leadgen-fallback.jpg' }
-  ];;
+  const availableAgents = AGENT_CONFIG;
   
   // Connect WebSocket
   useEffect(() => {
@@ -228,10 +225,8 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
               avatar: agent.avatar
             });
             
-            setAgentType(agent.type);
-            setSelectedAvatarId(agent.id === 'presaleskb' ? 
-            '12ba58a28ea64c6b9d4366f53e064610' : agent.id === 'socialmediakb' ?
-            'Anna_public_3_20240108' : 'ec31a1654aa847f2baea2e8444988402'); 
+            setAgentType(agent.type); 
+            setSelectedAvatarId(agent.id); // Just pass the agent ID
             
             // No need to fetch messages for a new agent chat
             setMessages([]);

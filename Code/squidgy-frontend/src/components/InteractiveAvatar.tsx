@@ -8,6 +8,7 @@ import StreamingAvatar, {
   TaskType,
   VoiceEmotion,
 } from "@heygen/streaming-avatar";
+import { getHeygenAvatarId, getFallbackAvatar } from '@/config/agents';
 
 interface InteractiveAvatarProps {
   onAvatarReady?: () => void;
@@ -15,7 +16,7 @@ interface InteractiveAvatarProps {
   enabled?: boolean;
   sessionId?: string;
   voiceEnabled?: boolean;
-  avatarId?: string; // New prop to specify which avatar to use
+  avatarId?: string; // Can be either agent ID or HeyGen avatar ID
 }
 
 const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ 
@@ -24,7 +25,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   enabled = true,
   sessionId,
   voiceEnabled = true,
-  avatarId = 'ec31a1654aa847f2baea2e8444988402' // Default value
+  avatarId = 'socialmediakb' // Default to social media agent
 }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -37,25 +38,13 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const currentSessionIdRef = useRef<string | undefined>(sessionId);
   const currentAvatarIdRef = useRef<string>(avatarId);
 
-  // Dynamic fallback image based on selected avatar
-
-  const avatarMapping = {
-  'presaleskb': '12ba58a28ea64c6b9d4366f53e064610',
-  'socialmediakb': 'Anna_public_3_20240108',
-  'leadgenkb': 'ec31a1654aa847f2baea2e8444988402',  // Changed from ec31a1654aa847f2baea2e8444988402
-  '12ba58a28ea64c6b9d4366f53e064610': '12ba58a28ea64c6b9d4366f53e064610',
-  'Anna_public_3_20240108': 'Anna_public_3_20240108',
-  'ec31a1654aa847f2baea2e8444988402': 'ec31a1654aa847f2baea2e8444988402'  // Added this mapping
-};
-
-  // Use the mapped value or the default
-  const actualAvatarId = avatarMapping[avatarId] || 'ec31a1654aa847f2baea2e8444988402';
-
-  const fallbackImagePath = avatarId === 'socialmediakb' ? "/avatars/social-fallback.jpg" : 
-                           avatarId === 'leadgenkb' ? "/avatars/leadgen-fallback.jpg" : 
-                           "/avatars/presales-fallback.jpg";
-
   const actualAvatarRef = avatarRef || localAvatarRef;
+
+  // Get the actual HeyGen avatar ID
+  const heygenAvatarId = getHeygenAvatarId(avatarId);
+  
+  // Get the appropriate fallback image
+  const fallbackImagePath = getFallbackAvatar(avatarId);
 
   async function fetchAccessToken() {
     try {
@@ -105,7 +94,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       try {
         const res = await actualAvatarRef.current.createStartAvatar({
           quality: AvatarQuality.Low,
-          avatarName: actualAvatarId, // Use the avatarId prop
+          avatarName: heygenAvatarId, // Use the resolved HeyGen avatar ID
           voice: {
             rate: 1.2,
             emotion: VoiceEmotion.NEUTRAL,
@@ -123,7 +112,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   
         setSessionActive(true);
         currentSessionIdRef.current = sessionId;
-        currentAvatarIdRef.current = actualAvatarId;
+        currentAvatarIdRef.current = avatarId;
   
         if (onAvatarReady) {
           onAvatarReady();
@@ -204,7 +193,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
 
   // Effect to handle avatar ID changes
   useEffect(() => {
-    if (sessionActive && currentAvatarIdRef.current !== actualAvatarId) {
+    if (sessionActive && currentAvatarIdRef.current !== avatarId) {
       // Need to reset the session when avatar changes
       endSession().then(() => {
         startAvatarSession();
@@ -213,7 +202,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       // Start session if not active but should be enabled
       startAvatarSession();
     }
-  }, [actualAvatarId, enabled]);
+  }, [avatarId, enabled]);
 
   // Effect to start session initially if enabled
   useEffect(() => {
