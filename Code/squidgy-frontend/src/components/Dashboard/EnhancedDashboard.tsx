@@ -192,14 +192,32 @@ const agents = AGENT_CONFIG;
     setMessages([]); // Clear messages for new session
   };
   
+  // const handleNewSession = () => {
+  // // Don't automatically select an agent - let user choose
+  // setCurrentSessionId('');
+  // setSelectedAgent(null);
+  // setIsGroupSession(false);
+  // setMessages([]);
+  // setActiveSection('agents'); // Switch to agents tab so user can select
+  // };
+
   const handleNewSession = () => {
-    // Create new session with default agent
-    //const newSessionId = `${profile?.id}_${agent.id}`;
-    const newSessionId = `${profile?.id}_${agents[0].id}`;
+  if (activeSection === 'agents' && selectedAgent) {
+    // Create new session with currently selected agent
+    const newSessionId = `${profile?.id}_${selectedAgent.id}_${Date.now()}`;
     setCurrentSessionId(newSessionId);
-    setSelectedAgent(agents[0]);
     setIsGroupSession(false);
     setMessages([]);
+    // Don't change the selected agent or avatar since user wants to chat with the same agent
+  } else {
+    // No agent selected, switch to agents tab
+    setCurrentSessionId('');
+    setSelectedAgent(null);
+    setSelectedAvatarId(''); // ADD THIS LINE to clear avatar
+    setIsGroupSession(false);
+    setMessages([]);
+    setActiveSection('agents');
+  }
   };
   
   const sendMessage = async () => {
@@ -463,16 +481,20 @@ const agents = AGENT_CONFIG;
             {/* Agents List */}
             {activeSection === 'agents' && agents.map(agent => (
               <div
-                key={agent.id}
-                onClick={() => {
-                  setSelectedAgent(agent);
-                  setSelectedAvatarId(agent.id);
-                  handleSessionSelect(`${profile?.id}_${agent.id}`);
-                }}
-                className={`p-2 rounded mb-2 cursor-pointer flex items-center ${
-                  selectedAgent?.id === agent.id ? 'bg-[#2D3B4F]' : 'hover:bg-[#2D3B4F]/50'
-                }`}
-              >
+                  key={agent.id}
+                  onClick={() => {
+                    // Create a new unique session for this agent
+                    const newSessionId = `${profile?.id}_${agent.id}_${Date.now()}`;
+                    setSelectedAgent(agent);
+                    setSelectedAvatarId(agent.id);
+                    setCurrentSessionId(newSessionId);
+                    setIsGroupSession(false);
+                    setMessages([]);
+                  }}
+                  className={`p-2 rounded mb-2 cursor-pointer flex items-center ${
+                    selectedAgent?.id === agent.id ? 'bg-[#2D3B4F]' : 'hover:bg-[#2D3B4F]/50'
+                  }`}
+                >
                 <div className="w-8 h-8 rounded-full bg-gray-600 mr-2 overflow-hidden">
                   <img 
                     src={agent.avatar}
