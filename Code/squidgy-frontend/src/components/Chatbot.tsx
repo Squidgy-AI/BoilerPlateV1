@@ -10,6 +10,8 @@ import UserDashboard from './UserDashboard';
 import WebSocketDebugger from './WebSocketDebugger';
 import ConnectionStatus from './ConnectionStatus';
 import { createOptimizedWebSocketConnection } from './WebSocketUtils';
+import { getAgentById, getAgentName } from '@/config/agents';
+import ConnectionLostBanner from './ConnectionLostBanner';
 
 interface ChatMessage {
   sender: string;
@@ -48,8 +50,6 @@ export const getChatProcessingState = (): ChatProcessingState => {
   };
 };
 
-import ConnectionLostBanner from './ConnectionLostBanner';
-
 const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic }) => {
   // State management
   const [userInput, setUserInput] = useState("");
@@ -62,7 +62,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
-const [showConnectionLost, setShowConnectionLost] = useState(false);
+  const [showConnectionLost, setShowConnectionLost] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108');
   
@@ -89,20 +89,6 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
   const websocketRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
-
-  // Handler for Retry button
-  const handleRetryConnection = () => {
-    setShowConnectionLost(false);
-    setAgentThinking(null);
-    setConnectionStatus('connecting');
-    reconnectAttemptsRef.current = 0;
-    // Log to debug console
-    if (typeof window !== 'undefined') {
-      console.info('User clicked Retry. Attempting to reconnect WebSocket...');
-    }
-    connectWebSocket();
-  };
-
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMessageTimestamp = useRef<number>(Date.now());
   const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
@@ -367,53 +353,6 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
     }
   };
 
-  const handleWebSocketClose = (event: CloseEvent) => {
-    console.log('WebSocket disconnected:', event.code, event.reason);
-    websocketRef.current = null;
-    setConnectionStatus('disconnected');
-    
-    // Update the exported state when WebSocket disconnects
-    processingState.websocket = null;
-    
-    // Use shorter reconnect delays
-    if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-      reconnectAttemptsRef.current++;
-      const reconnectDelay = Math.min(300 * 2 ** reconnectAttemptsRef.current, 5000);
-      
-      reconnectTimeoutRef.current = setTimeout(() => {
-        setConnectionStatus('connecting');
-        connectWebSocket();
-      }, reconnectDelay);
-    } else {
-      setAgentThinking(null);
-      setShowConnectionLost(true);
-      // Log to debug console and clear session cookies/localStorage
-      try {
-        if (typeof window !== 'undefined') {
-          // Attempt to clear localStorage/sessionStorage
-          localStorage.clear();
-          sessionStorage.clear();
-          // Attempt to clear cookies (basic)
-          document.cookie.split(';').forEach(function(c) {
-            document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
-          });
-        }
-        console.error('Max reconnect attempts reached. Cleared session/localStorage. User must start over.');
-      } catch (err) {
-        console.error('Error clearing session/localStorage:', err);
-      }
-    }
-  };
-
-  const handleWebSocketError = (event: Event) => {
-    console.error('WebSocket error:', event);
-    
-    // Only show error if already closed
-    if (websocketRef.current && websocketRef.current.readyState === 3) {
-      setAgentThinking("Cannot connect to server. Please check if the server is running.");
-    }
-  };
-
   const handleWebSocketMessage = (event: MessageEvent) => {
     try {
       const data = JSON.parse(event.data);
@@ -671,11 +610,30 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
     if (useN8nBackend) {
       // Start chat using n8n backend
       try {
-        const n8nResponse = await callN8nEndpoint("", requestId);
+        const agent = getAgentById(selectedAvatarId);
+        const agentName = agent?.agent_name || 'presaleskb';
+        const n8nResponse = await callN8nEndpoint("", requestId, agentName);
         
         if (n8nResponse.status === 'success') {
-          // Add the greeting to chat
-          if (textEnabled) {
+          // First add the agent's intro message
+          if (agent && textEnabled) {
+            setChatHistory([
+              { 
+                sender: 'AI', 
+                message: agent.introMessage,
+                requestId: `intro-${requestId}`, 
+                status: 'complete' 
+              }
+            ]);
+            
+            // Speak the intro if avatar is enabled
+            if (avatarRef.current && videoEnabled && voiceEnabled) {
+              await speakWithAvatar(agent.introMessage);
+            }
+          }
+          
+          // Then add the response from n8n if it's different from the intro
+          if (textEnabled && n8nResponse.agent_response !== agent?.introMessage) {
             setChatHistory(prevHistory => [
               ...prevHistory,
               { 
@@ -685,11 +643,6 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
                 status: 'complete' 
               }
             ]);
-          }
-          
-          // Speak with avatar if enabled
-          if (avatarRef.current && videoEnabled && voiceEnabled) {
-            await speakWithAvatar(n8nResponse.agent_response);
           }
         }
       } catch (error) {
@@ -807,7 +760,9 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
     try {
       if (useN8nBackend) {
         // Send message using n8n backend
-        const n8nResponse = await callN8nEndpoint(userInput, requestId);
+        const agent = getAgentById(selectedAvatarId);
+        const agentName = agent?.agent_name || 'presaleskb';
+        const n8nResponse = await callN8nEndpoint(userInput, requestId, agentName);
         
         // Process n8n response
         if (n8nResponse.status === 'success') {
@@ -924,7 +879,6 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
   // Function to handle new session requests
   const handleNewSession = () => {
     // Generate a new session ID
-    
     const newSessionId = `${userId}_${Date.now()}`;
     
     // Notify parent component about session change
@@ -949,6 +903,50 @@ const [showConnectionLost, setShowConnectionLost] = useState(false);
       sendMessage();
     }, 100);
   };
+
+  // Handler for Retry button
+  const handleRetryConnection = () => {
+    setShowConnectionLost(false);
+    setAgentThinking(null);
+    setConnectionStatus('connecting');
+    reconnectAttemptsRef.current = 0;
+    // Log to debug console
+    if (typeof window !== 'undefined') {
+      console.info('User clicked Retry. Attempting to reconnect WebSocket...');
+    }
+    connectWebSocket();
+  };
+
+  // Effect to show intro message when avatar changes
+  useEffect(() => {
+    if (selectedAvatarId && chatStarted) {
+      const agent = getAgentById(selectedAvatarId);
+      if (agent && textEnabled) {
+        // Add intro message when switching agents
+        setChatHistory(prevHistory => {
+          // Check if we already have an intro from this agent
+          const hasIntro = prevHistory.some(msg => 
+            msg.requestId?.startsWith('intro-') && msg.message === agent.introMessage
+          );
+          
+          if (!hasIntro) {
+            // Speak the intro if avatar is enabled
+            if (avatarRef.current && videoEnabled && voiceEnabled) {
+              speakWithAvatar(agent.introMessage);
+            }
+            
+            return [...prevHistory, { 
+              sender: 'AI', 
+              message: agent.introMessage,
+              requestId: `intro-${Date.now()}`, 
+              status: 'complete' 
+            }];
+          }
+          return prevHistory;
+        });
+      }
+    }
+  }, [selectedAvatarId]);
 
   // Cleanup effect
   useEffect(() => {
