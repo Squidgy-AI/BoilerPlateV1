@@ -25,7 +25,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   enabled = true,
   sessionId,
   voiceEnabled = true,
-  avatarId = 'socialmediakb' // Default to social media agent
+  avatarId = 'presaleskb' // Default to pre-sales consultant
 }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);

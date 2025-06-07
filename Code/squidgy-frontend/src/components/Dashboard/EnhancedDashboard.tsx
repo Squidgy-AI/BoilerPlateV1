@@ -64,7 +64,7 @@ const EnhancedDashboard: React.FC = () => {
   const [people, setPeople] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedAvatarId, setSelectedAvatarId] = useState('Anna_public_3_20240108');
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('presaleskb');;
   const avatarRef = React.useRef<StreamingAvatar | null>(null);
   
 // src/components/Dashboard/EnhancedDashboard.tsx
@@ -72,8 +72,9 @@ const agents = AGENT_CONFIG;
   
   // Initialize with first agent on mount
   useEffect(() => {
-    setSelectedAgent(agents[0]);
-    setCurrentSessionId(`${profile?.id}_${agents[0].id}`);
+    const presalesAgent = agents.find(a => a.id === 'presaleskb') || agents[0];
+    setSelectedAgent(presalesAgent);
+    setCurrentSessionId(`${profile?.id}_${presalesAgent.id}`);
   }, [profile]);
   
   // Fetch people and groups
