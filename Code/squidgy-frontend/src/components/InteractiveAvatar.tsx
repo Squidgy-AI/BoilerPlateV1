@@ -29,7 +29,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   voiceEnabled = true,
   avatarId = 'presaleskb',
   onAvatarError,
-  avatarTimeout = 8000 // 8 seconds default timeout
+  avatarTimeout = 10000 // 10 seconds default timeout
 }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -44,6 +44,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const [avatarFailed, setAvatarFailed] = useState(false);
   const avatarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializationAttempted = useRef(false);
+  const [showFallback, setShowFallback] = useState(false);
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
@@ -70,17 +71,18 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   async function startAvatarSession() {
     if (!enabled || initializationAttempted.current) return;
     
-    console.log("Starting avatar session with timeout:", avatarTimeout);
+    console.log(`Starting avatar session with timeout: ${avatarTimeout}ms`);
     initializationAttempted.current = true;
     setIsLoadingSession(true);
     setError(null);
     setErrorType(null);
     setAvatarFailed(false);
+    setShowFallback(false);
     
     // Set timeout for avatar initialization
     avatarTimeoutRef.current = setTimeout(() => {
-      console.log("Avatar initialization timeout reached");
-      handleAvatarFailure("Avatar initialization timed out");
+      console.log("Avatar initialization timeout reached - using fallback");
+      handleAvatarFailure("Avatar loading timed out - using fallback image");
     }, avatarTimeout);
     
     try {
@@ -163,6 +165,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     setAvatarFailed(true);
     setIsLoadingSession(false);
     setSessionActive(false);
+    setShowFallback(true);
     
     if (onAvatarError) {
       onAvatarError(errorMessage);
@@ -194,6 +197,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       console.log("Stream disconnected");
       setSessionActive(false);
       setStream(undefined);
+      setShowFallback(true);
     });
   }
 
@@ -267,6 +271,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       mediaStream.current.srcObject = stream;
       mediaStream.current.onloadedmetadata = () => {
         mediaStream.current!.play();
+        // Hide fallback when stream is playing
+        setShowFallback(false);
       };
     }
   }, [stream, mediaStream]);
@@ -280,39 +286,44 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-[#2D3B4F] z-10">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
               <div className="text-xl mb-2">Loading avatar...</div>
-              <div className="text-sm text-gray-400">This may take a few seconds</div>
+              <div className="text-sm text-gray-400">This may take up to {avatarTimeout/1000} seconds</div>
+              <div className="text-xs text-gray-500 mt-2">If this takes too long, we'll use a fallback image</div>
             </div>
           )}
 
           {/* Video stream when available */}
-          {stream && !avatarFailed && (
-            <video
-              ref={mediaStream}
-              autoPlay
-              playsInline
-              className="w-full h-full object-contain scale-90"
-            >
-              <track kind="captions" />
-            </video>
-          )}
+          <video
+            ref={mediaStream}
+            autoPlay
+            playsInline
+            className={`w-full h-full object-contain scale-90 ${
+              stream && !showFallback ? 'opacity-100' : 'opacity-0'
+            } transition-opacity duration-500`}
+            style={{ display: stream && !showFallback ? 'block' : 'none' }}
+          >
+            <track kind="captions" />
+          </video>
 
-          {/* Fallback image when avatar fails or hasn't loaded */}
-          {(avatarFailed || (!stream && !isLoadingSession)) && (
-            <div className="w-full h-full flex flex-col items-center justify-center">
-              <img 
-                src={fallbackImagePath} 
-                alt="Agent" 
-                className="w-full h-full object-contain scale-90"
-              />
-              {avatarFailed && (
-                <div className="absolute bottom-4 left-0 right-0 text-center">
-                  <div className="bg-black bg-opacity-70 text-yellow-400 text-sm p-2 rounded mx-4">
-                    Using static image (Avatar unavailable)
-                  </div>
+          {/* Fallback image - Always rendered but hidden when stream is active */}
+          <div 
+            className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center ${
+              (!stream || showFallback) && !isLoadingSession ? 'opacity-100' : 'opacity-0'
+            } transition-opacity duration-500`}
+            style={{ display: (!stream || showFallback) && !isLoadingSession ? 'flex' : 'none' }}
+          >
+            <img 
+              src={fallbackImagePath} 
+              alt="Agent" 
+              className="w-full h-full object-contain scale-90"
+            />
+            {avatarFailed && (
+              <div className="absolute bottom-4 left-0 right-0 text-center">
+                <div className="bg-black bg-opacity-70 text-yellow-400 text-sm p-2 rounded mx-4">
+                  Using fallback image (Avatar temporarily unavailable)
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </>
       ) : (
         <div className="w-full h-full flex items-center justify-center text-white">
