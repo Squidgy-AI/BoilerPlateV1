@@ -64,7 +64,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
   const [showConnectionLost, setShowConnectionLost] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
-  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('Anna_public_3_20240108');
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('leadgenkb'); // Changed to use agent ID
   
   // New state for n8n backend toggle and streaming
   const [useN8nBackend, setUseN8nBackend] = useState(true);
@@ -206,6 +206,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     setWebsiteData({});
     setStreamingProgress(0);
     setStreamingStatus('');
+    setChatStarted(false); // Reset chat started state
     
     // Clean up any pending reconnect timers
     if (reconnectTimeoutRef.current) {
@@ -229,6 +230,21 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     fetchChatHistory();
     
   }, [sessionId]);
+
+  // Effect to ensure chat starts even if avatar fails
+  useEffect(() => {
+    if (sessionId && !chatStarted && !initialMessageSent.current) {
+      // Give a short delay for components to initialize
+      const startTimer = setTimeout(() => {
+        if (!chatStarted && !initialMessageSent.current) {
+          console.log("Force starting chat after delay");
+          startChat();
+        }
+      }, 1000);
+      
+      return () => clearTimeout(startTimer);
+    }
+  }, [sessionId, chatStarted]);
 
   // Function to connect WebSocket (now used for streaming updates even with n8n)
   const connectWebSocket = () => {
@@ -597,7 +613,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     console.log("Starting chat immediately");
     setChatStarted(true);
     initialMessageSent.current = true;
-    setLoading(true);
     
     // Generate a unique request ID
     const requestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -607,33 +622,41 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     processingState.currentRequestId = requestId;
     processingState.isProcessing = true;
     
+    // Get the agent configuration
+    const agent = getAgentById(selectedAvatarId);
+    
+    // Always show intro message first, regardless of backend
+    if (agent && textEnabled) {
+      setChatHistory([
+        { 
+          sender: 'AI', 
+          message: agent.introMessage,
+          requestId: `intro-${requestId}`, 
+          status: 'complete' 
+        }
+      ]);
+      
+      // Try to speak the intro if avatar is enabled (but don't wait for it)
+      if (avatarRef.current && videoEnabled && voiceEnabled) {
+        speakWithAvatar(agent.introMessage).catch(err => {
+          console.log("Could not speak intro:", err);
+        });
+      }
+    }
+    
+    // Set loading after showing intro
+    setLoading(true);
+    
     if (useN8nBackend) {
-      // Start chat using n8n backend
+      // Continue with n8n backend call
       try {
-        const agent = getAgentById(selectedAvatarId);
         const agentName = agent?.agent_name || 'presaleskb';
         const n8nResponse = await callN8nEndpoint("", requestId, agentName);
         
         if (n8nResponse.status === 'success') {
-          // First add the agent's intro message
-          if (agent && textEnabled) {
-            setChatHistory([
-              { 
-                sender: 'AI', 
-                message: agent.introMessage,
-                requestId: `intro-${requestId}`, 
-                status: 'complete' 
-              }
-            ]);
-            
-            // Speak the intro if avatar is enabled
-            if (avatarRef.current && videoEnabled && voiceEnabled) {
-              await speakWithAvatar(agent.introMessage);
-            }
-          }
-          
-          // Then add the response from n8n if it's different from the intro
-          if (textEnabled && n8nResponse.agent_response !== agent?.introMessage) {
+          // Only add n8n response if it's different from the intro
+          if (textEnabled && n8nResponse.agent_response && 
+              n8nResponse.agent_response !== agent?.introMessage) {
             setChatHistory(prevHistory => [
               ...prevHistory,
               { 
@@ -643,6 +666,13 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
                 status: 'complete' 
               }
             ]);
+            
+            // Try to speak this response too
+            if (avatarRef.current && videoEnabled && voiceEnabled) {
+              speakWithAvatar(n8nResponse.agent_response).catch(err => {
+                console.log("Could not speak response:", err);
+              });
+            }
           }
         }
       } catch (error) {
@@ -661,7 +691,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         setCurrentRequestId(null);
       }
     } else {
-      // Start chat using WebSocket
+      // WebSocket mode
       if (!websocketRef.current) {
         setLoading(false);
         return;
@@ -871,7 +901,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   // Function to handle when the avatar is ready
   const handleAvatarReady = () => {
     console.log("Avatar is ready");
-    if (!chatStarted && ((websocketRef.current && connectionStatus === 'connected') || useN8nBackend)) {
+    // Only start chat if it hasn't started yet
+    if (!chatStarted && !initialMessageSent.current) {
       startChat();
     }
   };
