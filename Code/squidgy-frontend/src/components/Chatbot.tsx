@@ -199,6 +199,7 @@ const startChat = async () => {
   console.log("videoEnabled:", videoEnabled);
   console.log("avatarInitialized:", avatarInitialized);
   console.log("selectedAvatarId:", selectedAvatarId);
+  console.log("Current chatHistory length:", chatHistory.length);
   
   if (!chatStarted) {
     setChatStarted(true);
@@ -221,12 +222,13 @@ const startChat = async () => {
       
       console.log("Adding message to chat history:", newMessage);
       
-      setChatHistory([newMessage]);
-      
-      // Log the chat history after setting
-      setTimeout(() => {
-        console.log("Chat history after adding initial message:", chatHistory);
-      }, 100);
+      // Use functional update to ensure state update
+      setChatHistory(prev => {
+        console.log("Previous chat history:", prev);
+        const updated = [...prev, newMessage];
+        console.log("Updated chat history:", updated);
+        return updated;
+      });
       
       // Try to speak if avatar is ready
       if (avatarRef.current && videoEnabled && voiceEnabled && avatarInitialized && !avatarFailed) {
@@ -350,7 +352,7 @@ useEffect(() => {
   connectWebSocket();
   
   // Fetch chat history
-  const fetchChatHistory = async () => {
+const fetchChatHistory = async () => {
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_BASE;
       const response = await fetch(`https://${apiBase}/chat-history?session_id=${sessionId}`);
@@ -368,6 +370,10 @@ useEffect(() => {
           
           setChatHistory([...formattedHistory]);
           setChatStarted(true); // Mark chat as started if we have history
+        } else {
+          // No history - ensure we show initial message
+          console.log("No chat history found, will show initial message");
+          // Don't set chatStarted here - let avatar initialization handle it
         }
       }
     } catch (error) {
@@ -378,10 +384,13 @@ useEffect(() => {
   fetchChatHistory();
   
   // If video is disabled, start chat immediately
+  // If video is disabled, start chat immediately
   if (!videoEnabled) {
     setTimeout(() => {
       console.log("Video disabled, starting chat immediately");
-      startChat();
+      if (!chatStarted && chatHistory.length === 0) {
+        startChat();
+      }
     }, 1000);
   } else {
     // Set up avatar loading timeout (10 seconds)
@@ -1090,18 +1099,22 @@ useEffect(() => {
           {/* Chat History and Input Section */}
           <div className="flex-1 flex flex-col min-h-0">
             {/* Chat History */}
-            <div 
-              ref={chatContainerRef}
-              className={`flex-1 bg-[#2D3B4F] rounded-lg overflow-y-auto mb-4 max-h-[calc(100vh-600px)] ${
-                !textEnabled ? 'opacity-50' : ''
-              }`}
-            >
-              {chatHistory.length === 0 && !loading ? (
-                <div className="p-4 text-white text-center">
-                  {chatStarted ? "Loading messages..." : "Start a conversation..."}
-                </div>
-              ) : (
-                <>
+                <div 
+                  ref={chatContainerRef}
+                  className={`flex-1 bg-[#2D3B4F] rounded-lg overflow-y-auto mb-4 max-h-[calc(100vh-600px)] ${
+                    !textEnabled ? 'opacity-50' : ''
+                  }`}
+                >
+                {chatHistory.length === 0 && !loading && !chatStarted ? (
+                  <div className="p-4 text-white text-center">
+                    Start a conversation...
+                  </div>
+                ) : chatHistory.length === 0 && chatStarted ? (
+                  <div className="p-4 text-white text-center">
+                    Loading messages...
+                  </div>
+                ) : (
+                  <>
                   {chatHistory.map((msg, index) => (
                     <div
                       key={`chat-msg-${index}`}
