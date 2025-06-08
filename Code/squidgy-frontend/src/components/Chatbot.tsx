@@ -319,6 +319,12 @@ const startChat = async () => {
 // Effect to handle session changes
 useEffect(() => {
   console.log("Session changed to:", sessionId);
+
+  if (sessionId === lastSessionIdRef.current) {
+    return;
+  }
+
+  lastSessionIdRef.current = sessionId;
   
   // Reset state for new session
   setChatHistory([]);
@@ -401,7 +407,10 @@ const fetchChatHistory = async () => {
       }
     }, 10000);
   }
-}, [sessionId, videoEnabled]);
+}, [sessionId]);
+
+const lastSessionIdRef = useRef<string>('');
+
 
   // Effect to handle agent changes
   useEffect(() => {
@@ -701,39 +710,47 @@ const fetchChatHistory = async () => {
     }
   };
 
-  const handleAgentResponse = (data: any) => {
-    if (data.final === true) {
-      setLoading(false);
-      setAgentThinking(null);
-      
-      if (data.requestId && messageTimeoutsRef.current[data.requestId]) {
-        clearTimeout(messageTimeoutsRef.current[data.requestId]);
-        delete messageTimeoutsRef.current[data.requestId];
-      }
-      
-      if (currentRequestId === data.requestId) {
-        setCurrentRequestId(null);
-      }
-      
-      if (textEnabled) {
-        setChatHistory(prevHistory => [
-          ...prevHistory.filter(msg => 
-            !(msg.requestId === data.requestId && msg.sender === 'AI')
-          ),
-          { 
-            sender: 'AI', 
-            message: data.message, 
-            requestId: data.requestId, 
-            status: 'complete' 
-          }
-        ]);
-      }
-      
-      if (avatarRef.current && videoEnabled && voiceEnabled) {
-        speakWithAvatar(data.message);
-      }
+  // In handleAgentResponse function, check for images:
+const handleAgentResponse = (data: any) => {
+  if (data.final === true) {
+    setLoading(false);
+    setAgentThinking(null);
+    
+    if (data.requestId && messageTimeoutsRef.current[data.requestId]) {
+      clearTimeout(messageTimeoutsRef.current[data.requestId]);
+      delete messageTimeoutsRef.current[data.requestId];
     }
-  };
+    
+    if (currentRequestId === data.requestId) {
+      setCurrentRequestId(null);
+    }
+    
+    // Include images in the message if they exist
+    let messageWithImages = data.message;
+    if (data.images && data.images.length > 0) {
+      // Append image URLs to the message
+      messageWithImages = `${data.message} ${data.images.join(' ')}`;
+    }
+    
+    if (textEnabled) {
+      setChatHistory(prevHistory => [
+        ...prevHistory.filter(msg => 
+          !(msg.requestId === data.requestId && msg.sender === 'AI')
+        ),
+        { 
+          sender: 'AI', 
+          message: messageWithImages, 
+          requestId: data.requestId, 
+          status: 'complete' 
+        }
+      ]);
+    }
+    
+    if (avatarRef.current && videoEnabled && voiceEnabled) {
+      speakWithAvatar(data.message); // Don't speak the URLs
+    }
+  }
+};
 
   const sendMessage = async () => {
     if (!userInput.trim()) return;
@@ -771,7 +788,7 @@ const fetchChatHistory = async () => {
         const agent = getCurrentAgent();
         
         if (agent) {
-          const agentName = agent.agent_name;
+          const agentName = agent.agent_name || agent.id;
           
           console.log("Sending to n8n with agent:", agentName);
           const n8nResponse = await callN8nEndpoint(userInput, requestId, agentName);
@@ -808,10 +825,13 @@ const fetchChatHistory = async () => {
           connectWebSocket();
           return;
         }
-        
+
+        const agent = getCurrentAgent();
         websocketRef.current.send(JSON.stringify({
           message: userInput,
-          requestId
+          requestId,
+          agent: selectedAvatarId,
+          agentName: agent?.agent_name || selectedAvatarId // Add this line
         }));
         
         const messageTimeout = setTimeout(() => {
@@ -890,6 +910,25 @@ const fetchChatHistory = async () => {
     }
   };
 
+  const formatMessageWithImages = (message: string) => {
+  // Extract URLs and replace with placeholder
+  const urlRegex = /(https:\/\/[^\s]+\.supabase\.co\/storage\/v1\/[^\s]+\.(png|jpg|jpeg|gif|webp))/gi;
+  const urls = message.match(urlRegex) || [];
+  
+  // Remove URLs from message text
+  let cleanMessage = message;
+  urls.forEach(url => {
+    cleanMessage = cleanMessage.replace(url, '');
+  });
+  
+  return {
+    text: cleanMessage.trim(),
+    images: urls
+  };
+};
+
+
+
   // Function to handle topic selection
   const handleTopicSelect = (topic: string) => {
     setUserInput(topic);
@@ -906,6 +945,8 @@ const fetchChatHistory = async () => {
     reconnectAttemptsRef.current = 0;
     connectWebSocket();
   };
+
+  // Add this function inside the Chatbot component (before the return statement)
 
   // Cleanup effect
   useEffect(() => {
@@ -1115,22 +1156,45 @@ const fetchChatHistory = async () => {
                   </div>
                 ) : (
                   <>
-                  {chatHistory.map((msg, index) => (
-                    <div
-                      key={`chat-msg-${index}`}
-                      className={`p-4 border-b border-gray-700 ${
-                        msg.sender === "System" ? "bg-red-900 bg-opacity-20" : ""
-                      }`}
-                    >
-                      <span className={`font-bold ${
-                        msg.sender === "AI" ? "text-blue-400" :
-                        msg.sender === "User" ? "text-green-400" : "text-red-400"
-                      }`}>
-                        {msg.sender}: 
-                      </span>
-                      <span className="text-white ml-2">{msg.message}</span>
-                    </div>
-                  ))}
+                  // Replace the chat history rendering section (around line 1200-1250)
+{chatHistory.map((msg, index) => {
+  // Format message to extract images
+  const { text, images } = formatMessageWithImages(msg.message);
+  
+  return (
+    <div
+      key={`chat-msg-${index}`}
+      className={`p-4 border-b border-gray-700 ${
+        msg.sender === "System" ? "bg-red-900 bg-opacity-20" : ""
+      }`}
+    >
+      <span className={`font-bold ${
+        msg.sender === "AI" ? "text-green-400" :  // Green for AI
+        msg.sender === "User" ? "text-blue-400" : // Blue for User
+        "text-red-400" // Red for System
+      }`}>
+        {msg.sender}: 
+      </span>
+      <span className="text-white ml-2">{text}</span>
+      
+      {/* Display images if found */}
+      {images.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {images.map((url, imgIndex) => (
+            <div key={`img-${index}-${imgIndex}`} className="mt-2">
+              <img 
+                src={url} 
+                alt="Shared content" 
+                className="max-w-md rounded-lg cursor-pointer hover:opacity-90 transition-opacity shadow-lg"
+                onClick={() => window.open(url, '_blank')}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+})}
                   
                   {/* Show agent thinking status */}
                   {agentThinking && (
