@@ -10,7 +10,7 @@ import UserDashboard from './UserDashboard';
 import WebSocketDebugger from './WebSocketDebugger';
 import ConnectionStatus from './ConnectionStatus';
 import { createOptimizedWebSocketConnection } from './WebSocketUtils';
-import { getAgentById, getAgentName } from '@/config/agents';
+import { getAgentById, getAgentName, AGENT_CONFIG } from '@/config/agents';
 import ConnectionLostBanner from './ConnectionLostBanner';
 
 interface ChatMessage {
@@ -65,6 +65,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [showConnectionLost, setShowConnectionLost] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('leadgenkb'); // Changed to use agent ID
+  const [avatarInitialized, setAvatarInitialized] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const [initialMessageShown, setInitialMessageShown] = useState(false);
+  const avatarInitTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // New state for n8n backend toggle and streaming
   const [useN8nBackend, setUseN8nBackend] = useState(true);
@@ -93,6 +97,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const lastMessageTimestamp = useRef<number>(Date.now());
   const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
 
+
   /**
    * Function to call n8n webhook endpoint with request_id support
    * This sends a request to the backend which routes it through n8n workflows
@@ -100,38 +105,41 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
    * @param requestId - Unique identifier for this request
    * @returns Promise with n8n response
    */
-  const callN8nEndpoint = async (userInput: string, requestId: string, agentType: string = 're-engage') => {
-    try {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-      // Include agent name and session_id in the URL
-      const response = await fetch(`https://${apiBase}/n8n_main_req/${agentType}/${sessionId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          user_mssg: userInput,
-          session_id: sessionId,
-          agent_name: agentType,
-          timestamp_of_call_made: new Date().toISOString()
-        })
-      });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('n8n response with request_id:', data.session_id);
+  const callN8nEndpoint = async (userInput: string, requestId: string, agentName: string = 'presaleskb') => {
+  try {
+    console.log("Calling n8n with:", { userInput, requestId, agentName });
     
-      return data;
-    } 
-    catch (error) {
-      console.error('Error calling n8n endpoint:', error);
-      throw error;
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+    const response = await fetch(`https://${apiBase}/n8n_main_req/${agentName}/${sessionId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        user_mssg: userInput || "Hello",
+        session_id: sessionId,
+        agent_name: agentName,
+        timestamp_of_call_made: new Date().toISOString()
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+
+    const data = await response.json();
+    console.log('n8n response:', data);
+  
+    return data;
+  } 
+  catch (error) {
+    console.error('Error calling n8n endpoint:', error);
+    throw error;
+  }
+};
+  
 
   // Effect to sync the internal state with the exported singleton
   useEffect(() => {
@@ -161,6 +169,106 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const handleAvatarChange = (avatarId: string) => {
     setSelectedAvatarId(avatarId); // This should be the agent ID
   };
+
+  const getCurrentAgent = () => {
+  return getAgentById(selectedAvatarId);
+  };
+
+  const showInitialMessage = () => {
+  if (initialMessageShown || !textEnabled) {
+    console.log("Initial message already shown or text disabled");
+    return;
+  }
+  
+  const agent = getCurrentAgent();
+  if (!agent) {
+    console.error("No agent found for ID:", selectedAvatarId);
+    return;
+  }
+  
+  setInitialMessageShown(true);
+  
+  // Add message to chat
+  setChatHistory([{ 
+    sender: 'AI', 
+    message: agent.introMessage, 
+    requestId: `initial-${Date.now()}`, 
+    status: 'complete' 
+  }]);
+  
+  // Try to speak only if avatar is ready and not failed
+  // Note: We can't check sessionActive here because it's in the InteractiveAvatar component
+  if (avatarRef.current && videoEnabled && voiceEnabled && avatarInitialized && !avatarFailed) {
+    speakWithAvatar(agent.introMessage).catch(err => {
+      console.log("Could not speak initial message:", err);
+    });
+  }
+};
+
+const startChat = async () => {
+  if (initialMessageSent.current) {
+    console.log("Chat already started");
+    return;
+  }
+  
+  console.log("Starting chat");
+  setChatStarted(true);
+  initialMessageSent.current = true;
+  
+  // Always show the initial message
+  showInitialMessage();
+  
+  // If using n8n backend, optionally send a start signal
+  if (useN8nBackend) {
+    try {
+      const requestId = `init-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const agent = getCurrentAgent();
+      
+      if (agent) {
+        // Use the agent_name field for n8n
+        const agentName = agent.agent_name;
+        
+        console.log("Initializing n8n with agent:", agentName);
+        const n8nResponse = await callN8nEndpoint("", requestId, agentName);
+        console.log("N8N initialized:", n8nResponse);
+      }
+    } catch (error) {
+      console.error("Error initializing n8n:", error);
+    }
+  }
+};
+
+// In handleAvatarReady
+const handleAvatarReady = () => {
+  console.log("Avatar initialization complete (ready or failed)");
+  setAvatarInitialized(true);
+  
+  // Clear any pending timeout
+  if (avatarInitTimeout.current) {
+    clearTimeout(avatarInitTimeout.current);
+    avatarInitTimeout.current = null;
+  }
+  
+  // Start chat if conditions are met
+  if (!chatStarted && (connectionStatus === 'connected' || useN8nBackend)) {
+    startChat();
+  }
+};
+
+
+// Handler for avatar errors
+// Add this function in Chatbot component
+const handleAvatarError = (error: string) => {
+  console.log("Avatar error occurred:", error);
+  setAvatarFailed(true);
+  setAvatarError(error);
+  
+  // Still initialize the chat even if avatar fails
+  setAvatarInitialized(true);
+  if (!chatStarted && (connectionStatus === 'connected' || useN8nBackend)) {
+    startChat();
+  }
+};
 
   // Effect to scroll chat to bottom when messages change
   useEffect(() => {
@@ -207,6 +315,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     setStreamingProgress(0);
     setStreamingStatus('');
     setChatStarted(false); // Reset chat started state
+    setInitialMessageShown(false); // Add this
+    setAvatarInitialized(false); // Add this
+    setAvatarFailed(false); // Add this
+    setAvatarError(null); // Add this
     
     // Clean up any pending reconnect timers
     if (reconnectTimeoutRef.current) {
@@ -231,20 +343,55 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     
   }, [sessionId]);
 
+  // Better approach for starting chat
+  useEffect(() => {
+    const shouldStartChat = 
+      sessionId && 
+      !chatStarted && 
+      !initialMessageSent.current &&
+      (avatarInitialized || avatarFailed || !videoEnabled) &&
+      (connectionStatus === 'connected' || useN8nBackend);
+      
+    if (shouldStartChat) {
+      console.log("All conditions met, starting chat");
+      startChat();
+    }
+  }, [sessionId, chatStarted, avatarInitialized, avatarFailed, videoEnabled, connectionStatus, useN8nBackend]);
+
   // Effect to ensure chat starts even if avatar fails
   useEffect(() => {
-    if (sessionId && !chatStarted && !initialMessageSent.current) {
-      // Give a short delay for components to initialize
-      const startTimer = setTimeout(() => {
-        if (!chatStarted && !initialMessageSent.current) {
-          console.log("Force starting chat after delay");
-          startChat();
-        }
-      }, 1000);
+  if (selectedAvatarId && chatStarted && !loading) {
+    const agent = getAgentById(selectedAvatarId);
+    if (agent) {
+      // Check if the last message is already from this agent's intro
+      const lastMessage = chatHistory[chatHistory.length - 1];
+      const isIntroMessage = lastMessage && 
+        lastMessage.message === agent.introMessage &&
+        lastMessage.sender === 'AI';
       
-      return () => clearTimeout(startTimer);
+      if (!isIntroMessage) {
+        if (textEnabled) {
+          setChatHistory(prevHistory => [
+            ...prevHistory,
+            { 
+              sender: 'AI', 
+              message: agent.introMessage, 
+              requestId: `switch-${Date.now()}`, 
+              status: 'complete' 
+            }
+          ]);
+        }
+        
+        // Speak with avatar if available
+        if (avatarRef.current && videoEnabled && voiceEnabled && avatarInitialized && !avatarFailed) {
+          speakWithAvatar(agent.introMessage).catch(err => {
+            console.log("Could not speak switch message:", err);
+          });
+        }
+      }
     }
-  }, [sessionId, chatStarted]);
+  }
+}, [selectedAvatarId, chatStarted, loading]); // Remove extra dependencies to prevent loops
 
   // Function to connect WebSocket (now used for streaming updates even with n8n)
   const connectWebSocket = () => {
@@ -280,25 +427,18 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       }, 6000);
       
       ws.onopen = (event) => {
-        clearTimeout(connectionTimeout);
-        console.log('[WebSocket] Connected', {
-          url: wsUrl,
-          readyState: ws.readyState,
-          eventType: event?.type
-        });
-        setConnectionStatus('connected');
-        console.log("[WebSocket] Setting connection status to 'connected'");
-        reconnectAttemptsRef.current = 0;
-        websocketRef.current = ws;
-        
-        // Update the exported state with the new WebSocket
-        processingState.websocket = ws;
-        
-        // Start chat immediately without delay
-        if (!chatStarted && !initialMessageSent.current) {
-          startChat();
-        }
-      };
+  clearTimeout(connectionTimeout);
+  console.log('[WebSocket] Connected');
+  setConnectionStatus('connected');
+  reconnectAttemptsRef.current = 0;
+  websocketRef.current = ws;
+  processingState.websocket = ws;
+  
+  // Start chat if avatar is ready or if avatar failed/disabled
+  // if ((avatarInitialized || avatarFailed || !videoEnabled) && !chatStarted) {
+  //   startChat();
+  // }
+};
       
       ws.onmessage = (event) => {
         console.log('[WebSocket] Message received', {
@@ -605,104 +745,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
    * Main function to start chat - supports both n8n and WebSocket modes
    * This initializes the conversation with the AI
    */
-  const startChat = async () => {
-    if (initialMessageSent.current) {
-      return;
-    }
-    
-    console.log("Starting chat immediately");
-    setChatStarted(true);
-    initialMessageSent.current = true;
-    
-    // Generate a unique request ID
-    const requestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    setCurrentRequestId(requestId);
-    
-    // Update the exported state
-    processingState.currentRequestId = requestId;
-    processingState.isProcessing = true;
-    
-    // Get the agent configuration
-    const agent = getAgentById(selectedAvatarId);
-    
-    // Always show intro message first, regardless of backend
-    if (agent && textEnabled) {
-      setChatHistory([
-        { 
-          sender: 'AI', 
-          message: agent.introMessage,
-          requestId: `intro-${requestId}`, 
-          status: 'complete' 
-        }
-      ]);
-      
-      // Try to speak the intro if avatar is enabled (but don't wait for it)
-      if (avatarRef.current && videoEnabled && voiceEnabled) {
-        speakWithAvatar(agent.introMessage).catch(err => {
-          console.log("Could not speak intro:", err);
-        });
-      }
-    }
-    
-    // Set loading after showing intro
-    setLoading(true);
-    
-    if (useN8nBackend) {
-      // Continue with n8n backend call
-      try {
-        const agentName = agent?.agent_name || 'presaleskb';
-        const n8nResponse = await callN8nEndpoint("", requestId, agentName);
-        
-        if (n8nResponse.status === 'success') {
-          // Only add n8n response if it's different from the intro
-          if (textEnabled && n8nResponse.agent_response && 
-              n8nResponse.agent_response !== agent?.introMessage) {
-            setChatHistory(prevHistory => [
-              ...prevHistory,
-              { 
-                sender: 'AI', 
-                message: n8nResponse.agent_response, 
-                requestId: n8nResponse.session_id, 
-                status: 'complete' 
-              }
-            ]);
-            
-            // Try to speak this response too
-            if (avatarRef.current && videoEnabled && voiceEnabled) {
-              speakWithAvatar(n8nResponse.agent_response).catch(err => {
-                console.log("Could not speak response:", err);
-              });
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error starting chat with n8n:", error);
-        setChatHistory(prevHistory => [
-          ...prevHistory,
-          { 
-            sender: 'System', 
-            message: `Error starting chat: ${(error as Error).message}`, 
-            requestId, 
-            status: 'error' 
-          }
-        ]);
-      } finally {
-        setLoading(false);
-        setCurrentRequestId(null);
-      }
-    } else {
-      // WebSocket mode
-      if (!websocketRef.current) {
-        setLoading(false);
-        return;
-      }
-      
-      websocketRef.current.send(JSON.stringify({
-        message: "",
-        requestId
-      }));
-    }
-  };
 
   const handleAgentResponse = (data: any) => {
     if (data.final === true) {
@@ -747,140 +789,135 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
    * This is called when the user clicks send or presses enter
    */
   const sendMessage = async () => {
-    if (!userInput.trim()) return;
-    
-    // Check if we're already processing a request
-    if (loading) {
-      console.log("Cannot send message: Still processing previous request");
-      return;
-    }
-    
-    setLoading(true);
-    setAvatarError(null);
-    
-    lastMessageTimestamp.current = Date.now();
-    
-    // Generate a unique request ID
-    const requestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    setCurrentRequestId(requestId);
-    
-    // Update the exported state
-    processingState.currentRequestId = requestId;
-    processingState.isProcessing = true;
-    
-    // Extract URL from user message if present
-    if (userInput.includes('http://') || userInput.includes('https://')) {
-      const urlMatch = userInput.match(/(https?:\/\/[^\s]+)/g);
-      if (urlMatch && urlMatch[0]) {
-        setWebsiteData(prev => ({
-          ...prev,
-          url: urlMatch[0]
-        }));
-      }
-    }
-    
-    // Add user message to chat immediately if text is enabled
-    if (textEnabled) {
-      setChatHistory(prevHistory => [
-        ...prevHistory, 
-        { sender: "User", message: userInput, requestId, status: 'complete' }
-      ]);
-    }
-    
-    try {
-      if (useN8nBackend) {
-        // Send message using n8n backend
-        const agent = getAgentById(selectedAvatarId);
-        const agentName = agent?.agent_name || 'presaleskb';
+  if (!userInput.trim()) return;
+  
+  if (loading) {
+    console.log("Cannot send message: Still processing");
+    return;
+  }
+  
+  setLoading(true);
+  setAvatarError(null);
+  
+  const requestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  setCurrentRequestId(requestId);
+  processingState.currentRequestId = requestId;
+  processingState.isProcessing = true;
+  
+  // Extract URL from user message if present
+  const urlMatch = userInput.match(/(https?:\/\/[^\s]+)/g);
+  if (urlMatch && urlMatch[0]) {
+    setWebsiteData(prev => ({
+      ...prev,
+      url: urlMatch[0]
+    }));
+  }
+  
+  // Add user message to chat
+  if (textEnabled) {
+    setChatHistory(prevHistory => [
+      ...prevHistory, 
+      { sender: "User", message: userInput, requestId, status: 'complete' }
+    ]);
+  }
+  
+  try {
+    if (useN8nBackend) {
+      // Send message using n8n backend
+      const agent = getCurrentAgent();
+      
+      if (agent) {
+        // Use the agent_name field for n8n
+        const agentName = agent.agent_name;
+        
+        console.log("Sending to n8n with agent:", agentName);
         const n8nResponse = await callN8nEndpoint(userInput, requestId, agentName);
         
-        // Process n8n response
         if (n8nResponse.status === 'success') {
-          // Clear thinking state
           setAgentThinking(null);
           
           // Add AI response to chat
-          if (textEnabled) {
+          if (textEnabled && n8nResponse.agent_response) {
             setChatHistory(prevHistory => [
               ...prevHistory,
               { 
                 sender: 'AI', 
                 message: n8nResponse.agent_response, 
-                requestId: n8nResponse.session_id, 
+                requestId: n8nResponse.session_id || requestId, 
                 status: 'complete' 
               }
             ]);
           }
           
           // Speak with avatar if enabled
-          if (avatarRef.current && videoEnabled && voiceEnabled) {
+          if (avatarRef.current && videoEnabled && voiceEnabled && n8nResponse.agent_response) {
             await speakWithAvatar(n8nResponse.agent_response);
           }
         } else {
           throw new Error(n8nResponse.error || 'Unknown error from n8n');
         }
       } else {
-        // Send message using WebSocket
-        if (!websocketRef.current || connectionStatus !== 'connected') {
-          console.log("Cannot send message: WebSocket not connected");
-          setAgentThinking("Connection issue. Attempting to reconnect...");
-          connectWebSocket();
-          return;
-        }
-        
-        // Send message via WebSocket
-        websocketRef.current.send(JSON.stringify({
-          message: userInput,
-          requestId
-        }));
-        
-        // Set a timeout for WebSocket response
-        const messageTimeout = setTimeout(() => {
-          if (loading && currentRequestId === requestId) {
-            console.log(`Message timeout for request ${requestId}`);
-            setLoading(false);
-            setCurrentRequestId(null);
-            setAgentThinking(null);
-            
-            setChatHistory(prevHistory => [
-              ...prevHistory,
-              { 
-                sender: "System", 
-                message: "Message timed out. The server may be busy. Please try again.", 
-                requestId, 
-                status: 'error' 
-              }
-            ]);
-          }
-        }, 60000); // 1 minute timeout
-        
-        messageTimeoutsRef.current[requestId] = messageTimeout;
+        throw new Error('No agent selected');
       }
+    } else {
+         // Send message using WebSocket
+  if (!websocketRef.current || connectionStatus !== 'connected') {
+    console.log("Cannot send message: WebSocket not connected");
+    setAgentThinking("Connection issue. Attempting to reconnect...");
+    connectWebSocket();
+    return;
+  }
+  
+  // Send message via WebSocket
+  websocketRef.current.send(JSON.stringify({
+    message: userInput,
+    requestId
+  }));
+  
+  // Set a timeout for WebSocket response
+  const messageTimeout = setTimeout(() => {
+    if (loading && currentRequestId === requestId) {
+      console.log(`Message timeout for request ${requestId}`);
+      setLoading(false);
+      setCurrentRequestId(null);
+      setAgentThinking(null);
       
-      setUserInput(""); // Clear input field
-    } catch (error) {
-      console.error("Error sending message:", error);
-      
-      // Add error message to chat
       setChatHistory(prevHistory => [
         ...prevHistory,
         { 
           sender: "System", 
-          message: `Error: ${(error as Error).message}`, 
+          message: "Message timed out. The server may be busy. Please try again.", 
           requestId, 
           status: 'error' 
         }
       ]);
-    } finally {
-      // Only reset loading state for n8n mode here if not streaming
-      // For streaming mode, it will be reset when complete message is received
-      if (useN8nBackend && !websocketRef.current) {
-        setLoading(false);
-        setCurrentRequestId(null);
-        setAgentThinking(null);
-      }
     }
-  };
+  }, 60000); // 1 minute timeout
+  
+  messageTimeoutsRef.current[requestId] = messageTimeout;
+    }
+    
+    setUserInput("");
+  } catch (error) {
+    console.error("Error sending message:", error);
+    
+    setChatHistory(prevHistory => [
+      ...prevHistory,
+      { 
+        sender: "System", 
+        message: `Error: ${(error as Error).message}`, 
+        requestId, 
+        status: 'error' 
+      }
+    ]);
+  } finally {
+     if (useN8nBackend) {
+    setLoading(false);
+    setCurrentRequestId(null);
+    setAgentThinking(null);
+  }
+  }
+};
 
   // Function to have avatar speak the message
   const speakWithAvatar = async (text: string) => {
@@ -898,14 +935,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     }
   };
 
-  // Function to handle when the avatar is ready
-  const handleAvatarReady = () => {
-    console.log("Avatar is ready");
-    // Only start chat if it hasn't started yet
-    if (!chatStarted && !initialMessageSent.current) {
-      startChat();
-    }
-  };
+  // Function to handle when the avatar is read
 
   // Function to handle new session requests
   const handleNewSession = () => {
@@ -949,35 +979,39 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   };
 
   // Effect to show intro message when avatar changes
-  useEffect(() => {
-    if (selectedAvatarId && chatStarted) {
-      const agent = getAgentById(selectedAvatarId);
-      if (agent && textEnabled) {
-        // Add intro message when switching agents
-        setChatHistory(prevHistory => {
-          // Check if we already have an intro from this agent
-          const hasIntro = prevHistory.some(msg => 
-            msg.requestId?.startsWith('intro-') && msg.message === agent.introMessage
-          );
-          
-          if (!hasIntro) {
-            // Speak the intro if avatar is enabled
-            if (avatarRef.current && videoEnabled && voiceEnabled) {
-              speakWithAvatar(agent.introMessage);
-            }
-            
-            return [...prevHistory, { 
+  // Effect to handle agent selection changes and show intro message
+useEffect(() => {
+  if (selectedAvatarId && chatStarted && !loading) {
+    const agent = getAgentById(selectedAvatarId);
+    if (agent) {
+      // When switching agents, show their intro message
+      const switchMessage = agent.introMessage;
+      
+      // Check if we need to show this intro (avoid duplicates)
+      const lastMessage = chatHistory[chatHistory.length - 1];
+      if (!lastMessage || lastMessage.message !== switchMessage) {
+        if (textEnabled) {
+          setChatHistory(prevHistory => [
+            ...prevHistory,
+            { 
               sender: 'AI', 
-              message: agent.introMessage,
-              requestId: `intro-${Date.now()}`, 
+              message: switchMessage, 
+              requestId: `switch-${Date.now()}`, 
               status: 'complete' 
-            }];
-          }
-          return prevHistory;
-        });
+            }
+          ]);
+        }
+        
+        // Speak with avatar if available
+        if (avatarRef.current && videoEnabled && voiceEnabled && !avatarFailed) {
+          speakWithAvatar(switchMessage).catch(err => {
+            console.log("Could not speak switch message:", err);
+          });
+        }
       }
     }
-  }, [selectedAvatarId]);
+  }
+}, [selectedAvatarId]);
 
   // Cleanup effect
   useEffect(() => {
@@ -1151,6 +1185,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
               sessionId={sessionId}
               voiceEnabled={voiceEnabled}
               avatarId={selectedAvatarId}
+              onAvatarError={handleAvatarError}  // This function is not defined
+              avatarTimeout={8000}
             />
             
             {/* Avatar Error Message */}
@@ -1278,4 +1314,59 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   );
 };
 
-export default Chatbot;
+
+interface ChatErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ChatErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ChatErrorBoundary extends React.Component<ChatErrorBoundaryProps, ChatErrorBoundaryState> {
+  constructor(props: ChatErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Chat error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-screen bg-[#1B2431]">
+          <div className="text-center text-white">
+            <h2 className="text-2xl mb-4">Something went wrong</h2>
+            <p className="mb-4">Please refresh the page to try again</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 px-4 py-2 rounded"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Then wrap your component:
+export default function ChatbotWithErrorBoundary(props: ChatbotProps) {
+  return (
+    <ChatErrorBoundary>
+      <Chatbot {...props} />
+    </ChatErrorBoundary>
+  );
+}
+
+// export default Chatbot;

@@ -16,7 +16,9 @@ interface InteractiveAvatarProps {
   enabled?: boolean;
   sessionId?: string;
   voiceEnabled?: boolean;
-  avatarId?: string; // Can be either agent ID or HeyGen avatar ID
+  avatarId?: string;
+  onAvatarError?: (error: string) => void;
+  avatarTimeout?: number;
 }
 
 const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ 
@@ -25,7 +27,9 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   enabled = true,
   sessionId,
   voiceEnabled = true,
-  avatarId = 'presaleskb' // Default to pre-sales consultant
+  avatarId = 'presaleskb',
+  onAvatarError,
+  avatarTimeout = 8000 // 8 seconds default timeout
 }) => {
   const [stream, setStream] = useState<MediaStream>();
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -37,6 +41,9 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const [errorType, setErrorType] = useState<string | null>(null);
   const currentSessionIdRef = useRef<string | undefined>(sessionId);
   const currentAvatarIdRef = useRef<string>(avatarId);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const avatarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initializationAttempted = useRef(false);
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
@@ -61,11 +68,20 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   }
 
   async function startAvatarSession() {
-    if (!enabled) return;
+    if (!enabled || initializationAttempted.current) return;
     
+    console.log("Starting avatar session with timeout:", avatarTimeout);
+    initializationAttempted.current = true;
     setIsLoadingSession(true);
     setError(null);
     setErrorType(null);
+    setAvatarFailed(false);
+    
+    // Set timeout for avatar initialization
+    avatarTimeoutRef.current = setTimeout(() => {
+      console.log("Avatar initialization timeout reached");
+      handleAvatarFailure("Avatar initialization timed out");
+    }, avatarTimeout);
     
     try {
       // Only fetch a new token if we don't have one
@@ -85,16 +101,15 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           setupAvatarEventListeners();
         } catch (initError) {
           console.error("Avatar initialization error:", initError);
-          setError("Failed to initialize avatar");
-          setErrorType("INIT_ERROR");
-          throw initError;
+          handleAvatarFailure("Failed to initialize avatar");
+          return;
         }
       }
   
       try {
         const res = await actualAvatarRef.current.createStartAvatar({
           quality: AvatarQuality.Low,
-          avatarName: heygenAvatarId, // Use the resolved HeyGen avatar ID
+          avatarName: heygenAvatarId,
           voice: {
             rate: 1.2,
             emotion: VoiceEmotion.NEUTRAL,
@@ -110,38 +125,52 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           });
         }
   
+        // Clear timeout on success
+        if (avatarTimeoutRef.current) {
+          clearTimeout(avatarTimeoutRef.current);
+          avatarTimeoutRef.current = null;
+        }
+  
         setSessionActive(true);
         currentSessionIdRef.current = sessionId;
         currentAvatarIdRef.current = avatarId;
+        setIsLoadingSession(false);
   
+        console.log("Avatar successfully initialized");
         if (onAvatarReady) {
           onAvatarReady();
         }
       } catch (avatarError: any) {
         console.error("Error starting avatar session:", avatarError);
-        
-        // Categorize errors by checking error messages
-        if (avatarError.message?.includes("quota exceeded")) {
-          setErrorType("QUOTA_EXCEEDED");
-          setError("API quota exceeded. Try again later.");
-        } else if (avatarError.message?.includes("concurrent")) {
-          setErrorType("CONCURRENT_SESSION");
-          setError("Another session is active. Please wait.");
-        } else if (avatarError.message?.includes("WebRTC")) {
-          setErrorType("WEBRTC_ERROR");
-          setError("WebRTC connection failed. Check your network.");
-        } else {
-          setErrorType("UNKNOWN_ERROR");
-          setError("Failed to start avatar session.");
-        }
-        
-        throw avatarError;
+        handleAvatarFailure(avatarError.message || "Failed to start avatar session");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Avatar session error:", error);
-      // Don't rethrow - we've handled it already
-    } finally {
-      setIsLoadingSession(false);
+      handleAvatarFailure(error.message || "Avatar session error");
+    }
+  }
+
+  function handleAvatarFailure(errorMessage: string) {
+    console.log("Avatar failed, using fallback:", errorMessage);
+    
+    // Clear timeout if still pending
+    if (avatarTimeoutRef.current) {
+      clearTimeout(avatarTimeoutRef.current);
+      avatarTimeoutRef.current = null;
+    }
+    
+    setError(errorMessage);
+    setAvatarFailed(true);
+    setIsLoadingSession(false);
+    setSessionActive(false);
+    
+    if (onAvatarError) {
+      onAvatarError(errorMessage);
+    }
+    
+    // Still call onAvatarReady to proceed with chat
+    if (onAvatarReady) {
+      onAvatarReady();
     }
   }
 
@@ -168,67 +197,61 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     });
   }
 
-  async function pauseSession() {
+  async function endSession() {
+    // Clear timeout if still pending
+    if (avatarTimeoutRef.current) {
+      clearTimeout(avatarTimeoutRef.current);
+      avatarTimeoutRef.current = null;
+    }
+    
     if (actualAvatarRef.current) {
       try {
         await actualAvatarRef.current.stopAvatar();
-        console.log("Avatar session paused successfully");
       } catch (error) {
-        console.error("Error pausing avatar session:", error);
-      } finally {
-        setSessionActive(false);
-        setStream(undefined);
+        console.error("Error stopping avatar:", error);
       }
-    }
-  }
-  
-  async function endSession() {
-    if (actualAvatarRef.current) {
-      await actualAvatarRef.current.stopAvatar();
       actualAvatarRef.current = null;
       setSessionActive(false);
       setStream(undefined);
     }
+    
+    initializationAttempted.current = false;
   }
 
-  // Effect to handle avatar ID changes
+  // Main initialization effect
   useEffect(() => {
-    if (sessionActive && currentAvatarIdRef.current !== avatarId) {
-      // Need to reset the session when avatar changes
-      endSession().then(() => {
-        startAvatarSession();
-      });
-    } else if (!sessionActive && enabled) {
-      // Start session if not active but should be enabled
-      startAvatarSession();
-    }
-  }, [avatarId, enabled]);
-
-  // Effect to start session initially if enabled
-  useEffect(() => {
-    if (enabled) {
+    if (enabled && !initializationAttempted.current) {
       startAvatarSession();
     }
     
     return () => {
       endSession();
     };
-  }, []);
+  }, [enabled]);
 
-  // Effect to handle enabled/disabled state changes
+  // Handle session changes
   useEffect(() => {
-    if (enabled && !sessionActive) {
-      startAvatarSession();
-    } else if (!enabled && sessionActive) {
-      pauseSession(); // Just pause instead of completely ending
+    if (sessionId !== currentSessionIdRef.current && enabled) {
+      initializationAttempted.current = false;
+      endSession().then(() => {
+        startAvatarSession();
+      });
     }
-  }, [enabled, sessionActive]);
+  }, [sessionId, enabled]);
 
-  // Effect to handle voice enabled/disabled changes
+  // Handle avatar ID changes
   useEffect(() => {
-    // If session is active and avatar exists, update voice settings
+    if (sessionActive && currentAvatarIdRef.current !== avatarId) {
+      initializationAttempted.current = false;
+      endSession().then(() => {
+        startAvatarSession();
+      });
+    }
+  }, [avatarId]);
+
+  // Handle voice enabled changes
+  useEffect(() => {
     if (sessionActive && actualAvatarRef.current) {
-      // If voice was disabled but now enabled
       if (voiceEnabled && actualAvatarRef.current) {
         actualAvatarRef.current.startVoiceChat({
           useSilencePrompt: false
@@ -236,20 +259,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           console.error("Error starting voice chat:", error);
         });
       }
-      // If voice was enabled but now disabled, we don't need to do anything special
-      // as the voice will only be used when speakWithAvatar is called
     }
   }, [voiceEnabled, sessionActive]);
-
-  // Effect to handle session changes
-  useEffect(() => {
-    if (sessionId !== currentSessionIdRef.current && enabled) {
-      // Reset avatar when session changes
-      endSession().then(() => {
-        startAvatarSession();
-      });
-    }
-  }, [sessionId, enabled]);
 
   useEffect(() => {
     if (stream && mediaStream.current) {
@@ -264,7 +275,17 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     <div className="w-full h-full bg-[#2D3B4F] rounded-lg overflow-hidden relative">
       {enabled ? (
         <>
-          {stream ? (
+          {/* Loading state */}
+          {isLoadingSession && !avatarFailed && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-[#2D3B4F] z-10">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+              <div className="text-xl mb-2">Loading avatar...</div>
+              <div className="text-sm text-gray-400">This may take a few seconds</div>
+            </div>
+          )}
+
+          {/* Video stream when available */}
+          {stream && !avatarFailed && (
             <video
               ref={mediaStream}
               autoPlay
@@ -273,37 +294,24 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
             >
               <track kind="captions" />
             </video>
-          ) : (
-            <>
-              {/* Fallback image when avatar fails to load */}
-              {!isLoadingSession && error && (
-                <div className="w-full h-full">
-                  <img 
-                    src={fallbackImagePath} 
-                    alt="Avatar fallback" 
-                    className="w-full h-full object-contain scale-90"
-                  />
-                  <div className="absolute bottom-4 left-0 right-0 text-red-400 text-sm bg-black bg-opacity-70 p-2 text-center">
-                    {error}
-                    {errorType === "WEBRTC_ERROR" && (
-                      <button 
-                        onClick={() => startAvatarSession()}
-                        className="ml-2 bg-blue-500 px-4 py-1 rounded-lg"
-                      >
-                        Retry Connection
-                      </button>
-                    )}
+          )}
+
+          {/* Fallback image when avatar fails or hasn't loaded */}
+          {(avatarFailed || (!stream && !isLoadingSession)) && (
+            <div className="w-full h-full flex flex-col items-center justify-center">
+              <img 
+                src={fallbackImagePath} 
+                alt="Agent" 
+                className="w-full h-full object-contain scale-90"
+              />
+              {avatarFailed && (
+                <div className="absolute bottom-4 left-0 right-0 text-center">
+                  <div className="bg-black bg-opacity-70 text-yellow-400 text-sm p-2 rounded mx-4">
+                    Using static image (Avatar unavailable)
                   </div>
                 </div>
               )}
-              
-              {/* Loading indicator */}
-              {isLoadingSession && (
-                <div className="w-full h-full flex flex-col items-center justify-center text-white">
-                  <div className="text-xl mb-2">Loading avatar...</div>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </>
       ) : (
