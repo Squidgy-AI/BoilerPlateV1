@@ -43,7 +43,6 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const currentAvatarIdRef = useRef<string>(avatarId);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const avatarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const initializationAttempted = useRef(false);
   const [showFallback, setShowFallback] = useState(false);
 
   const actualAvatarRef = avatarRef || localAvatarRef;
@@ -69,10 +68,9 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   }
 
   async function startAvatarSession() {
-    if (!enabled || initializationAttempted.current) return;
+    if (!enabled) return;
     
     console.log(`Starting avatar session with timeout: ${avatarTimeout}ms`);
-    initializationAttempted.current = true;
     setIsLoadingSession(true);
     setError(null);
     setErrorType(null);
@@ -218,13 +216,11 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       setSessionActive(false);
       setStream(undefined);
     }
-    
-    initializationAttempted.current = false;
   }
 
   // Main initialization effect
   useEffect(() => {
-    if (enabled && !initializationAttempted.current) {
+    if (enabled) {
       startAvatarSession();
     }
     
@@ -236,7 +232,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   // Handle session changes
   useEffect(() => {
     if (sessionId !== currentSessionIdRef.current && enabled) {
-      initializationAttempted.current = false;
+      console.log("Session changed, reinitializing avatar");
       endSession().then(() => {
         startAvatarSession();
       });
@@ -246,7 +242,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   // Handle avatar ID changes
   useEffect(() => {
     if (sessionActive && currentAvatarIdRef.current !== avatarId) {
-      initializationAttempted.current = false;
+      console.log("Avatar ID changed, reinitializing");
       endSession().then(() => {
         startAvatarSession();
       });

@@ -262,33 +262,43 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   }, [chatHistory, agentThinking]);
 
   // Effect to handle session changes
-  useEffect(() => {
-    console.log("Session changed to:", sessionId);
-    
-    // Reset state for new session
-    setChatHistory([]);
-    setAgentThinking(null);
-    setCurrentRequestId(null);
-    setWebsiteData({});
-    setStreamingProgress(0);
-    setStreamingStatus('');
-    setChatStarted(false);
-    setInitialMessageShown(false);
-    setAvatarInitialized(false);
-    setAvatarFailed(false);
-    setAvatarError(null);
-    isSwitchingAgent.current = false;
-    
-    // Clear any pending timeouts
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    if (avatarLoadingTimeout.current) {
-      clearTimeout(avatarLoadingTimeout.current);
-      avatarLoadingTimeout.current = null;
-    }
-    
+  // Replace the session change effect (around line 282) with this:
+
+// Effect to handle session changes
+useEffect(() => {
+  console.log("Session changed to:", sessionId);
+  
+  // Reset state for new session
+  setChatHistory([]);
+  setAgentThinking(null);
+  setCurrentRequestId(null);
+  setWebsiteData({});
+  setStreamingProgress(0);
+  setStreamingStatus('');
+  setChatStarted(false);
+  setInitialMessageShown(false);
+  setAvatarInitialized(false);
+  setAvatarFailed(false);
+  setAvatarError(null);
+  isSwitchingAgent.current = false;
+  
+  // Clear any pending timeouts
+  if (reconnectTimeoutRef.current) {
+    clearTimeout(reconnectTimeoutRef.current);
+    reconnectTimeoutRef.current = null;
+  }
+  if (avatarLoadingTimeout.current) {
+    clearTimeout(avatarLoadingTimeout.current);
+    avatarLoadingTimeout.current = null;
+  }
+  
+  // If video is disabled, start chat immediately
+  if (!videoEnabled) {
+    setTimeout(() => {
+      console.log("Video disabled, starting chat immediately");
+      startChat();
+    }, 500);
+  } else {
     // Set up avatar loading timeout (10 seconds)
     avatarLoadingTimeout.current = setTimeout(() => {
       if (!avatarInitialized && videoEnabled) {
@@ -296,52 +306,43 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         handleAvatarTimeout();
       }
     }, 10000);
-    
-    // Connect to WebSocket
-    if (websocketRef.current) {
-      websocketRef.current.close();
-      websocketRef.current = null;
-    }
-    
-    connectWebSocket();
-    
-    // Fetch chat history
-    const fetchChatHistory = async () => {
-      try {
-        const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-        const response = await fetch(`https://${apiBase}/chat-history?session_id=${sessionId}`);
+  }
+  
+  // Connect to WebSocket
+  if (websocketRef.current) {
+    websocketRef.current.close();
+    websocketRef.current = null;
+  }
+  
+  connectWebSocket();
+  
+  // Fetch chat history
+  const fetchChatHistory = async () => {
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+      const response = await fetch(`https://${apiBase}/chat-history?session_id=${sessionId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Fetched initial chat history:", data);
         
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Fetched initial chat history:", data);
+        if (data.history && data.history.length > 0) {
+          const formattedHistory = data.history.map((msg: any) => ({
+            sender: msg.sender,
+            message: msg.message,
+            status: 'complete' as 'complete'
+          }));
           
-          if (data.history && data.history.length > 0) {
-            const formattedHistory = data.history.map((msg: any) => ({
-              sender: msg.sender,
-              message: msg.message,
-              status: 'complete' as 'complete'
-            }));
-            
-            setChatHistory([...formattedHistory]);
-          }
+          setChatHistory([...formattedHistory]);
         }
-      } catch (error) {
-        console.error("Error fetching chat history:", error);
       }
-    };
-    
-    fetchChatHistory();
-    
-    // If video is disabled, start chat immediately
-    if (!videoEnabled) {
-      setTimeout(() => {
-        if (!chatStarted) {
-          console.log("Video disabled, starting chat immediately");
-          startChat();
-        }
-      }, 500);
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
     }
-  }, [sessionId, videoEnabled]);
+  };
+  
+  fetchChatHistory();
+}, [sessionId, videoEnabled]);
 
   // Effect to handle agent changes
   useEffect(() => {
