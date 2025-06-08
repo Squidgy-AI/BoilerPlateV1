@@ -64,7 +64,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('leadgenkb');
   const [avatarInitialized, setAvatarInitialized] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
-  const [initialMessageShown, setInitialMessageShown] = useState(false);
+  // const [initialMessageShown, setInitialMessageShown] = useState(false);
   const avatarInitTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // New state for n8n backend toggle and streaming
@@ -168,44 +168,91 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
 
   // Simplified function to show initial message
   const showInitialMessage = (agent: any, isSwitch: boolean = false) => {
-    if (!textEnabled || !agent) return;
-    
-    console.log(`Showing initial message for agent: ${agent.name}`);
-    
-    // Add message to chat
-    const messageId = `${isSwitch ? 'switch' : 'initial'}-${Date.now()}`;
-    setChatHistory(prev => [...prev, { 
-      sender: 'AI', 
-      message: agent.introMessage, 
-      requestId: messageId, 
-      status: 'complete' 
-    }]);
-    
-    // Try to speak only if avatar is ready
-    if (avatarRef.current && videoEnabled && voiceEnabled && avatarInitialized && !avatarFailed) {
-      speakWithAvatar(agent.introMessage).catch(err => {
-        console.log("Could not speak initial message:", err);
-      });
-    }
-    
-    setInitialMessageShown(true);
-  };
+  if (!agent) return;
+  
+  console.log(`Showing ${isSwitch ? 'switch' : 'initial'} message for agent: ${agent.name}, textEnabled: ${textEnabled}`);
+  
+  // Add message to chat regardless of textEnabled for initial message
+  const messageId = `${isSwitch ? 'switch' : 'initial'}-${Date.now()}`;
+  setChatHistory(prev => [...prev, { 
+    sender: 'AI', 
+    message: agent.introMessage, 
+    requestId: messageId, 
+    status: 'complete' 
+  }]);
+  
+  // Try to speak only if avatar is ready
+  if (avatarRef.current && videoEnabled && voiceEnabled && avatarInitialized && !avatarFailed) {
+    speakWithAvatar(agent.introMessage).catch(err => {
+      console.log("Could not speak initial message:", err);
+    });
+  }
+};
 
   // Function to start chat
-  const startChat = async () => {
-    console.log("Starting chat - chatStarted:", chatStarted, "initialMessageShown:", initialMessageShown);
-    
+  // In Chatbot.tsx, update the startChat function to add debug logs:
+
+const startChat = async () => {
+  console.log("=== START CHAT DEBUG ===");
+  console.log("chatStarted:", chatStarted);
+  console.log("textEnabled:", textEnabled);
+  console.log("videoEnabled:", videoEnabled);
+  console.log("avatarInitialized:", avatarInitialized);
+  console.log("selectedAvatarId:", selectedAvatarId);
+  
+  if (!chatStarted) {
     setChatStarted(true);
     
     const agent = getCurrentAgent();
-    if (agent && !initialMessageShown) {
-      showInitialMessage(agent, false);
+    console.log("Current agent:", agent);
+    
+    if (agent) {
+      console.log("Showing initial message for agent:", agent.name);
+      console.log("Agent intro message:", agent.introMessage);
+      
+      // Add the initial message immediately
+      const messageId = `initial-${Date.now()}`;
+      const newMessage = { 
+        sender: 'AI', 
+        message: agent.introMessage, 
+        requestId: messageId, 
+        status: 'complete' as const
+      };
+      
+      console.log("Adding message to chat history:", newMessage);
+      
+      setChatHistory([newMessage]);
+      
+      // Log the chat history after setting
+      setTimeout(() => {
+        console.log("Chat history after adding initial message:", chatHistory);
+      }, 100);
+      
+      // Try to speak if avatar is ready
+      if (avatarRef.current && videoEnabled && voiceEnabled && avatarInitialized && !avatarFailed) {
+        speakWithAvatar(agent.introMessage).catch(err => {
+          console.log("Could not speak initial message:", err);
+        });
+      }
+    } else {
+      console.log("ERROR: No agent found!");
     }
-  };
+  } else {
+    console.log("Chat already started, skipping initial message");
+  }
+  
+  console.log("=== END START CHAT DEBUG ===");
+};
 
   // Handler for avatar ready
+  // In Chatbot.tsx, add debug logs to these functions:
+
   const handleAvatarReady = () => {
+    console.log("=== AVATAR READY ===");
     console.log("Avatar initialization complete");
+    console.log("textEnabled:", textEnabled);
+    console.log("chatStarted:", chatStarted);
+    
     setAvatarInitialized(true);
     setAvatarFailed(false);
     
@@ -215,15 +262,17 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       avatarLoadingTimeout.current = null;
     }
     
-    // If we haven't started chat yet, start it now
-    if (!chatStarted) {
-      startChat();
-    }
+    // Always start chat when avatar is ready
+    console.log("Calling startChat from handleAvatarReady");
+    startChat();
   };
 
-  // Handler for avatar errors
   const handleAvatarError = (error: string) => {
+    console.log("=== AVATAR ERROR ===");
     console.log("Avatar error occurred:", error);
+    console.log("textEnabled:", textEnabled);
+    console.log("chatStarted:", chatStarted);
+    
     setAvatarFailed(true);
     setAvatarError(error);
     setAvatarInitialized(true);
@@ -234,23 +283,24 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       avatarLoadingTimeout.current = null;
     }
     
-    // Still start chat even if avatar fails
-    if (!chatStarted) {
-      startChat();
-    }
+    // Start chat even if avatar fails
+    console.log("Calling startChat from handleAvatarError");
+    startChat();
   };
 
-  // Function to handle avatar timeout
   const handleAvatarTimeout = () => {
+    console.log("=== AVATAR TIMEOUT ===");
     console.log("Avatar loading timeout - using fallback");
+    console.log("textEnabled:", textEnabled);
+    console.log("chatStarted:", chatStarted);
+    
     setAvatarFailed(true);
     setAvatarInitialized(true);
     setAvatarError("Avatar loading timed out - using fallback image");
     
     // Start chat with fallback
-    if (!chatStarted) {
-      startChat();
-    }
+    console.log("Calling startChat from handleAvatarTimeout");
+    startChat();
   };
 
   // Effect to scroll chat to bottom when messages change
@@ -276,7 +326,6 @@ useEffect(() => {
   setStreamingProgress(0);
   setStreamingStatus('');
   setChatStarted(false);
-  setInitialMessageShown(false);
   setAvatarInitialized(false);
   setAvatarFailed(false);
   setAvatarError(null);
@@ -290,22 +339,6 @@ useEffect(() => {
   if (avatarLoadingTimeout.current) {
     clearTimeout(avatarLoadingTimeout.current);
     avatarLoadingTimeout.current = null;
-  }
-  
-  // If video is disabled, start chat immediately
-  if (!videoEnabled) {
-    setTimeout(() => {
-      console.log("Video disabled, starting chat immediately");
-      startChat();
-    }, 500);
-  } else {
-    // Set up avatar loading timeout (10 seconds)
-    avatarLoadingTimeout.current = setTimeout(() => {
-      if (!avatarInitialized && videoEnabled) {
-        console.log("Avatar loading timeout reached");
-        handleAvatarTimeout();
-      }
-    }, 10000);
   }
   
   // Connect to WebSocket
@@ -334,6 +367,7 @@ useEffect(() => {
           }));
           
           setChatHistory([...formattedHistory]);
+          setChatStarted(true); // Mark chat as started if we have history
         }
       }
     } catch (error) {
@@ -342,43 +376,47 @@ useEffect(() => {
   };
   
   fetchChatHistory();
+  
+  // If video is disabled, start chat immediately
+  if (!videoEnabled) {
+    setTimeout(() => {
+      console.log("Video disabled, starting chat immediately");
+      startChat();
+    }, 1000);
+  } else {
+    // Set up avatar loading timeout (10 seconds)
+    avatarLoadingTimeout.current = setTimeout(() => {
+      if (!avatarInitialized && !chatStarted) {
+        console.log("Avatar loading timeout reached");
+        handleAvatarTimeout();
+      }
+    }, 10000);
+  }
 }, [sessionId, videoEnabled]);
 
   // Effect to handle agent changes
   useEffect(() => {
-    if (!selectedAvatarId || selectedAvatarId === lastAgentId.current) return;
-    
-    console.log("Agent changed from", lastAgentId.current, "to", selectedAvatarId);
-    lastAgentId.current = selectedAvatarId;
-    
-    // Clear any existing avatar timeout
-    if (avatarLoadingTimeout.current) {
-      clearTimeout(avatarLoadingTimeout.current);
-      avatarLoadingTimeout.current = null;
+  if (!selectedAvatarId || selectedAvatarId === lastAgentId.current) return;
+  
+  console.log("Agent changed from", lastAgentId.current, "to", selectedAvatarId);
+  lastAgentId.current = selectedAvatarId;
+  
+  // Clear any existing avatar timeout
+  if (avatarLoadingTimeout.current) {
+    clearTimeout(avatarLoadingTimeout.current);
+    avatarLoadingTimeout.current = null;
+  }
+  
+  // If we're switching agents and chat has started
+  if (isSwitchingAgent.current && chatStarted) {
+    const agent = getCurrentAgent();
+    if (agent) {
+      // Show switch message immediately
+      showInitialMessage(agent, true);
+      isSwitchingAgent.current = false;
     }
-    
-    // Set new timeout for agent switch (8 seconds for switches)
-    if (isSwitchingAgent.current && videoEnabled) {
-      avatarLoadingTimeout.current = setTimeout(() => {
-        if (!avatarInitialized) {
-          console.log("Agent switch avatar timeout");
-          handleAvatarTimeout();
-        }
-      }, 8000);
-    }
-    
-    // If we're switching agents and chat has started
-    if (isSwitchingAgent.current && chatStarted) {
-      const agent = getCurrentAgent();
-      if (agent) {
-        // Wait a bit to ensure avatar is ready
-        setTimeout(() => {
-          showInitialMessage(agent, true);
-          isSwitchingAgent.current = false;
-        }, 500);
-      }
-    }
-  }, [selectedAvatarId, chatStarted, videoEnabled]);
+  }
+}, [selectedAvatarId, chatStarted]);
 
   // Function to connect WebSocket
   const connectWebSocket = () => {
@@ -1058,13 +1096,9 @@ useEffect(() => {
                 !textEnabled ? 'opacity-50' : ''
               }`}
             >
-              {loading && chatHistory.length === 0 ? (
+              {chatHistory.length === 0 && !loading ? (
                 <div className="p-4 text-white text-center">
-                  Loading conversation...
-                </div>
-              ) : chatHistory.length === 0 ? (
-                <div className="p-4 text-white text-center">
-                  No messages yet. Start a conversation below.
+                  {chatStarted ? "Loading messages..." : "Start a conversation..."}
                 </div>
               ) : (
                 <>
