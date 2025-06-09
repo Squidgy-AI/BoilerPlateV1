@@ -93,8 +93,8 @@ const EnhancedLoginForm: React.FC = () => {
     setError('');
     setMessage('');
     try {
-      if (smsCode.length !== 5) {
-        setError('Invalid code. Please enter the 5-digit code sent to your phone.');
+      if (smsCode.length !== 7) {
+        setError('Invalid code. Please enter the 7-digit code sent to your phone.');
         return;
       }
       const phoneNumber = `${smsCountryCode}${smsPhoneNumber}`.replace(/\s+/g, '');
@@ -349,9 +349,9 @@ const EnhancedLoginForm: React.FC = () => {
           ) : (
             <>
               <div>
-                <label className="block text-gray-300 mb-2">Enter the 5-digit code sent to your phone</label>
+                <label className="block text-gray-300 mb-2">Enter the 7-digit code sent to your phone</label>
                 <div className="flex gap-2 justify-center">
-                  {[0,1,2,3,4].map((idx) => (
+                  {[0,1,2,3,4,5,6].map((idx) => (
                     <input
                       key={idx}
                       type="text"
@@ -362,7 +362,7 @@ const EnhancedLoginForm: React.FC = () => {
                         const val = e.target.value.replace(/\D/g, '');
                         if (!val) return;
                         const nextCode = smsCode.substring(0, idx) + val + smsCode.substring(idx + 1);
-                        setSmsCode(nextCode.slice(0, 5));
+                        setSmsCode(nextCode.slice(0, 7));
                         // Autofocus next input
                         const next = document.getElementById(`sms-code-input-${idx+1}`);
                         if (val && next) (next as HTMLInputElement).focus();
@@ -382,7 +382,7 @@ const EnhancedLoginForm: React.FC = () => {
               </div>
               <button
                 type="submit"
-                disabled={loading || smsCode.length !== 5}
+                disabled={loading || smsCode.length !== 7}
                 className="w-full bg-blue-600 text-white py-3 rounded-md font-medium transition-colors hover:bg-blue-700 disabled:bg-blue-500"
               >
                 {loading ? 'Verifying...' : 'Verify Code'}
@@ -406,7 +406,7 @@ const EnhancedLoginForm: React.FC = () => {
           <div className="flex-grow border-t border-gray-700"></div>
         </div>
         
-        <div className="grid grid-cols-4 gap-3 mt-4">
+        <div className="flex justify-center gap-3 mt-4">
           <button
             onClick={() => handleSocialLogin('google')}
             className="bg-white p-2 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
