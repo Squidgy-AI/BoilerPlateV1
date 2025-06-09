@@ -8,6 +8,39 @@ import Image from 'next/image';
 type AuthMode = 'login' | 'signup' | 'forgotPassword';
 
 const EnhancedLoginForm: React.FC = () => {
+  const [showSmsForm, setShowSmsForm] = useState(false);
+  const [smsCountryCode, setSmsCountryCode] = useState('');
+  const [smsPhoneNumber, setSmsPhoneNumber] = useState('');
+
+  // Handles SMS form submission
+  const handleSmsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const phoneNumber = `${smsCountryCode}${smsPhoneNumber}`;
+      const res = await fetch('/api/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage('Verification code sent!');
+        setShowSmsForm(false);
+        setSmsCountryCode('');
+        setSmsPhoneNumber('');
+      } else {
+        setError(data.error || 'Failed to send verification code');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to send verification code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -217,43 +250,61 @@ const EnhancedLoginForm: React.FC = () => {
               <path fill="#FFF" d="M17.3 14.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.46-.15-.66.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.49-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.47.13-.62.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52a15.52 15.52 0 0 1-.66-1.62c-.18-.48-.35-.41-.48-.42h-.56c-.2 0-.53.08-.8.38-.27.3-1.05.97-1.05 2.36 0 1.4 1.02 2.74 1.17 2.94.15.2 2.03 3.1 4.92 4.36.69.3 1.22.48 1.64.62.69.22 1.31.19 1.81.1.55-.08 1.77-.72 2.02-1.42s.25-1.3.18-1.42c-.08-.13-.28-.21-.58-.36z"/>
             </svg>
           </button>
-          <button
-            type="button"
-            className="bg-white p-2 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
-            onClick={async () => {
-              const phoneNumber = window.prompt('Enter your phone number (with country code):');
-              if (!phoneNumber) return;
-              setLoading(true);
-              setError('');
-              setMessage('');
-              try {
-                const res = await fetch('/api/send-sms', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ phoneNumber })
-                });
-                const data = await res.json();
-                if (data.success) {
-                  setMessage('Verification code sent!');
-                } else {
-                  setError(data.error || 'Failed to send verification code');
-                }
-              } catch (err: any) {
-                setError(err.message || 'Failed to send verification code');
-              } finally {
-                setLoading(false);
-              }
-            }}
-            disabled={loading}
-            title="Send SMS verification"
-          >
-            {/* SMS/Text Message Icon */}
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-              <rect width="24" height="24" rx="4" fill="#6B7280"/>
-              <path d="M7 8h10M7 12h6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <rect x="4" y="6" width="16" height="12" rx="2" stroke="#fff" strokeWidth="2"/>
-            </svg>
-          </button>
+          {showSmsForm ? (
+  <form
+    onSubmit={handleSmsSubmit}
+    className="col-span-4 bg-[#1E2A3B] p-4 rounded-lg flex flex-col gap-2"
+    style={{ gridColumn: 'span 4 / span 4' }}
+  >
+    <div className="flex gap-2">
+      <input
+        type="text"
+        placeholder="Country Code"
+        value={smsCountryCode}
+        onChange={e => setSmsCountryCode(e.target.value)}
+        className="w-1/3 p-2 rounded-md bg-[#2D3B4F] text-white border border-gray-600 focus:outline-none"
+        required
+      />
+      <input
+        type="text"
+        placeholder="Phone Number"
+        value={smsPhoneNumber}
+        onChange={e => setSmsPhoneNumber(e.target.value)}
+        className="w-2/3 p-2 rounded-md bg-[#2D3B4F] text-white border border-gray-600 focus:outline-none"
+        required
+      />
+    </div>
+    <div className="flex gap-2 mt-2">
+      <button
+        type="submit"
+        disabled={loading}
+        className="flex-1 bg-blue-600 text-white py-2 rounded-md font-medium transition-colors hover:bg-blue-700 disabled:bg-blue-500"
+      >
+        {loading ? 'Sending...' : 'Send Code'}
+      </button>
+      <button
+        type="button"
+        className="flex-1 bg-gray-600 text-white py-2 rounded-md font-medium transition-colors hover:bg-gray-700"
+        onClick={() => setShowSmsForm(false)}
+      >
+        Cancel
+      </button>
+    </div>
+  </form>
+) : (
+  <button
+    type="button"
+    className="bg-white p-2 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
+    onClick={() => setShowSmsForm(true)}
+    disabled={loading}
+    title="Send SMS verification"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+      <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7l-5 4V6a2 2 0 0 1 2-2z" fill="#6B7280"/>
+      <path d="M8 10h8M8 14h5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  </button>
+)}
         </div>
       </div>
       
