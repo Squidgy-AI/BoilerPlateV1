@@ -93,15 +93,24 @@ const EnhancedLoginForm: React.FC = () => {
     setError('');
     setMessage('');
     try {
-      // Replace this with your API call to verify the code
-      if (smsCode.length === 5) {
-        // Simulate success
+      if (smsCode.length !== 5) {
+        setError('Invalid code. Please enter the 5-digit code sent to your phone.');
+        return;
+      }
+      const phoneNumber = `${smsCountryCode}${smsPhoneNumber}`.replace(/\s+/g, '');
+      const res = await fetch('/api/verify-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, code: smsCode })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
         setMessage('Phone number verified!');
         setSmsStep('input');
         setSmsCode('');
         setSmsPhoneNumber('');
       } else {
-        setError('Invalid code. Please enter the 5-digit code sent to your phone.');
+        setError(data.error || 'Verification failed. Please try again.');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to verify code');
