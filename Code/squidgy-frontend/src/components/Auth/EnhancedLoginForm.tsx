@@ -184,7 +184,7 @@ const EnhancedLoginForm: React.FC = () => {
           <div className="flex-grow border-t border-gray-700"></div>
         </div>
         
-        <div className="grid grid-cols-3 gap-3 mt-4">
+        <div className="grid grid-cols-4 gap-3 mt-4">
           <button
             onClick={() => handleSocialLogin('google')}
             className="bg-white p-2 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
@@ -215,6 +215,43 @@ const EnhancedLoginForm: React.FC = () => {
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
               <path fill="#25D366" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/>
               <path fill="#FFF" d="M17.3 14.5c-.3-.15-1.77-.87-2.04-.97-.27-.1-.46-.15-.66.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.27-.47-2.42-1.49-.9-.8-1.5-1.78-1.67-2.08-.17-.3-.02-.47.13-.62.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52a15.52 15.52 0 0 1-.66-1.62c-.18-.48-.35-.41-.48-.42h-.56c-.2 0-.53.08-.8.38-.27.3-1.05.97-1.05 2.36 0 1.4 1.02 2.74 1.17 2.94.15.2 2.03 3.1 4.92 4.36.69.3 1.22.48 1.64.62.69.22 1.31.19 1.81.1.55-.08 1.77-.72 2.02-1.42s.25-1.3.18-1.42c-.08-.13-.28-.21-.58-.36z"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="bg-white p-2 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
+            onClick={async () => {
+              const phoneNumber = window.prompt('Enter your phone number (with country code):');
+              if (!phoneNumber) return;
+              setLoading(true);
+              setError('');
+              setMessage('');
+              try {
+                const res = await fetch('/api/send-sms', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ phoneNumber })
+                });
+                const data = await res.json();
+                if (data.success) {
+                  setMessage('Verification code sent!');
+                } else {
+                  setError(data.error || 'Failed to send verification code');
+                }
+              } catch (err: any) {
+                setError(err.message || 'Failed to send verification code');
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            title="Send SMS verification"
+          >
+            {/* SMS/Text Message Icon */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+              <rect width="24" height="24" rx="4" fill="#6B7280"/>
+              <path d="M7 8h10M7 12h6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <rect x="4" y="6" width="16" height="12" rx="2" stroke="#fff" strokeWidth="2"/>
             </svg>
           </button>
         </div>
