@@ -8,8 +8,56 @@ import Image from 'next/image';
 type AuthMode = 'login' | 'signup' | 'forgotPassword';
 
 const EnhancedLoginForm: React.FC = () => {
-  const [showSmsForm, setShowSmsForm] = useState(false);
-  const [smsCountryCode, setSmsCountryCode] = useState('');
+  type LoginMethod = 'email' | 'sms';
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>('email');
+  const [smsStep, setSmsStep] = useState<'input' | 'verify'>('input');
+  const [smsCode, setSmsCode] = useState('');
+  // Example country code list (expand as needed)
+  const countryCodes = [
+    { code: '+1', name: 'United States' },
+    { code: '+44', name: 'United Kingdom' },
+    { code: '+49', name: 'Germany' },
+    { code: '+33', name: 'France' },
+    { code: '+91', name: 'India' },
+    { code: '+61', name: 'Australia' },
+    { code: '+81', name: 'Japan' },
+    { code: '+86', name: 'China' },
+    { code: '+39', name: 'Italy' },
+    { code: '+34', name: 'Spain' },
+    { code: '+7', name: 'Russia' },
+    { code: '+55', name: 'Brazil' },
+    { code: '+27', name: 'South Africa' },
+    { code: '+82', name: 'South Korea' },
+    { code: '+90', name: 'Turkey' },
+    { code: '+966', name: 'Saudi Arabia' },
+    { code: '+971', name: 'United Arab Emirates' },
+    { code: '+20', name: 'Egypt' },
+    { code: '+234', name: 'Nigeria' },
+    { code: '+62', name: 'Indonesia' },
+    { code: '+63', name: 'Philippines' },
+    { code: '+46', name: 'Sweden' },
+    { code: '+47', name: 'Norway' },
+    { code: '+45', name: 'Denmark' },
+    { code: '+31', name: 'Netherlands' },
+    { code: '+41', name: 'Switzerland' },
+    { code: '+351', name: 'Portugal' },
+    { code: '+48', name: 'Poland' },
+    { code: '+380', name: 'Ukraine' },
+    { code: '+52', name: 'Mexico' },
+    { code: '+1', name: 'Canada' },
+    { code: '+353', name: 'Ireland' },
+    { code: '+420', name: 'Czech Republic' },
+    { code: '+386', name: 'Slovenia' },
+    { code: '+386', name: 'Slovakia' },
+    { code: '+43', name: 'Austria' },
+    { code: '+36', name: 'Hungary' },
+    { code: '+30', name: 'Greece' },
+    { code: '+358', name: 'Finland' },
+    { code: '+380', name: 'Ukraine' },
+    { code: '+372', name: 'Estonia' },
+    { code: '+98', name: 'Iran' }
+  ];
+  const [smsCountryCode, setSmsCountryCode] = useState(countryCodes[0].code);
   const [smsPhoneNumber, setSmsPhoneNumber] = useState('');
 
   // Handles SMS form submission
@@ -19,7 +67,7 @@ const EnhancedLoginForm: React.FC = () => {
     setError('');
     setMessage('');
     try {
-      const phoneNumber = `${smsCountryCode}${smsPhoneNumber}`;
+      const phoneNumber = `${smsCountryCode}${smsPhoneNumber}`.replace(/\s+/g, '');
       const res = await fetch('/api/send-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -28,14 +76,35 @@ const EnhancedLoginForm: React.FC = () => {
       const data = await res.json();
       if (data.success) {
         setMessage('Verification code sent!');
-        setShowSmsForm(false);
-        setSmsCountryCode('');
-        setSmsPhoneNumber('');
+        setSmsStep('verify');
       } else {
         setError(data.error || 'Failed to send verification code');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to send verification code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSmsVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      // Replace this with your API call to verify the code
+      if (smsCode.length === 5) {
+        // Simulate success
+        setMessage('Phone number verified!');
+        setSmsStep('input');
+        setSmsCode('');
+        setSmsPhoneNumber('');
+      } else {
+        setError('Invalid code. Please enter the 5-digit code sent to your phone.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to verify code');
     } finally {
       setLoading(false);
     }
@@ -130,10 +199,32 @@ const EnhancedLoginForm: React.FC = () => {
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {mode === 'signup' && (
-          <div>
-            <label htmlFor="fullName" className="block text-gray-300 mb-2">
+      {/* Login method toggle */}
+      <div className="flex justify-center mb-4 gap-2">
+        <button
+          type="button"
+          className={`px-4 py-2 rounded-t-md font-medium ${loginMethod === 'email' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800'}`}
+          onClick={() => setLoginMethod('email')}
+          disabled={loading}
+        >
+          Email/Password
+        </button>
+        <button
+          type="button"
+          className={`px-4 py-2 rounded-t-md font-medium ${loginMethod === 'sms' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-800'}`}
+          onClick={() => setLoginMethod('sms')}
+          disabled={loading}
+        >
+          Text Message
+        </button>
+      </div>
+
+      {/* Email/Password Login */}
+      {loginMethod === 'email' && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === 'signup' && (
+            <div>
+              <label htmlFor="fullName" className="block text-gray-300 mb-2">
               Full Name
             </label>
             <input
@@ -145,70 +236,159 @@ const EnhancedLoginForm: React.FC = () => {
               required={mode === 'signup'}
             />
           </div>
-        )}
-        
-        <div>
-          <label htmlFor="email" className="block text-gray-300 mb-2">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-3 bg-[#1E2A3B] text-white rounded-md"
-            required
-          />
-        </div>
-        
-        {mode !== 'forgotPassword' && (
-          <div>
-            <label htmlFor="password" className="block text-gray-300 mb-2">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 bg-[#1E2A3B] text-white rounded-md"
-              required={mode !== 'forgotPassword'}
-            />
-          </div>
-        )}
-        
-        {mode === 'signup' && (
-          <div>
-            <label htmlFor="confirmPassword" className="block text-gray-300 mb-2">
-              Confirm Password
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full p-3 bg-[#1E2A3B] text-white rounded-md"
-              required={mode === 'signup'}
-            />
-          </div>
-        )}
-        
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 rounded-md font-medium transition-colors hover:bg-blue-700 disabled:bg-blue-500"
-        >
-          {loading ? (
-            <div className="flex items-center justify-center">
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-              Processing...
-            </div>
-          ) : (
-            mode === 'login' ? 'Login' : 
-            mode === 'signup' ? 'Sign Up' : 'Send Reset Link'
           )}
-        </button>
-      </form>
+          
+          <div>
+            <label htmlFor="email" className="block text-gray-300 mb-2">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 bg-[#1E2A3B] text-white rounded-md"
+              required
+            />
+          </div>
+          
+          {mode !== 'forgotPassword' && (
+            <div>
+              <label htmlFor="password" className="block text-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3 bg-[#1E2A3B] text-white rounded-md"
+                required={mode !== 'forgotPassword'}
+              />
+            </div>
+          )}
+          
+          {mode === 'signup' && (
+            <div>
+              <label htmlFor="confirmPassword" className="block text-gray-300 mb-2">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full p-3 bg-[#1E2A3B] text-white rounded-md"
+                required={mode === 'signup'}
+              />
+            </div>
+          )}
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-3 rounded-md font-medium transition-colors hover:bg-blue-700 disabled:bg-blue-500"
+          >
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Processing...
+              </div>
+            ) : (
+              mode === 'login' ? 'Login' : 
+              mode === 'signup' ? 'Sign Up' : 'Send Reset Link'
+            )}
+          </button>
+        </form>
+      )}
+
+      {/* SMS Login */}
+      {loginMethod === 'sms' && (
+        <form onSubmit={smsStep === 'input' ? handleSmsSubmit : handleSmsVerify} className="space-y-4">
+          {smsStep === 'input' ? (
+            <>
+              <div className="flex gap-2">
+                <select
+                  value={smsCountryCode}
+                  onChange={e => setSmsCountryCode(e.target.value)}
+                  className="w-1/3 p-2 rounded-md bg-[#2D3B4F] text-white border border-gray-600 focus:outline-none"
+                  required
+                >
+                  {countryCodes.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {country.name} ({country.code})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Phone Number"
+                  value={smsPhoneNumber}
+                  onChange={e => setSmsPhoneNumber(e.target.value)}
+                  className="w-2/3 p-2 rounded-md bg-[#2D3B4F] text-white border border-gray-600 focus:outline-none"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-3 rounded-md font-medium transition-colors hover:bg-blue-700 disabled:bg-blue-500"
+              >
+                {loading ? 'Sending...' : 'Send Code'}
+              </button>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-gray-300 mb-2">Enter the 5-digit code sent to your phone</label>
+                <div className="flex gap-2 justify-center">
+                  {[0,1,2,3,4].map((idx) => (
+                    <input
+                      key={idx}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={smsCode[idx] || ''}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        if (!val) return;
+                        const nextCode = smsCode.substring(0, idx) + val + smsCode.substring(idx + 1);
+                        setSmsCode(nextCode.slice(0, 5));
+                        // Autofocus next input
+                        const next = document.getElementById(`sms-code-input-${idx+1}`);
+                        if (val && next) (next as HTMLInputElement).focus();
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Backspace' && !smsCode[idx] && idx > 0) {
+                          const prev = document.getElementById(`sms-code-input-${idx-1}`);
+                          if (prev) (prev as HTMLInputElement).focus();
+                        }
+                      }}
+                      className="w-12 h-12 text-center text-xl rounded-md bg-[#1E2A3B] text-white border border-gray-600 focus:outline-none"
+                      id={`sms-code-input-${idx}`}
+                      autoFocus={idx === 0}
+                    />
+                  ))}
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading || smsCode.length !== 5}
+                className="w-full bg-blue-600 text-white py-3 rounded-md font-medium transition-colors hover:bg-blue-700 disabled:bg-blue-500"
+              >
+                {loading ? 'Verifying...' : 'Verify Code'}
+              </button>
+              <button
+                type="button"
+                className="w-full bg-gray-600 text-white py-2 rounded-md font-medium mt-2"
+                onClick={() => { setSmsStep('input'); setSmsCode(''); }}
+              >
+                Back
+              </button>
+            </>
+          )}
+        </form>
+      )}
       
       <div className="mt-6">
         <div className="relative flex items-center">
@@ -257,14 +437,18 @@ const EnhancedLoginForm: React.FC = () => {
     style={{ gridColumn: 'span 4 / span 4' }}
   >
     <div className="flex gap-2">
-      <input
-        type="text"
-        placeholder="Country Code"
+      <select
         value={smsCountryCode}
         onChange={e => setSmsCountryCode(e.target.value)}
         className="w-1/3 p-2 rounded-md bg-[#2D3B4F] text-white border border-gray-600 focus:outline-none"
         required
-      />
+      >
+        {countryCodes.map((country) => (
+          <option key={country.code} value={country.code}>
+            {country.name} ({country.code})
+          </option>
+        ))}
+      </select>
       <input
         type="text"
         placeholder="Phone Number"
