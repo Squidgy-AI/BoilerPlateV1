@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 import Image from 'next/image';
+import { supabase } from '../../utils/supabaseClient';
 
 type AuthMode = 'login' | 'signup' | 'forgotPassword';
 
@@ -60,7 +61,7 @@ const EnhancedLoginForm: React.FC = () => {
   const [smsCountryCode, setSmsCountryCode] = useState(countryCodes[0].code);
   const [smsPhoneNumber, setSmsPhoneNumber] = useState('');
 
-  // Handles SMS form submission
+  // Handles SMS form submission (Supabase OTP)
   const handleSmsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -68,17 +69,12 @@ const EnhancedLoginForm: React.FC = () => {
     setMessage('');
     try {
       const phoneNumber = `${smsCountryCode}${smsPhoneNumber}`.replace(/\s+/g, '');
-      const res = await fetch('/api/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber })
-      });
-      const data = await res.json();
-      if (data.success) {
+      const { error } = await supabase.auth.signInWithOtp({ phone: phoneNumber });
+      if (!error) {
         setMessage('Verification code sent!');
         setSmsStep('verify');
       } else {
-        setError(data.error || 'Failed to send verification code');
+        setError(error.message || 'Failed to send verification code');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to send verification code');
@@ -87,6 +83,8 @@ const EnhancedLoginForm: React.FC = () => {
     }
   };
 
+
+  // Handles SMS code verification (Supabase OTP)
   const handleSmsVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -98,19 +96,14 @@ const EnhancedLoginForm: React.FC = () => {
         return;
       }
       const phoneNumber = `${smsCountryCode}${smsPhoneNumber}`.replace(/\s+/g, '');
-      const res = await fetch('/api/verify-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, code: smsCode })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const { error } = await supabase.auth.verifyOtp({ phone: phoneNumber, token: smsCode, type: 'sms' });
+      if (!error) {
         setMessage('Phone number verified!');
         setSmsStep('input');
         setSmsCode('');
         setSmsPhoneNumber('');
       } else {
-        setError(data.error || 'Verification failed. Please try again.');
+        setError(error.message || 'Verification failed. Please try again.');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to verify code');
@@ -118,6 +111,7 @@ const EnhancedLoginForm: React.FC = () => {
       setLoading(false);
     }
   };
+
 
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
