@@ -158,7 +158,7 @@ const agents = AGENT_CONFIG;
   };
   
   const handleWebSocketMessage = (data: any) => {
-    console.log('WebSocket message:', data);
+    console.log('[EnhancedDashboard WebSocket] WebSocket message:', data);
     
     switch (data.type) {
       case 'agent_thinking':

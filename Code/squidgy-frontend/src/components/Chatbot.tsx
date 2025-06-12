@@ -509,7 +509,7 @@ const lastSessionIdRef = useRef<string>('');
   const handleWebSocketMessage = (event: MessageEvent) => {
     try {
       const data = JSON.parse(event.data);
-      console.log('WebSocket message received:', data);
+      console.log('[Chatbot WebSocket] WebSocket message received:', data);
       
       // Handle streaming updates from n8n via backend
       if (data.type === 'acknowledgment' || 
@@ -556,7 +556,7 @@ const lastSessionIdRef = useRef<string>('');
           break;
       }
     } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
+      console.error('[Chatbot WebSocket] Error parsing WebSocket message:', error);
     }
   };
 

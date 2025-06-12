@@ -76,7 +76,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('WebSocket message:', data);
+            console.log('[EnhancedChat WebSocket] WebSocket message:', data);
             
             switch (data.type) {
               case 'agent_thinking':
@@ -114,7 +114,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
                 break;
             }
           } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
+            console.error('[EnhancedChat WebSocket] Error parsing WebSocket message:', error);
           }
         };
         

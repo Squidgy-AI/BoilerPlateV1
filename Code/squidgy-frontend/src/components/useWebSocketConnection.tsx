@@ -81,7 +81,7 @@ const useWebSocketConnection = ({
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('WebSocket message:', data);
+          console.log('[useWebSocketConnection] WebSocket message:', data);
           
           // Update last message
           setLastMessage(data);
@@ -124,7 +124,7 @@ const useWebSocketConnection = ({
             onMessage(data);
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.error('[useWebSocketConnection] Error parsing WebSocket message:', error);
           setError(error instanceof Error ? error : new Error('Failed to parse WebSocket message'));
         }
       };
@@ -193,7 +193,7 @@ const useWebSocketConnection = ({
       }));
       
     } catch (error) {
-      console.error('Error sending WebSocket message:', error);
+      console.error('[useWebSocketConnection] Error sending WebSocket message:', error);
       setError(error instanceof Error ? error : new Error('Failed to send WebSocket message'));
     }
   }, [status]);
