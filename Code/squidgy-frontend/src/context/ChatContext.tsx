@@ -111,10 +111,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
       onMessage: handleWebSocketMessage
     });
-    
+
+    // Log the WebSocket URL being used
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsBase = process.env.NEXT_PUBLIC_API_BASE;
+    const wsUrl = `${wsProtocol}//${wsBase}/ws/${profile.id}/${currentSessionId}`;
+    console.log('[ChatContext WebSocket] Connecting to:', wsUrl);
+    if (typeof window !== 'undefined') {
+      (window as any).__SQUIDGY_CHATCONTEXT_WS_URL__ = wsUrl;
+    }
     // Connect to WebSocket server
     wsService.connect().catch((error) => {
-      console.error('Error connecting to WebSocket:', error);
+      console.error('[ChatContext WebSocket] Error connecting to WebSocket:', error);
     });
     
     setWebsocket(wsService);
@@ -135,12 +143,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Handle WebSocket messages
   const handleWebSocketMessage = (data: any) => {
-    console.log('WebSocket message:', data);
+    console.log('[ChatContext WebSocket] WebSocket message:', data);
     
     switch (data.type) {
       case 'ack':
         // Acknowledgment of message receipt
-        console.log(`Request ${data.requestId} acknowledged`);
+        console.log(`[ChatContext WebSocket] Request ${data.requestId} acknowledged`);
         break;
         
       case 'processing_start':
