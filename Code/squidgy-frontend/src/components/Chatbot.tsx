@@ -69,8 +69,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   
   // New state for n8n backend toggle and streaming
   const [useN8nBackend, setUseN8nBackend] = useState(true);
-  const [streamingProgress, setStreamingProgress] = useState<number>(0);
-  const [streamingStatus, setStreamingStatus] = useState<string>('');
+  // const [streamingProgress, setStreamingProgress] = useState<number>(0);
+  // const [streamingStatus, setStreamingStatus] = useState<string>('');
   
   // State for tracking the current request
   const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
@@ -111,7 +111,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
         },
         body: JSON.stringify({
           user_id: userId,
-          user_mssg: userInput || "Hello",
+          user_mssg: userInput,
           session_id: sessionId,
           agent_name: agentName,
           timestamp_of_call_made: new Date().toISOString()
@@ -331,8 +331,8 @@ useEffect(() => {
   setAgentThinking(null);
   setCurrentRequestId(null);
   setWebsiteData({});
-  setStreamingProgress(0);
-  setStreamingStatus('');
+  // setStreamingProgress(0);
+  // setStreamingStatus('');
   setChatStarted(false);
   setAvatarInitialized(false);
   setAvatarFailed(false);
@@ -506,14 +506,14 @@ const lastSessionIdRef = useRef<string>('');
       console.log('WebSocket message received:', data);
       
       // Handle streaming updates from n8n via backend
-      if (data.type === 'acknowledgment' || 
-          data.type === 'intermediate' || 
-          data.type === 'tools_usage' || 
-          data.type === 'complete' || 
-          data.type === 'final') {
-        handleStreamingUpdate(data);
-        return;
-      }
+      // if (data.type === 'acknowledgment' || 
+      //     data.type === 'intermediate' || 
+      //     data.type === 'tools_usage' || 
+      //     data.type === 'complete' || 
+      //     data.type === 'final') {
+      //   handleStreamingUpdate(data);
+      //   return;
+      // }
       
       // Handle existing WebSocket message types
       switch (data.type) {
@@ -555,6 +555,7 @@ const lastSessionIdRef = useRef<string>('');
   };
 
   // Handle streaming updates from n8n
+  /*
   const handleStreamingUpdate = (data: any) => {
     console.log('Handling streaming update:', data);
     
@@ -610,6 +611,7 @@ const lastSessionIdRef = useRef<string>('');
         break;
     }
   };
+  */
 
   // Function to handle tool execution events
   const handleToolExecution = (data: any) => {
@@ -784,25 +786,31 @@ const handleAgentResponse = (data: any) => {
     }
     
     try {
-      if (useN8nBackend) {
-        const agent = getCurrentAgent();
+          if (useN8nBackend) {
+      const agent = getCurrentAgent();
+      
+      if (agent) {
+        const agentName = agent.agent_name || agent.id;
         
-        if (agent) {
-          const agentName = agent.agent_name || agent.id;
-          
-          console.log("Sending to n8n with agent:", agentName);
+        console.log("Sending to n8n with agent:", agentName);
+        
+        // Show thinking state
+        setAgentThinking(`${agent.name} is thinking...`);
+        
+        try {
           const n8nResponse = await callN8nEndpoint(userInput, requestId, agentName);
           
+          // Clear thinking state
+          setAgentThinking(null);
+          
           if (n8nResponse.status === 'success') {
-            setAgentThinking(null);
-            
             if (textEnabled && n8nResponse.agent_response) {
               setChatHistory(prevHistory => [
                 ...prevHistory,
                 { 
                   sender: 'AI', 
                   message: n8nResponse.agent_response, 
-                  requestId: n8nResponse.session_id || requestId, 
+                  requestId: n8nResponse.request_id || requestId, 
                   status: 'complete' 
                 }
               ]);
@@ -814,10 +822,27 @@ const handleAgentResponse = (data: any) => {
           } else {
             throw new Error(n8nResponse.error || 'Unknown error from n8n');
           }
-        } else {
-          throw new Error('No agent selected');
+        } catch (error) {
+          console.error("Error calling n8n:", error);
+          setChatHistory(prevHistory => [
+            ...prevHistory,
+            { 
+              sender: "System", 
+              message: `Error: ${(error as Error).message}`, 
+              requestId, 
+              status: 'error' 
+            }
+          ]);
+        } finally {
+          // Always clean up
+          setLoading(false);
+          setCurrentRequestId(null);
+          setAgentThinking(null);
         }
       } else {
+        throw new Error('No agent selected');
+      }
+    } else {
         // WebSocket mode
         if (!websocketRef.current || connectionStatus !== 'connected') {
           console.log("Cannot send message: WebSocket not connected");
@@ -1042,7 +1067,8 @@ const handleAgentResponse = (data: any) => {
           </div>
 
           {/* Streaming Progress Indicator */}
-          {useN8nBackend && streamingProgress > 0 && (
+
+          {/* {useN8nBackend && streamingProgress > 0 && (
             <div className="absolute top-2 left-64 z-10">
               <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs">
                 <div className="flex items-center">
@@ -1057,7 +1083,8 @@ const handleAgentResponse = (data: any) => {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
+
           
           {/* Avatar Controls */}
           <div className="absolute top-4 right-4 z-10 flex space-x-4">

@@ -19,7 +19,7 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/presales-consultant.jpg',
     type: 'PreSalesConsultant',
     description: 'Provides technical expertise and solution demonstrations',
-    heygenAvatarId: '12ba58a28ea64c6b9d4366f53e064610',
+    heygenAvatarId: '413a244b053949f39e8ab50099a895ea',
     fallbackAvatar: '/avatars/presales-fallback.jpg',
     agent_name: 'presaleskb',
     introMessage: "Hi! I'm your Pre-Sales Consultant. I help analyze businesses and provide tailored solutions including ROI analysis and technical implementation details."
@@ -30,7 +30,7 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/social-media-manager.jpg',
     type: 'SocialMediaManager',
     description: 'Creates and manages social media strategies',
-    heygenAvatarId: 'Anna_public_3_20240108',
+    heygenAvatarId: 'e0e84faea390465896db75a83be45085',
     fallbackAvatar: '/avatars/social-fallback.jpg',
     agent_name: 'socialmediakb',
     introMessage: "Hello! I'm your Social Media Manager. I specialize in digital presence strategies, content marketing, and social media automation across all major platforms."
@@ -41,7 +41,7 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/lead-gen-specialist.jpg',
     type: 'LeadGenSpecialist',
     description: 'Focuses on generating and qualifying leads',
-    heygenAvatarId: 'ec31a1654aa847f2baea2e8444988402',
+    heygenAvatarId: '1732660983',
     fallbackAvatar: '/avatars/leadgen-fallback.jpg',
     agent_name: 'leadgenkb',
     introMessage: "Hi there! I'm your Lead Generation Specialist. I help schedule demos, coordinate follow-ups, and ensure all your business needs are properly addressed."
