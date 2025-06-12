@@ -44,8 +44,12 @@ class WebSocketService {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsBase = process.env.NEXT_PUBLIC_API_BASE;
       const wsUrl = `${wsProtocol}//${wsBase}/ws/${this.config.userId}/${this.config.sessionId}`;
-      
-      // Log the connecting destination
+
+      // Log the connecting URL
+      console.log('[WebSocketService] Connecting to:', wsUrl);
+      if (typeof window !== 'undefined') {
+        (window as any).__SQUIDGY_SERVICE_WS_URL__ = wsUrl;
+      }
       if (this.config.onLog) {
         this.config.onLog({
           type: 'info',

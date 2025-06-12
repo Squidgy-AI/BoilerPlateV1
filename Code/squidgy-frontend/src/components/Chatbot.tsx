@@ -441,18 +441,25 @@ const lastSessionIdRef = useRef<string>('');
     if (!userId || !sessionId) return;
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsBase = process.env.NEXT_PUBLIC_API_BASE;
-    const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
-    
-    console.log("[WebSocket] Connecting to:", wsUrl);
+  const wsBase = process.env.NEXT_PUBLIC_API_BASE;
+  const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
+
+  // Enhanced logging for debugging
+  console.log("[Chatbot WebSocket] Connecting to:", wsUrl);
+  if (typeof window !== 'undefined') {
+    (window as any).__SQUIDGY_CHATBOT_WS_URL__ = wsUrl;
+  }
     setConnectionStatus('connecting');
 
     try {
-      const ws = new WebSocket(wsUrl);
-      
-      const connectionTimeout = setTimeout(() => {
-        if (ws.readyState !== 1) {
-          console.log(`[WebSocket] Connection timeout`);
+    const ws = new WebSocket(wsUrl);
+
+    // Log successful WebSocket object creation
+    console.log('[Chatbot WebSocket] WebSocket object created:', ws);
+    
+    const connectionTimeout = setTimeout(() => {
+      if (ws.readyState !== 1) {
+        console.log(`[Chatbot WebSocket] Connection timeout`);
           if (ws.readyState === 0) {
             ws.close();
           }
@@ -461,7 +468,7 @@ const lastSessionIdRef = useRef<string>('');
       
       ws.onopen = (event) => {
         clearTimeout(connectionTimeout);
-        console.log('[WebSocket] Connected');
+        console.log('[Chatbot WebSocket] Connected');
         setConnectionStatus('connected');
         reconnectAttemptsRef.current = 0;
         websocketRef.current = ws;
@@ -469,12 +476,12 @@ const lastSessionIdRef = useRef<string>('');
       };
       
       ws.onmessage = (event) => {
-        console.log('[WebSocket] Message received', event.data);
+        console.log('[Chatbot WebSocket] Message received', event.data);
         handleWebSocketMessage(event);
       };
       
       ws.onclose = (event) => {
-        console.log('[WebSocket] Disconnected', event);
+        console.log('[Chatbot WebSocket] Disconnected', event);
         websocketRef.current = null;
         setConnectionStatus('disconnected');
         processingState.websocket = null;
@@ -482,7 +489,7 @@ const lastSessionIdRef = useRef<string>('');
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
           const reconnectDelay = Math.min(300 * 2 ** reconnectAttemptsRef.current, 5000);
-          console.log(`[WebSocket] Reconnecting in ${reconnectDelay}ms`);
+          console.log(`[Chatbot WebSocket] Reconnecting in ${reconnectDelay}ms`);
           reconnectTimeoutRef.current = setTimeout(() => {
             setConnectionStatus('connecting');
             connectWebSocket();
@@ -491,14 +498,13 @@ const lastSessionIdRef = useRef<string>('');
       };
       
       ws.onerror = (event) => {
-        console.error('[WebSocket] Error occurred', event);
+        console.error('[Chatbot WebSocket] Error occurred', event);
       };
       
     } catch (error) {
-      console.error('[WebSocket] Error creating WebSocket:', error);
-      setConnectionStatus('disconnected');
-    }
-  };
+    console.error('[Chatbot WebSocket] Error creating WebSocket:', error, '\nWebSocket URL:', wsUrl);
+    setConnectionStatus('disconnected');
+  }  }
 
   const handleWebSocketMessage = (event: MessageEvent) => {
     try {
