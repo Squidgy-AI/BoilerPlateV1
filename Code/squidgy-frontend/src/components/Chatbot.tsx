@@ -834,8 +834,9 @@ const handleAgentResponse = (data: any) => {
           // Clear thinking state
           setAgentThinking(null);
           
-          if (n8nResponse.status === 'success') {
-            if (textEnabled && n8nResponse.agent_response) {
+          // Check for agent_response regardless of status field
+          if (n8nResponse.agent_response) {
+            if (textEnabled) {
               setChatHistory(prevHistory => [
                 ...prevHistory,
                 { 
@@ -847,11 +848,13 @@ const handleAgentResponse = (data: any) => {
               ]);
             }
             
-            if (avatarRef.current && videoEnabled && voiceEnabled && n8nResponse.agent_response) {
+            if (avatarRef.current && videoEnabled && voiceEnabled) {
               await speakWithAvatar(n8nResponse.agent_response);
             }
-          } else {
+          } else if (n8nResponse.status && n8nResponse.status !== 'success') {
             throw new Error(n8nResponse.error || 'Unknown error from n8n');
+          } else {
+            console.warn('No agent_response found in:', n8nResponse);
           }
         } catch (error) {
           console.error("Error calling n8n:", error);
