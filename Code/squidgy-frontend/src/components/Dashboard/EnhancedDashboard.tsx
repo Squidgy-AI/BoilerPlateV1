@@ -630,7 +630,7 @@ const agents = AGENT_CONFIG;
                       <div className={`inline-block p-3 rounded-2xl max-w-[80%] ${
                         msg.sender === 'user'
                           ? 'bg-blue-600 text-white rounded-br-sm'
-                          : 'bg-gray-700 text-white rounded-bl-sm'
+                          : 'bg-green-600 text-white rounded-bl-sm'
                       }`}>
                         {msg.text}
                       </div>

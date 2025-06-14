@@ -446,23 +446,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!profile || !currentSessionId) return;
     
     try {
-      if (isGroupSession) {
-        // Save to group_messages
-        await supabase.from('group_messages').insert({
-          group_id: currentSessionId,
-          sender_id: message.sender === 'User' ? profile.id : null,
-          message: message.message,
-          is_agent: message.sender !== 'User',
-          agent_type: message.sender !== 'User' ? message.sender : null
-        });
-      } else {
-        // Save to messages (direct messages)
-        await supabase.from('messages').insert({
-          sender_id: message.sender === 'User' ? profile.id : 'system',
-          recipient_id: message.sender === 'User' ? currentSessionId : profile.id,
-          message: message.message
-        });
-      }
+      // Save to chat_history table (matches backend)
+      await supabase.from('chat_history').insert({
+        user_id: profile.id,
+        session_id: currentSessionId,
+        sender: message.sender === 'User' ? 'user' : 'agent',
+        message: message.message,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error('Error saving message to database:', error);
     }
@@ -496,54 +487,23 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!profile) return;
     
     try {
-      let fetchedMessages: ChatMessage[] = [];
+      // Fetch messages from chat_history table (matches backend)
+      const { data, error } = await supabase
+        .from('chat_history')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('user_id', profile.id)
+        .order('timestamp', { ascending: true });
+        
+      if (error) throw error;
       
-      if (isGroup) {
-        // Fetch group messages
-        const { data, error } = await supabase
-          .from('group_messages')
-          .select('*, sender:sender_id(full_name)')
-          .eq('group_id', sessionId)
-          .order('timestamp', { ascending: true });
-          
-        if (error) throw error;
-        
-        fetchedMessages = data.map(msg => ({
-          id: msg.id,
-          sender: msg.is_agent ? msg.agent_type || 'AI' : 'User',
-          message: msg.message,
-          timestamp: msg.timestamp,
-          sender_name: msg.sender?.full_name || 'Unknown',
-          is_agent: msg.is_agent || false,
-          agent_type: msg.agent_type,
-          status: 'complete'
-        }));
-      } else {
-        // Fetch direct messages
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*, sender:sender_id(full_name), recipient:recipient_id(full_name)')
-          .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`)
-          .or(`sender_id.eq.${sessionId},recipient_id.eq.${sessionId}`)
-          .order('timestamp', { ascending: true });
-          
-        if (error) throw error;
-        
-        // Filter messages between these two parties
-        const filteredMessages = data.filter(msg => 
-          (msg.sender_id === profile.id && msg.recipient_id === sessionId) ||
-          (msg.sender_id === sessionId && msg.recipient_id === profile.id)
-        );
-        
-        fetchedMessages = filteredMessages.map(msg => ({
-          id: msg.id,
-          sender: msg.sender_id === profile.id ? 'User' : (msg.sender_id === 'system' ? 'AI' : 'Other'),
-          message: msg.message,
-          timestamp: msg.timestamp,
-          sender_name: msg.sender?.full_name || 'Unknown',
-          status: 'complete'
-        }));
-      }
+      const fetchedMessages: ChatMessage[] = (data || []).map(msg => ({
+        id: msg.id,
+        sender: msg.sender === 'user' ? 'User' : 'AI',
+        message: msg.message,
+        timestamp: msg.timestamp,
+        status: 'complete'
+      }));
       
       setMessages(fetchedMessages);
     } catch (error) {

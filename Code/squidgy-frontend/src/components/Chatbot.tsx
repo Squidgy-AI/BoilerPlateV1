@@ -123,7 +123,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
       console.log("Calling n8n with:", { userInput, requestId, agentName });
       
       const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-      const response = await fetch(`https://${apiBase}/n8n_main_req/${agentName}/${sessionId}`, {
+      const protocol = apiBase?.includes('localhost') || apiBase?.includes('127.0.0.1') ? 'http' : 'https';
+      const response = await fetch(`${protocol}://${apiBase}/n8n_main_req/${agentName}/${sessionId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
