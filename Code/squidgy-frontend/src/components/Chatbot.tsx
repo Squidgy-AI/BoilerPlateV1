@@ -101,6 +101,21 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   // Function to call n8n webhook endpoint with request_id support
   const callN8nEndpoint = async (userInput: string, requestId: string, agentName: string = 'presaleskb') => {
     try {
+      // Skip empty messages or initial messages
+      if (!userInput || userInput.trim() === "") {
+        console.log("Skipping empty message");
+        return {
+          status: "success",
+          message: "Initial message received"
+        };
+      }
+
+      // Check if we already have this request in progress
+      if (currentRequestId === requestId) {
+        console.log("Request already in progress, skipping duplicate call");
+        return;
+      }
+
       console.log("Calling n8n with:", { userInput, requestId, agentName });
       
       const apiBase = process.env.NEXT_PUBLIC_API_BASE;
@@ -114,7 +129,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
           user_mssg: userInput,
           session_id: sessionId,
           agent_name: agentName,
-          timestamp_of_call_made: new Date().toISOString()
+          timestamp_of_call_made: new Date().toISOString(),
+          request_id: requestId
         })
       });
 
@@ -124,6 +140,21 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
 
       const data = await response.json();
       console.log('n8n response:', data);
+      
+      // Parse the JSON string in data.output if it exists
+      if (data.output && typeof data.output === 'string') {
+        try {
+          const parsedOutput = JSON.parse(data.output);
+          return {
+            ...data,
+            ...parsedOutput,  // Merge parsed data into response
+            original_output: data.output  // Keep original for debugging
+          };
+        } catch (parseError) {
+          console.error('Error parsing output JSON:', parseError);
+          return data;  // Return original if parsing fails
+        }
+      }
     
       return data;
     } 
