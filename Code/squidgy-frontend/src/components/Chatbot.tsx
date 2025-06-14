@@ -844,24 +844,22 @@ const handleAgentResponse = (data: any) => {
           
           // Check for agent_response regardless of status field
           if (n8nResponse.agent_response) {
-            if (textEnabled) {
-              console.log("Adding AI response to chat history:", n8nResponse.agent_response);
-              setChatHistory(prevHistory => {
-                const newHistory = [
-                  ...prevHistory,
-                  { 
-                    sender: 'AI', 
-                    message: n8nResponse.agent_response, 
-                    requestId: n8nResponse.request_id || requestId, 
-                    status: 'complete' 
-                  }
-                ];
-                console.log("Updated chat history:", newHistory);
-                return newHistory;
-              });
-            } else {
-              console.log("Text is disabled, not adding to chat history");
-            }
+            // Always add to chat history regardless of textEnabled
+            console.log("Adding AI response to chat history:", n8nResponse.agent_response);
+            setChatHistory(prevHistory => {
+              const newHistory = [
+                ...prevHistory,
+                { 
+                  sender: 'AI', 
+                  message: n8nResponse.agent_response, 
+                  requestId: n8nResponse.request_id || requestId, 
+                  status: 'complete' 
+                }
+              ];
+              console.log("Updated chat history:", newHistory);
+              console.log("Chat history length:", newHistory.length);
+              return newHistory;
+            });
             
             if (avatarRef.current && videoEnabled && voiceEnabled) {
               await speakWithAvatar(n8nResponse.agent_response);
