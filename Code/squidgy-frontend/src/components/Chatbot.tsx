@@ -831,21 +831,32 @@ const handleAgentResponse = (data: any) => {
         try {
           const n8nResponse = await callN8nEndpoint(userInput, requestId, agentName);
           
+          console.log("Full n8n response received:", n8nResponse);
+          console.log("Agent response field:", n8nResponse.agent_response);
+          console.log("Text enabled:", textEnabled);
+          
           // Clear thinking state
           setAgentThinking(null);
           
           // Check for agent_response regardless of status field
           if (n8nResponse.agent_response) {
             if (textEnabled) {
-              setChatHistory(prevHistory => [
-                ...prevHistory,
-                { 
-                  sender: 'AI', 
-                  message: n8nResponse.agent_response, 
-                  requestId: n8nResponse.request_id || requestId, 
-                  status: 'complete' 
-                }
-              ]);
+              console.log("Adding AI response to chat history:", n8nResponse.agent_response);
+              setChatHistory(prevHistory => {
+                const newHistory = [
+                  ...prevHistory,
+                  { 
+                    sender: 'AI', 
+                    message: n8nResponse.agent_response, 
+                    requestId: n8nResponse.request_id || requestId, 
+                    status: 'complete' 
+                  }
+                ];
+                console.log("Updated chat history:", newHistory);
+                return newHistory;
+              });
+            } else {
+              console.log("Text is disabled, not adding to chat history");
             }
             
             if (avatarRef.current && videoEnabled && voiceEnabled) {
