@@ -1216,10 +1216,11 @@ const handleAgentResponse = (data: any) => {
             {/* Chat History */}
                 <div 
                   ref={chatContainerRef}
-                  className={`flex-1 bg-[#2D3B4F] rounded-lg overflow-y-auto mb-4 max-h-[calc(100vh-600px)] ${
-                    !textEnabled ? 'opacity-50' : ''
-                  }`}
+                  className="flex-1 bg-[#2D3B4F] rounded-lg overflow-y-auto mb-4 max-h-[calc(100vh-600px)]"
                 >
+                <div className="p-2 text-xs text-gray-400">
+                  Debug: Chat History Length: {chatHistory.length} | Text Enabled: {String(textEnabled)}
+                </div>
                 {chatHistory.length === 0 && !loading && !chatStarted ? (
                   <div className="p-4 text-white text-center">
                     Start a conversation...
@@ -1230,7 +1231,6 @@ const handleAgentResponse = (data: any) => {
                   </div>
                 ) : (
                   <>
-                  // Replace the chat history rendering section (around line 1200-1250)
 {chatHistory.map((msg, index) => {
   // Format message to extract images
   const { text, images } = formatMessageWithImages(msg.message);
