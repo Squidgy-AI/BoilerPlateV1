@@ -48,6 +48,10 @@ export const getChatProcessingState = (): ChatProcessingState => {
 };
 
 const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic }) => {
+  // Force enable text display for debugging
+  const textEnabled = true;
+  const videoEnabled = true; 
+  const voiceEnabled = true;
   // State management
   const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
