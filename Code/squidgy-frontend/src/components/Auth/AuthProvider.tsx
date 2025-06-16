@@ -27,9 +27,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch user profile from database
+  // Fetch user profile from database with timeout
   const fetchProfile = async (userId: string) => {
     try {
+      console.log(`Fetching profile for user: ${userId}`);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -41,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
       
+      console.log('Profile fetched successfully:', data);
       return data;
     } catch (error) {
       console.error('Failed to fetch profile:', error);
@@ -53,39 +56,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let timeoutId: NodeJS.Timeout;
     let authSubscription: { unsubscribe: () => void } | null = null;
 
+    // Helper function to wrap getSession with timeout
+    const getSessionWithTimeout = async (timeoutMs: number = 5000) => {
+      return Promise.race([
+        supabase.auth.getSession(),
+        new Promise<{ data: { session: null }, error: { message: string } }>((_, reject) =>
+          setTimeout(() => reject(new Error('getSession timeout')), timeoutMs)
+        )
+      ]);
+    };
+
     const initAuth = async () => {
       try {
         setIsLoading(true);
         
-        // Safety timeout - force loading to end after 10 seconds
+        // Safety timeout - force loading to end after 5 seconds total
         timeoutId = setTimeout(() => {
           console.warn('Auth initialization timeout - forcing loading to complete');
           setIsLoading(false);
-        }, 10000);
+        }, 5000);
         
-        // Immediate session check (no waiting for auth state change)
-        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        console.log('Starting auth initialization...');
+        
+        // Immediate session check with 3-second timeout
+        let sessionResult;
+        try {
+          sessionResult = await getSessionWithTimeout(3000);
+          console.log('getSession completed successfully');
+        } catch (error) {
+          console.warn('getSession timed out or failed, assuming no session:', error);
+          sessionResult = { data: { session: null }, error: null };
+        }
+        
+        const { data: { session: currentSession }, error } = sessionResult;
         
         if (error) {
           console.error('Error getting session:', error);
-          setIsLoading(false);
-          clearTimeout(timeoutId);
-          return;
         }
         
         setSession(currentSession);
         
         if (currentSession?.user) {
           setUser(currentSession.user);
+          console.log('User found, auth initialization complete');
           
-          // Fetch user profile
-          const profileData = await fetchProfile(currentSession.user.id);
-          setProfile(profileData);
+          // Don't wait for profile - fetch it in background
+          fetchProfile(currentSession.user.id)
+            .then(profileData => {
+              setProfile(profileData);
+              console.log('Profile loaded in background');
+            })
+            .catch(profileError => {
+              console.warn('Background profile fetch failed:', profileError);
+              setProfile(null);
+            });
+        } else {
+          console.log('No session found');
         }
         
-        // Clear timeout and stop loading - we're done with initial check
+        // Clear timeout and stop loading immediately - don't wait for profile
         clearTimeout(timeoutId);
         setIsLoading(false);
+        console.log('Auth initialization completed (profile loading in background)');
         
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -99,49 +131,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Listen for auth state changes (but don't set loading state here)
     const setupAuthListener = async () => {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, updatedSession) => {
-          setSession(updatedSession);
-          setUser(updatedSession?.user || null);
-          
-          if (updatedSession?.user) {
-            // Fetch or create profile
-            let profileData = await fetchProfile(updatedSession.user.id);
+      try {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, updatedSession) => {
+            console.log('Auth state change:', event, updatedSession?.user?.id);
+            setSession(updatedSession);
+            setUser(updatedSession?.user || null);
             
-            // If no profile exists and we have a new sign-up, create one
-            if (!profileData && event === 'SIGNED_IN') {
-              try {
-                const fullName = updatedSession.user.user_metadata?.full_name || 
-                                 updatedSession.user.user_metadata?.name || 
-                                 updatedSession.user.email?.split('@')[0] || 
-                                 'User';
-                
-                const { data, error } = await supabase
-                  .from('profiles')
-                  .insert({
-                    id: updatedSession.user.id,
-                    email: updatedSession.user.email,
-                    full_name: fullName,
-                    avatar_url: updatedSession.user.user_metadata?.avatar_url || null
-                  })
-                  .select()
-                  .single();
+            if (updatedSession?.user) {
+              // Fetch or create profile in background - don't block auth state updates
+              fetchProfile(updatedSession.user.id)
+                .then(async (profileData) => {
+                  // If no profile exists and we have a new sign-up, create one
+                  if (!profileData && event === 'SIGNED_IN') {
+                    try {
+                      const fullName = updatedSession.user.user_metadata?.full_name || 
+                                       updatedSession.user.user_metadata?.name || 
+                                       updatedSession.user.email?.split('@')[0] || 
+                                       'User';
+                      
+                      const { data, error } = await supabase
+                        .from('profiles')
+                        .insert({
+                          id: updatedSession.user.id,
+                          email: updatedSession.user.email,
+                          full_name: fullName,
+                          avatar_url: updatedSession.user.user_metadata?.avatar_url || null
+                        })
+                        .select()
+                        .single();
+                        
+                      if (error) throw error;
+                      profileData = data;
+                      console.log('Profile created successfully:', profileData);
+                    } catch (error) {
+                      console.error('Error creating profile:', error);
+                    }
+                  }
                   
-                if (error) throw error;
-                profileData = data;
-              } catch (error) {
-                console.error('Error creating profile:', error);
-              }
+                  setProfile(profileData);
+                  console.log('Profile set in auth listener');
+                })
+                .catch(profileError => {
+                  console.warn('Profile operations failed in auth listener:', profileError);
+                  setProfile(null);
+                });
+            } else {
+              setProfile(null);
             }
-            
-            setProfile(profileData);
-          } else {
-            setProfile(null);
           }
-        }
-      );
-      
-      authSubscription = subscription;
+        );
+        
+        authSubscription = subscription;
+      } catch (error) {
+        console.error('Error setting up auth listener:', error);
+      }
     };
     
     setupAuthListener();
