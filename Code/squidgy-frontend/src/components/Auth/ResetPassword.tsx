@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../../utils/supabaseClient'; // Adjust import if needed
+import { supabase } from '@/lib/supabase';
 
 const ResetPassword: React.FC = () => {
   const router = useRouter();

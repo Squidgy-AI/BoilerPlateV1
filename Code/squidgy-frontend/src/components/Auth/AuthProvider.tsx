@@ -50,71 +50,110 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize auth state
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    let authSubscription: { unsubscribe: () => void } | null = null;
+
     const initAuth = async () => {
-      setIsLoading(true);
-      
-      // Get current session
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      setSession(currentSession);
-      
-      if (currentSession?.user) {
-        setUser(currentSession.user);
+      try {
+        setIsLoading(true);
         
-        // Fetch user profile
-        const profileData = await fetchProfile(currentSession.user.id);
-        setProfile(profileData);
+        // Safety timeout - force loading to end after 10 seconds
+        timeoutId = setTimeout(() => {
+          console.warn('Auth initialization timeout - forcing loading to complete');
+          setIsLoading(false);
+        }, 10000);
+        
+        // Immediate session check (no waiting for auth state change)
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setIsLoading(false);
+          clearTimeout(timeoutId);
+          return;
+        }
+        
+        setSession(currentSession);
+        
+        if (currentSession?.user) {
+          setUser(currentSession.user);
+          
+          // Fetch user profile
+          const profileData = await fetchProfile(currentSession.user.id);
+          setProfile(profileData);
+        }
+        
+        // Clear timeout and stop loading - we're done with initial check
+        clearTimeout(timeoutId);
+        setIsLoading(false);
+        
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        clearTimeout(timeoutId);
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
     
+    // Start initialization
     initAuth();
     
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, updatedSession) => {
-        setSession(updatedSession);
-        setUser(updatedSession?.user || null);
-        
-        if (updatedSession?.user) {
-          // Fetch or create profile
-          let profileData = await fetchProfile(updatedSession.user.id);
+    // Listen for auth state changes (but don't set loading state here)
+    const setupAuthListener = async () => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, updatedSession) => {
+          setSession(updatedSession);
+          setUser(updatedSession?.user || null);
           
-          // If no profile exists and we have a new sign-up, create one
-          if (!profileData && event === 'SIGNED_IN') {
-            try {
-              const fullName = updatedSession.user.user_metadata?.full_name || 
-                               updatedSession.user.user_metadata?.name || 
-                               updatedSession.user.email?.split('@')[0] || 
-                               'User';
-              
-              const { data, error } = await supabase
-                .from('profiles')
-                .insert({
-                  id: updatedSession.user.id,
-                  email: updatedSession.user.email,
-                  full_name: fullName,
-                  avatar_url: updatedSession.user.user_metadata?.avatar_url || null
-                })
-                .select()
-                .single();
+          if (updatedSession?.user) {
+            // Fetch or create profile
+            let profileData = await fetchProfile(updatedSession.user.id);
+            
+            // If no profile exists and we have a new sign-up, create one
+            if (!profileData && event === 'SIGNED_IN') {
+              try {
+                const fullName = updatedSession.user.user_metadata?.full_name || 
+                                 updatedSession.user.user_metadata?.name || 
+                                 updatedSession.user.email?.split('@')[0] || 
+                                 'User';
                 
-              if (error) throw error;
-              profileData = data;
-            } catch (error) {
-              console.error('Error creating profile:', error);
+                const { data, error } = await supabase
+                  .from('profiles')
+                  .insert({
+                    id: updatedSession.user.id,
+                    email: updatedSession.user.email,
+                    full_name: fullName,
+                    avatar_url: updatedSession.user.user_metadata?.avatar_url || null
+                  })
+                  .select()
+                  .single();
+                  
+                if (error) throw error;
+                profileData = data;
+              } catch (error) {
+                console.error('Error creating profile:', error);
+              }
             }
+            
+            setProfile(profileData);
+          } else {
+            setProfile(null);
           }
-          
-          setProfile(profileData);
-        } else {
-          setProfile(null);
         }
-      }
-    );
+      );
+      
+      authSubscription = subscription;
+    };
+    
+    setupAuthListener();
     
     return () => {
-      subscription.unsubscribe();
+      // Cleanup timeout and subscription
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
   }, []);
 
