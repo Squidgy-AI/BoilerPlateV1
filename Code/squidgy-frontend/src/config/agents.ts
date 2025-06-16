@@ -77,3 +77,9 @@ export const getAgentName = (agentId: string): string => {
   const agent = getAgentById(agentId);
   return agent?.agent_name || 'presaleskb'; // Default
 };
+
+// Helper function to get agent greeting message
+export const getAgentGreeting = (agentId: string): string => {
+  const agent = getAgentById(agentId);
+  return agent?.introMessage || `Hello! I'm your ${agentId} assistant. How can I help you today?`;
+};

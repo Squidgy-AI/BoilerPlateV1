@@ -12,6 +12,7 @@ import ConnectionStatus from './ConnectionStatus';
 import { createOptimizedWebSocketConnection } from './WebSocketUtils';
 import { getAgentById, getAgentName, AGENT_CONFIG } from '@/config/agents';
 import ConnectionLostBanner from './ConnectionLostBanner';
+import AgentGreeting from './AgentGreeting';
 
 interface ChatMessage {
   sender: string;
@@ -247,24 +248,7 @@ const startChat = async () => {
       console.log("Showing initial message for agent:", agent.name);
       console.log("Agent intro message:", agent.introMessage);
       
-      // Add the initial message immediately
-      const messageId = `initial-${Date.now()}`;
-      const newMessage = { 
-        sender: 'AI', 
-        message: agent.introMessage, 
-        requestId: messageId, 
-        status: 'complete' as const
-      };
-      
-      console.log("Adding message to chat history:", newMessage);
-      
-      // Use functional update to ensure state update
-      setChatHistory(prev => {
-        console.log("Previous chat history:", prev);
-        const updated = [...prev, newMessage];
-        console.log("Updated chat history:", updated);
-        return updated;
-      });
+      // Note: Initial message is now shown via AgentGreeting component, not added to chatHistory
       
       // Try to speak if avatar is ready
       if (avatarRef.current && videoEnabled && voiceEnabled && avatarInitialized && !avatarFailed) {
@@ -1232,6 +1216,15 @@ const handleAgentResponse = (data: any) => {
                   </div>
                 ) : (
                   <>
+                    {/* Show agent greeting as first message when chat starts */}
+                    {chatStarted && (
+                      <div className="mb-4">
+                        <AgentGreeting 
+                          agentId={selectedAvatarId} 
+                          className="mx-4 mt-4"
+                        />
+                      </div>
+                    )}
 {chatHistory.map((msg, index) => {
   // Format message to extract images
   const { text, images } = formatMessageWithImages(msg.message);

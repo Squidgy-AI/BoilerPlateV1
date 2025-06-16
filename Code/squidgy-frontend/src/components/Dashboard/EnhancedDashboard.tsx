@@ -29,6 +29,7 @@ import InteractiveAvatar from '../InteractiveAvatar';
 import WebSocketService from '@/services/WebSocketService';
 import StreamingAvatar from "@heygen/streaming-avatar";
 import WebSocketDebugger from '../WebSocketDebugger';
+import AgentGreeting from '../AgentGreeting';
 
 const EnhancedDashboard: React.FC = () => {
   type WebSocketLog = {
@@ -618,29 +619,46 @@ const agents = AGENT_CONFIG;
               {/* Chat Messages Area */}
               <div className="flex-1 overflow-y-auto p-4">
                 {messages.length === 0 ? (
-                  <div className="text-center text-gray-400 mt-10">
-                    Start a conversation...
+                  <div className="mt-4">
+                    {selectedAgent && (
+                      <AgentGreeting 
+                        agentId={selectedAgent.id} 
+                        className="mb-4"
+                      />
+                    )}
+                    <div className="text-center text-gray-400 mt-6">
+                      Start a conversation...
+                    </div>
                   </div>
                 ) : (
-                  messages.map((msg, index) => (
-                    <div
-                      key={index}
-                      className={`mb-4 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}
-                    >
-                      <div className={`inline-block p-3 rounded-2xl max-w-[80%] ${
-                        msg.sender === 'user'
-                          ? 'bg-blue-600 text-white rounded-br-sm'
-                          : 'bg-green-600 text-white rounded-bl-sm'
-                      }`}>
-                        {msg.text}
+                  <>
+                    {/* Show agent greeting as first message */}
+                    {selectedAgent && (
+                      <AgentGreeting 
+                        agentId={selectedAgent.id} 
+                        className="mb-4"
+                      />
+                    )}
+                    {messages.map((msg, index) => (
+                      <div
+                        key={index}
+                        className={`mb-4 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}
+                      >
+                        <div className={`inline-block p-3 rounded-2xl max-w-[80%] ${
+                          msg.sender === 'user'
+                            ? 'bg-blue-600 text-white rounded-br-sm'
+                            : 'bg-green-600 text-white rounded-bl-sm'
+                        }`}>
+                          {msg.text}
+                        </div>
+                        <div className={`text-xs text-gray-400 mt-1 ${
+                          msg.sender === 'user' ? 'text-right' : 'text-left'
+                        }`}>
+                          {new Date().toLocaleTimeString()}
+                        </div>
                       </div>
-                      <div className={`text-xs text-gray-400 mt-1 ${
-                        msg.sender === 'user' ? 'text-right' : 'text-left'
-                      }`}>
-                        {new Date().toLocaleTimeString()}
-                      </div>
-                    </div>
-                  ))
+                    ))}
+                  </>
                 )}
               </div>
 
