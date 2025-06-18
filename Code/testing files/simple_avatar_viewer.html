@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heygen Avatar Controller</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        button.secondary {
+            background-color: #2196F3;
+        }
+        button.secondary:hover {
+            background-color: #0b7dda;
+        }
+        button.danger {
+            background-color: #f44336;
+        }
+        button.danger:hover {
+            background-color: #d32f2f;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left-color: #f44336;
+        }
+        .status.active {
+            background-color: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            border-left-color: #f44336;
+            color: #721c24;
+        }
+        .hidden {
+            display: none;
+        }
+        .video-container {
+            margin-top: 20px;
+            width: 100%;
+            height: 400px;
+            background-color: #000;
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .log-container {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            margin-right: 5px;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+        .tab.active {
+            background-color: white;
+            border-color: #ddd;
+            border-bottom-color: white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .quick-messages {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .quick-message {
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .quick-message:hover {
+            background-color: #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Heygen Avatar Controller</h1>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="create">Create Session</div>
+            <div class="tab" data-tab="control">Control Avatar</div>
+            <div class="tab" data-tab="logs">Logs</div>
+        </div>
+        
+        <div class="tab-content active" id="create-tab">
+            <h2>Create New Session</h2>
+            <div class="form-group">
+                <label for="api-key">API Key:</label>
+                <input type="text" id="api-key" placeholder="Enter your Heygen API key" value="YzQ0MWM0OWQzMzU5NDQ4NzlhN2MxZGUxZjc5ZDMxOWQtMTc0MzUyNTQwMQ==">
+            </div>
+    
+            <div class="form-group">
+                <label for="avatar-id">Avatar ID:</label>
+                <input type="text" id="avatar-id" placeholder="Enter avatar ID" value="4743944d7cbf40d0b6e5c3baf935ceff">
+            </div>
+    
+            <div class="form-group">
+                <label for="voice-name">Voice Name:</label>
+                <input type="text" id="voice-name" placeholder="Enter voice name" value="English US Female">
+            </div>
+    
+            <button id="create-session-btn">Create Session</button>
+            <button id="fetch-session-btn" class="secondary">Fetch Recent Session</button>
+            
+            <div id="status" class="status">Ready to create session</div>
+        </div>
+        
+        <div id="video-container" class="video-container hidden">
+            <video id="avatar-video" autoplay playsinline></video>
+        </div>
+        
+        <div id="log-container" class="log-container">
+            <div id="log"></div>
+        </div>
+        
+        <div class="tab-content" id="control-tab">
+            <h2>Control Avatar</h2>
+            <div class="form-group">
+                <label for="session-id">Session ID:</label>
+                <input type="text" id="session-id" placeholder="Enter session ID" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label>Quick Messages:</label>
+                <div class="quick-messages">
+                    <div class="quick-message">Hello, how are you?</div>
+                    <div class="quick-message">Tell me about yourself</div>
+                    <div class="quick-message">What can you do?</div>
+                    <div class="quick-message">That's interesting</div>
+                    <div class="quick-message">Thank you</div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="message">Custom Message:</label>
+                <textarea id="message" placeholder="Type a message to send to the avatar"></textarea>
+            </div>
+            
+            <button id="send-message-btn" disabled>Send Message</button>
+            <button id="stop-session-btn" class="danger" disabled>Stop Session</button>
+        </div>
+        
+        <div class="tab-content" id="logs-tab">
+            <h2>Session Logs</h2>
+            <button id="clear-logs-btn" class="secondary">Clear Logs</button>
+            <div class="log-container" id="log">
+                <!-- Logs will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const BASE_URL = "https://api.heygen.com/v1";
+        
+        // Global variables
+        let currentSessionId = null;
+        let sessionCreationTime = null;
+        let webSocketConnection = null;
+        let peerConnection = null;
+        
+        // DOM Elements
+        const apiKeyInput = document.getElementById('api-key');
+        const avatarIdInput = document.getElementById('avatar-id');
+        const voiceNameInput = document.getElementById('voice-name');
+        const sessionIdInput = document.getElementById('session-id');
+        const messageInput = document.getElementById('message');
+        const createSessionBtn = document.getElementById('create-session-btn');
+        const fetchSessionBtn = document.getElementById('fetch-session-btn');
+        const sendMessageBtn = document.getElementById('send-message-btn');
+        const stopSessionBtn = document.getElementById('stop-session-btn');
+        const clearLogsBtn = document.getElementById('clear-logs-btn');
+        const sessionStatus = document.getElementById('session-status');
+        const logContainer = document.getElementById('log');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const quickMessages = document.querySelectorAll('.quick-message');
+        
+        // Tab switching
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+            });
+        });
+        
+        // Quick messages
+        quickMessages.forEach(quickMsg => {
+            quickMsg.addEventListener('click', () => {
+                messageInput.value = quickMsg.textContent;
+            });
+        });
+
+        // Helper functions
+        function log(message, isError = false) {
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            if (isError) {
+                logEntry.style.color = 'red';
+            }
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateStatus(message, isError = false) {
+            sessionStatus.textContent = message;
+            sessionStatus.classList.remove('hidden');
+            
+            if (isError) {
+                sessionStatus.classList.add('error');
+            } else {
+                sessionStatus.classList.remove('error');
+            }
+        }
+        
+        // WebRTC connection functions
+        async function connectToWebRTC(sessionData) {
+            try {
+                log('Connecting to WebRTC...');
+                
+                // Check if we have the WebSocket URL
+                if (!sessionData.ws_url && !sessionData.realtime_endpoint) {
+                    log('No WebSocket URL found in session data', true);
+                    return false;
+                }
+                
+                // Use either ws_url or realtime_endpoint
+                const wsUrl = sessionData.ws_url || sessionData.realtime_endpoint;
+                
+                // Close any existing WebSocket connection
+                if (webSocketConnection && webSocketConnection.readyState !== WebSocket.CLOSED) {
+                    webSocketConnection.close();
+                    log('Closed existing WebSocket connection');
+                }
+                
+                // Close any existing peer connection
+                if (peerConnection) {
+                    peerConnection.close();
+                    peerConnection = null;
+                    log('Closed existing peer connection');
+                }
+                
+                // Connect to WebSocket
+                log(`Connecting to WebSocket: ${wsUrl}`);
+                webSocketConnection = new WebSocket(wsUrl);
+                
+                // Set up WebSocket event handlers
+                webSocketConnection.onopen = () => {
+                    log('WebSocket connection established');
+                };
+                
+                webSocketConnection.onmessage = async (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        log(`Received WebSocket message: ${message.type}`);
+                        
+                        if (message.type === 'offer') {
+                            await handleOffer(message);
+                        } else if (message.type === 'ice-candidate') {
+                            if (peerConnection) {
+                                try {
+                                    await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+                                    log('Added ICE candidate');
+                                } catch (error) {
+                                    log(`Error adding ICE candidate: ${error.message}`, true);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        log(`Error processing WebSocket message: ${error.message}`, true);
+                    }
+                };
+                
+                webSocketConnection.onerror = (error) => {
+                    log(`WebSocket error: ${error}`, true);
+                };
+                
+                webSocketConnection.onclose = () => {
+                    log('WebSocket connection closed');
+                };
+                
+                // Wait for WebSocket to connect
+                await new Promise((resolve) => {
+                    const checkInterval = setInterval(() => {
+                        if (webSocketConnection.readyState === WebSocket.OPEN) {
+                            clearInterval(checkInterval);
+                            log('WebSocket connection is now open');
+                            resolve();
+                        }
+                    }, 100);
+                    
+                    // Timeout after 5 seconds
+                    setTimeout(() => {
+                        clearInterval(checkInterval);
+                        if (webSocketConnection.readyState !== WebSocket.OPEN) {
+                            log('WebSocket connection timed out', true);
+                        }
+                        resolve();
+                    }, 5000);
+                });
+                
+                // Make sure the video container is visible
+                const videoContainer = document.getElementById('video-container');
+                if (videoContainer) {
+                    videoContainer.classList.remove('hidden');
+                }
+                
+                return webSocketConnection.readyState === WebSocket.OPEN;
+            } catch (error) {
+                log(`Error connecting to WebRTC: ${error.message}`, true);
+                return false;
+            }
+        }
+        
+        async function handleOffer(message) {
+            try {
+                log('Handling WebRTC offer...');
+                
+                // Create a new RTCPeerConnection
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]
+                });
+                
+                // Set up event handlers for the peer connection
+                peerConnection.ontrack = (event) => {
+                    log('Received remote stream');
+                    // Connect the video stream to the video element
+                    const videoElement = document.getElementById('avatar-video');
+                    if (videoElement && event.streams && event.streams[0]) {
+                        log('Setting video source');
+                        videoElement.srcObject = event.streams[0];
+                        
+                        // Show the video container
+                        const videoContainer = document.getElementById('video-container');
+                        if (videoContainer) {
+                            videoContainer.classList.remove('hidden');
+                        }
+                    } else {
+                        log('Video element or stream not available', true);
+                    }
+                };
+                
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        // Send the ICE candidate to the server
+                        if (webSocketConnection && webSocketConnection.readyState === WebSocket.OPEN) {
+                            webSocketConnection.send(JSON.stringify({
+                                type: 'ice-candidate',
+                                candidate: event.candidate
+                            }));
+                        }
+                    }
+                };
+                
+                // Set the remote description
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+                
+                // Create an answer
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                // Send the answer to the server
+                if (webSocketConnection && webSocketConnection.readyState === WebSocket.OPEN) {
+                    webSocketConnection.send(JSON.stringify({
+                        type: 'answer',
+                        sdp: peerConnection.localDescription
+                    }));
+                }
+                
+                log('WebRTC connection established');
+                return true;
+            } catch (error) {
+                log(`Error handling offer: ${error.message}`, true);
+                return false;
+            }
+        }
+        
+        // Function to initialize a session with WebRTC connection
+        async function initializeSession(sessionId, apiKey) {
+            log(`Starting session initialization process for ${sessionId}...`);
+            updateStatus('Initializing session...');
+            
+            try {
+                // First, get the session data to establish WebRTC connection
+                const sessionResponse = await fetch(`${BASE_URL}/streaming.state`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId
+                    })
+                });
+                
+                const stateData = await sessionResponse.json();
+                
+                if (!sessionResponse.ok) {
+                    log(`Failed to get session data: ${stateData.message}`, true);
+                    return false;
+                }
+                
+                // Get the stored session data from localStorage
+                const storedSessionData = getLastSessionFromLocalStorage();
+                
+                if (!storedSessionData) {
+                    log('No session data found in localStorage', true);
+                    return false;
+                }
+                
+                // Use the session data from when the session was created
+                const sessionInfo = storedSessionData.sessionInfo ? JSON.parse(storedSessionData.sessionInfo) : null;
+                log(`Using session info from localStorage: ${JSON.stringify(sessionInfo)}`);
+                
+                if (sessionInfo && sessionInfo.data) {
+                    // Connect to WebRTC using the stored session data
+                    const connected = await connectToWebRTC(sessionInfo.data);
+                    
+                    if (connected) {
+                        // Wait for WebRTC connection to establish
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        
+                        // Check if session is now ready
+                        const stateResult = await checkSessionState(sessionId, apiKey);
+                        
+                        if (stateResult.active) {
+                            log(`✅ Session initialized successfully! State: ${stateResult.state}`);
+                            updateStatus(`Session ready`);
+                            
+                            // Show the video container
+                            const videoContainer = document.getElementById('video-container');
+                            if (videoContainer) {
+                                videoContainer.classList.remove('hidden');
+                            }
+                            
+                            return true;
+                        } else {
+                            log(`Session still not ready after WebRTC connection. State: ${stateResult.state}`);
+                        }
+                    }
+                }
+                
+                // If WebRTC connection didn't work, try pinging as fallback
+                log('Trying ping method as fallback...');
+                
+                // Try to ping the session up to 3 times
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    log(`Ping attempt ${attempt}/3...`);
+                    
+                    // Ping the session
+                    const pingResult = await pingSession(sessionId, apiKey);
+                    
+                    // Check session state
+                    const stateResult = await checkSessionState(sessionId, apiKey);
+                    
+                    if (stateResult.active) {
+                        log(`✅ Session initialized successfully! State: ${stateResult.state}`);
+                        updateStatus(`Session ready`);
+                        return true;
+                    }
+                    
+                    // If not the last attempt, wait before trying again
+                    if (attempt < 3) {
+                        log(`Waiting 3 seconds before next attempt...`);
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                    }
+                }
+                
+                log(`⚠️ Session initialization incomplete. You may need to wait longer or create a new session.`);
+                updateStatus(`Session initialization incomplete`, true);
+                return false;
+                
+            } catch (error) {
+                log(`Error initializing session: ${error.message}`, true);
+                return false;
+            }
+        }
+        
+        // Function to ping the session to help initialize it
+        async function pingSession(sessionId, apiKey) {
+            if (!sessionId || !apiKey) {
+                return { success: false, message: 'Missing session ID or API key' };
+            }
+            
+            try {
+                updateStatus('Pinging session to initialize...');
+                log(`Pinging session: ${sessionId}`);
+                
+                // Send a simple ping request with empty text to help initialize
+                const response = await fetch(`${BASE_URL}/streaming.task`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        text: ' ' // Send a space character as minimal text
+                    })
+                });
+                
+                const data = await response.json();
+                log(`Ping response: ${JSON.stringify(data)}`);
+                
+                return { 
+                    success: response.ok && data.code === 100,
+                    message: data.message || 'Ping completed'
+                };
+            } catch (error) {
+                log(`Error pinging session: ${error.message}`, true);
+                return { success: false, message: error.message };
+            }
+        }
+        
+        // Function to check if a session is active and ready
+        async function checkSessionState(sessionId, apiKey) {
+            if (!sessionId || !apiKey) {
+                return { active: false, message: 'Missing session ID or API key' };
+            }
+            
+            try {
+                updateStatus('Checking session state...');
+                log(`Checking state for session: ${sessionId}`);
+                
+                // Send a simple ping request to check session state
+                const response = await fetch(`${BASE_URL}/streaming.state`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId
+                    })
+                });
+                
+                const data = await response.json();
+                log(`Session state response: ${JSON.stringify(data)}`);
+                
+                if (response.ok && data.code === 100) {
+                    const state = data.data?.state || 'unknown';
+                    log(`Session state: ${state}`);
+                    return { 
+                        active: state === 'ready' || state === 'talking', 
+                        state: state,
+                        message: `Session is in ${state} state` 
+                    };
+                } else {
+                    return { 
+                        active: false, 
+                        message: data.message || 'Failed to check session state' 
+                    };
+                }
+            } catch (error) {
+                log(`Error checking session state: ${error.message}`, true);
+                return { active: false, message: error.message };
+            }
+        }
+        
+        // Function to update session controls
+        function updateSessionControls(sessionId) {
+            currentSessionId = sessionId;
+            sessionIdInput.value = sessionId || '';
+            
+            // Get the status element
+            const statusElement = document.getElementById('status');
+            
+            if (sessionId) {
+                sendMessageBtn.disabled = false;
+                stopSessionBtn.disabled = false;
+                
+                if (statusElement) {
+                    statusElement.textContent = 'Session Active';
+                    statusElement.className = 'status active';
+                }
+                
+                // Switch to the message tab
+                const messageTab = document.querySelector('.tab[data-tab="control"]');
+                if (messageTab) {
+                    messageTab.click();
+                }
+            } else {
+                sendMessageBtn.disabled = true;
+                stopSessionBtn.disabled = true;
+                
+                if (statusElement) {
+                    statusElement.textContent = 'No Active Session';
+                    statusElement.className = 'status';
+                }
+            }
+        }
+        
+        function logSessionToFile(sessionId) {
+            // Log session to the same file that the Python script uses
+            const timestamp = new Date().toISOString();
+            
+            // Use Flask backend to log the session
+            fetch('http://localhost:5000/log_session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    timestamp: timestamp,
+                    session_id: sessionId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    log('✅ Session logged to heygen_sessions.log');
+                } else {
+                    log(`❌ Failed to log session: ${data.message}`, true);
+                }
+            })
+            .catch(error => {
+                log(`❌ Error logging session: ${error.message}`, true);
+                log('Make sure the Flask server is running (python session_logger_server.py)', true);
+            });
+        }
+        
+        async function fetchLastSessionFromServer() {
+            try {
+                const response = await fetch('http://localhost:5000/get_sessions');
+                const data = await response.json();
+                
+                if (data.sessions && data.sessions.length > 0) {
+                    // Get the most recent session
+                    const latestSession = data.sessions[data.sessions.length - 1];
+                    currentSessionId = latestSession.session_id;
+                    
+                    // Update UI safely
+                    if (sessionIdInput) {
+                        sessionIdInput.value = currentSessionId;
+                    }
+                    
+                    // Use the safe updateSessionControls function
+                    updateSessionControls(currentSessionId);
+                    log(`✅ Fetched session ID from server: ${currentSessionId}`);
+                    return true;
+                } else {
+                    log('❌ No sessions found on server', true);
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ Error fetching sessions from server: ${error.message}`, true);
+                log('Make sure the Flask server is running (python session_logger_server.py)', true);
+                return false;
+            }
+        }
+        function saveSessionToLocalStorage(sessionId, sessionResponseData) {
+            const timestamp = new Date().toISOString();
+            localStorage.setItem('heygen_last_session', JSON.stringify({
+                sessionId,
+                timestamp,
+                apiKey: apiKeyInput.value,
+                sessionInfo: JSON.stringify(sessionResponseData)
+            }));
+            
+            // Also log to the file for Python script to use
+            logSessionToFile(sessionId);
+        }
+        
+        function getLastSessionFromLocalStorage() {
+            const sessionData = localStorage.getItem('heygen_last_session');
+            if (sessionData) {
+                return JSON.parse(sessionData);
+            }
+            return null;
+        }
+
+        // Event handlers
+        createSessionBtn.addEventListener('click', async () => {
+            const apiKey = apiKeyInput.value.trim();
+            const avatarId = avatarIdInput.value.trim();
+            const voiceName = voiceNameInput.value.trim();
+            
+            if (!apiKey || !avatarId || !voiceName) {
+                updateStatus('Please fill in all fields', true);
+                return;
+            }
+
+            try {
+                updateStatus('Creating session...');
+                log('Creating new session...');
+                
+                const sessionId = await createSession(apiKey, avatarId, voiceName);
+                
+                if (sessionId) {
+                    updateStatus(`Session created: ${sessionId}`);
+                    log(`Session created with ID: ${sessionId}`);
+                    
+                    // Update UI
+                    updateSessionControls(sessionId);
+                } else {
+                    updateStatus('Failed to create session', true);
+                }
+            } catch (error) {
+                updateStatus(`Error: ${error.message}`, true);
+                log(`Error: ${error.message}`, true);
+            }
+        });
+        
+        async function createSession(apiKey, avatarId, voiceName) {
+            if (!apiKey || !avatarId || !voiceName) {
+                log('Missing required fields', true);
+                return null;
+            }
+            
+            try {
+                updateStatus('Creating new session...');
+                log('Creating new session...');
+                
+                const payload = {
+                    version: "v2",
+                    talking_photo_id: avatarId,
+                    voice: {
+                        voice_name: voiceName
+                    }
+                };
+                
+                log(`Request payload: ${JSON.stringify(payload)}`);
+                
+                const response = await fetch(`${BASE_URL}/streaming.new`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                log(`API Response: ${JSON.stringify(data)}`);
+                
+                if (response.ok && data.code === 100) {
+                    const sessionId = data.data.session_id;
+                    log(`Session created with ID: ${sessionId}`);
+                    
+                    // Store session creation time
+                    sessionCreationTime = new Date();
+                    log(`Session creation time set: ${sessionCreationTime.toLocaleTimeString()}`);
+                    
+                    // Save to localStorage with the complete session data
+                    saveSessionToLocalStorage(sessionId, data);
+                    
+                    // Start initialization process
+                    initializeSession(sessionId, apiKey);
+                    
+                    return sessionId;
+                } else {
+                    log(`Failed to create session: ${data.message}`, true);
+                    updateStatus(`Failed to create session: ${data.message}`, true);
+                    return null;
+                }
+            } catch (error) {
+                log(`Error creating session: ${error.message}`, true);
+                updateStatus(`Error creating session: ${error.message}`, true);
+                return null;
+            }
+        }
+        
+        fetchSessionBtn.addEventListener('click', async () => {
+            // First try to get session from server
+            log('Fetching latest session from server...');
+            const serverSessionSuccess = await fetchLastSessionFromServer();
+            
+            // If no session found on server, try local storage
+            if (!serverSessionSuccess) {
+                log('No session found on server, checking local storage...');
+                const lastSession = getLastSessionFromLocalStorage();
+                if (lastSession) {
+                    log(`Fetched last session: ${lastSession.sessionId} from ${new Date(lastSession.timestamp).toLocaleString()}`);
+                    updateStatus(`Loaded previous session: ${lastSession.sessionId}`);
+                    
+                    // Update API key if it's different
+                    if (lastSession.apiKey !== apiKeyInput.value) {
+                        apiKeyInput.value = lastSession.apiKey;
+                        log('Updated API key from saved session');
+                    }
+                    
+                    // Update UI
+                    updateSessionControls(lastSession.sessionId);
+                    
+                    // Initialize the session to establish WebRTC connection
+                    log('Initializing WebRTC connection for the fetched session...');
+                    const apiKey = apiKeyInput.value.trim();
+                    const initialized = await initializeSession(lastSession.sessionId, apiKey);
+                    
+                    if (initialized) {
+                        log('✅ Session initialized successfully!');
+                        updateStatus('Session ready');
+                    } else {
+                        log('⚠️ Could not fully initialize the session. Video stream may not be available.', true);
+                    }
+                } else {
+                    updateStatus('No previous session found', true);
+                    log('No previous session found', true);
+                }
+            }
+        });
+
+        sendMessageBtn.addEventListener('click', async () => {
+            if (!currentSessionId) {
+                return;
+            }
+
+            const message = messageInput.value.trim();
+            if (!message) {
+                updateStatus('Please enter a message', true);
+                return;
+            }
+            
+            try {
+                updateStatus('Sending message...');
+                log(`Sending message: "${message}"`);
+                
+                const apiKey = apiKeyInput.value.trim();
+                
+                // Check session state before sending message
+                const sessionState = await checkSessionState(currentSessionId, apiKey);
+                
+                // If session is not active, try to initialize it
+                if (!sessionState.active) {
+                    if (sessionState.state === 'new') {
+                        log('Session is in new state. Attempting to initialize...');
+                        updateStatus('Initializing session before sending message...');
+                        
+                        // Try to initialize the session
+                        const initialized = await initializeSession(currentSessionId, apiKey);
+                        
+                        if (!initialized) {
+                            updateStatus('Could not initialize session. Try again later or create a new session.', true);
+                            log('Could not initialize session after multiple attempts.', true);
+                            return;
+                        }
+                    } else if (sessionState.state === 'closed' || sessionState.message.includes('closed') || sessionState.message.includes('expired')) {
+                        log('Session is closed or expired. Please create a new session.', true);
+                        updateStatus('Session expired. Please create a new session.', true);
+                        updateSessionControls(null);
+                        tabs[0].click(); // Switch to create tab
+                        return;
+                    } else {
+                        updateStatus(`Cannot send message: ${sessionState.message}`, true);
+                        log(`Cannot send message: ${sessionState.message}`, true);
+                        return;
+                    }
+                }
+                
+                // Send the message
+                const response = await fetch(`${BASE_URL}/streaming.task`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSessionId,
+                        task_type: 'talk',  // This is required for the API
+                        text: message
+                    })
+                });
+                
+                const data = await response.json();
+                log(`API Response: ${JSON.stringify(data)}`);
+                
+                if (response.ok && data.code === 100) {
+                    updateStatus(`Message sent successfully`);
+                    // Clear the message input
+                    messageInput.value = '';
+                } else if (data.code === 400006 && data.message.includes("not in correct state")) {
+                    updateStatus(`Session not ready yet. Attempting to reinitialize...`, true);
+                    log(`Session not ready yet. Attempting to reinitialize...`, true);
+                    
+                    // Try to reinitialize the session
+                    const reinitialized = await initializeSession(currentSessionId, apiKey);
+                    
+                    if (reinitialized) {
+                        log('Session reinitialized. Please try sending your message again.');
+                        updateStatus('Session reinitialized. Please try again.');
+                    } else {
+                        log('Could not reinitialize session. You may need to create a new session.', true);
+                        updateStatus('Could not reinitialize session.', true);
+                    }
+                } else {
+                    updateStatus(`Error sending message: ${data.message}`, true);
+                    log(`Error sending message: ${data.message}`, true);
+                    log('Session may have expired. Try creating a new session.', true);
+                }
+                
+            } catch (error) {
+                updateStatus(`Error: ${error.message}`, true);
+                log(`Error: ${error.message}`, true);
+            }
+        });
+
+        stopSessionBtn.addEventListener('click', async () => {
+            if (!currentSessionId) {
+                return;
+            }
+
+            try {
+                log(`Stopping session ${currentSessionId}`);
+                
+                const apiKey = apiKeyInput.value.trim();
+                
+                const response = await fetch(`${BASE_URL}/streaming.stop`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: currentSessionId
+                    })
+                });
+                
+                const data = await response.json();
+                log(`API Response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (response.ok && data.code === 100) {
+                    log('Session stopped successfully');
+                    updateStatus('Session stopped successfully');
+                    updateSessionControls(null);
+                } else {
+                    log(`Error stopping session: ${data.message}`, true);
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`, true);
+            }
+        });
+        
+        clearLogsBtn.addEventListener('click', () => {
+            logContainer.innerHTML = '';
+            log('Logs cleared');
+        });
+        
+        // Message input enter key handling
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessageBtn.click();
+            }
+        });
+
+        // Initialize
+        log('Avatar Controller initialized');
+        
+        // Check for previous session
+        const lastSession = getLastSessionFromLocalStorage();
+        if (lastSession) {
+            log(`Found previous session: ${lastSession.sessionId} from ${new Date(lastSession.timestamp).toLocaleString()}`);
+        }
+    </script>
+</body>
+</html>
