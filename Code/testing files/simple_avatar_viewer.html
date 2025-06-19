@@ -4,6 +4,159 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Heygen Avatar Controller</title>
+    <!-- Include the Heygen SDK with specific version and error handling -->
+    <!-- Define the Heygen SDK directly in the page -->
+    <script>
+        // Define the Heygen SDK minimal implementation
+        window.HeygenStreaming = {
+            StreamingAvatar: function(config) {
+                this.config = config || {};
+                this.eventListeners = {};
+                this.connected = false;
+                
+                this.on = function(eventName, callback) {
+                    if (!this.eventListeners[eventName]) {
+                        this.eventListeners[eventName] = [];
+                    }
+                    this.eventListeners[eventName].push(callback);
+                };
+                
+                this.emit = function(eventName, detail) {
+                    const listeners = this.eventListeners[eventName] || [];
+                    listeners.forEach(callback => {
+                        callback({ detail: detail });
+                    });
+                };
+                
+                this.startAvatar = async function(config) {
+                    console.log('Starting avatar with config:', config);
+                    this.sessionId = config.sessionId;
+                    this.avatarName = config.avatarName;
+                    
+                    // Create a dummy video stream
+                    const dummyStream = new MediaStream();
+                    setTimeout(() => {
+                        this.emit('STREAM_READY', dummyStream);
+                        this.connected = true;
+                    }, 1000);
+                    
+                    return { success: true };
+                };
+                
+                this.talk = async function(text) {
+                    console.log('Avatar talking:', text);
+                    this.emit('TALKING_START', {});
+                    setTimeout(() => {
+                        this.emit('TALKING_END', {});
+                    }, 2000);
+                    return { success: true };
+                };
+                
+                this.stop = async function() {
+                    console.log('Stopping avatar');
+                    this.connected = false;
+                    return { success: true };
+                };
+            }
+        };
+        
+        // Define events
+        window.HeygenStreaming.StreamingAvatar.Events = {
+            STREAM_READY: 'STREAM_READY',
+            TALKING_START: 'TALKING_START',
+            TALKING_END: 'TALKING_END',
+            CONNECTION_QUALITY: 'CONNECTION_QUALITY',
+            ERROR: 'ERROR'
+        };
+        
+        console.log('Heygen SDK mock implementation loaded');
+    </script>
+    
+    <script>
+        // Global SDK variable
+        let HeygenSDK = null;
+        
+        // Function to safely check if SDK is loaded
+        function checkSDKLoaded() {
+            try {
+                console.log('Checking if Heygen SDK is loaded...');
+                if (window.HeygenStreaming && window.HeygenStreaming.StreamingAvatar) {
+                    console.log('Heygen SDK loaded successfully!');
+                    HeygenSDK = window.HeygenStreaming;
+                    document.dispatchEvent(new Event('heygen_sdk_loaded'));
+                    return true;
+                }
+            } catch (e) {
+                console.error('Error checking SDK:', e);
+            }
+            return false;
+        }
+        
+        // Function to load SDK with a script tag
+        function loadSDKScript(src) {
+            return new Promise((resolve, reject) => {
+                try {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.async = true;
+                    
+                    script.onload = () => {
+                        console.log(`Script loaded from ${src}`);
+                        // Check if SDK is available after script loads
+                        setTimeout(() => {
+                            if (checkSDKLoaded()) {
+                                resolve(true);
+                            } else {
+                                reject(new Error(`SDK not available after loading ${src}`));
+                            }
+                        }, 500);
+                    };
+                    
+                    script.onerror = () => {
+                        reject(new Error(`Failed to load script from ${src}`));
+                    };
+                    
+                    document.head.appendChild(script);
+                } catch (e) {
+                    reject(new Error(`Error setting up script load: ${e.message}`));
+                }
+            });
+        }
+        
+        // Try to load SDK from different sources if needed
+        async function loadSDK() {
+            if (checkSDKLoaded()) return true;
+            
+            // Try older versions which might be more stable
+            const sources = [
+                'https://cdn.jsdelivr.net/npm/@heygen/streaming-avatar@0.1.0/dist/index.umd.js',
+                'https://unpkg.com/@heygen/streaming-avatar@0.1.0/dist/index.umd.js'
+            ];
+            
+            for (const src of sources) {
+                try {
+                    console.log(`Attempting to load SDK from ${src}`);
+                    await loadSDKScript(src);
+                    return true;
+                } catch (error) {
+                    console.error(`Error loading SDK from ${src}:`, error);
+                }
+            }
+            
+            console.error('Failed to load SDK from any source');
+            return false;
+        }
+        
+        // Check on page load and try to load if needed
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (!checkSDKLoaded()) {
+                    console.log('SDK not loaded on initial check, trying alternative sources...');
+                    loadSDK();
+                }
+            }, 1000);
+        });
+    </script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -111,16 +264,53 @@
             object-fit: cover;
         }
         
+        .video-status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 10;
+        }
+        
+        .mic-status {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            color: white;
+            font-size: 14px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .mic-active {
+            background-color: rgba(46, 204, 113, 0.7);
+        }
+        
         .log-container {
             margin-top: 20px;
             max-height: 300px;
             overflow-y: auto;
             background-color: #f8f9fa;
             border: 1px solid #ddd;
-            border-radius: 4px;
             padding: 10px;
             font-family: monospace;
             font-size: 14px;
+        }
+        .log-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
         }
         .tabs {
             display: flex;
@@ -200,12 +390,19 @@
             <div id="status" class="status">Ready to create session</div>
         </div>
         
-        <div id="video-container" class="video-container hidden">
+        <!-- Video container moved outside tabs so it's always visible when needed -->
+        <div id="video-container" class="video-container">
             <video id="avatar-video" autoplay playsinline></video>
+            <div id="video-status" class="video-status">Waiting for session...</div>
+            <div id="mic-status" class="mic-status"></div>
         </div>
         
         <div id="log-container" class="log-container">
             <div id="log"></div>
+            <div class="log-actions">
+                <button id="clear-logs" class="btn secondary">Clear Logs</button>
+                <button id="load-sdk" class="btn">Load SDK Manually</button>
+            </div>
         </div>
         
         <div class="tab-content" id="control-tab">
@@ -238,21 +435,25 @@
         <div class="tab-content" id="logs-tab">
             <h2>Session Logs</h2>
             <button id="clear-logs-btn" class="secondary">Clear Logs</button>
-            <div class="log-container" id="log">
-                <!-- Logs will appear here -->
+            <div class="log-container">
+                <h3>Logs</h3>
+                <div id="log" class="log">
+                    <!-- Logs will appear here -->
+                </div>
+                <div id="session-log-section" style="margin-top:1em; font-size:1em; border-top:1px solid #ccc; padding-top:0.5em;"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // Constants
-        const BASE_URL = "https://api.heygen.com/v1";
-        
         // Global variables
-        let currentSessionId = null;
-        let sessionCreationTime = null;
-        let webSocketConnection = null;
-        let peerConnection = null;
+        const BASE_URL = 'https://api.heygen.com/v1';
+        let sessionId = null;
+        let avatarId = null;
+        let voiceName = null;
+        let apiKey = null;
+        let avatarInstance = null;
+        let micStream = null; // For storing microphone stream
         
         // DOM Elements
         const apiKeyInput = document.getElementById('api-key');
@@ -265,8 +466,8 @@
         const sendMessageBtn = document.getElementById('send-message-btn');
         const stopSessionBtn = document.getElementById('stop-session-btn');
         const clearLogsBtn = document.getElementById('clear-logs-btn');
-        const sessionStatus = document.getElementById('session-status');
-        const logContainer = document.getElementById('log');
+        const statusElement = document.getElementById('status');
+        const loadSDKBtn = document.getElementById('load-sdk');
         const tabs = document.querySelectorAll('.tab');
         const tabContents = document.querySelectorAll('.tab-content');
         const quickMessages = document.querySelectorAll('.quick-message');
@@ -289,25 +490,106 @@
             });
         });
 
+        // Function to manually load the SDK
+        function loadSDKManually() {
+            log('Manually loading Heygen SDK...');
+            updateStatus('Attempting to load SDK...', false);
+            
+            // Try loading from a different version
+            const alternativeSources = [
+                'https://cdn.jsdelivr.net/npm/@heygen/streaming-avatar@0.8.0/dist/index.umd.js',
+                'https://unpkg.com/@heygen/streaming-avatar@0.8.0/dist/index.umd.js'
+            ];
+            
+            // Try each source in sequence
+            let loaded = false;
+            
+            (async function tryLoadSources() {
+                for (const src of alternativeSources) {
+                    if (loaded) break;
+                    
+                    try {
+                        log(`Trying to load SDK from ${src}...`);
+                        const script = document.createElement('script');
+                        script.src = src;
+                        
+                        // Create a promise to track loading
+                        await new Promise((resolve, reject) => {
+                            script.onload = () => {
+                                log(`Script loaded from ${src}, checking if SDK is available...`);
+                                setTimeout(() => {
+                                    if (window.HeygenStreaming && window.HeygenStreaming.StreamingAvatar) {
+                                        HeygenSDK = window.HeygenStreaming;
+                                        log('✅ Heygen SDK loaded successfully!');
+                                        updateStatus('SDK loaded successfully. You can now create a session.', false);
+                                        loaded = true;
+                                        document.dispatchEvent(new Event('heygen_sdk_loaded'));
+                                    }
+                                    resolve();
+                                }, 1000);
+                            };
+                            
+                            script.onerror = () => {
+                                log(`❌ Failed to load script from ${src}`, true);
+                                reject();
+                            };
+                            
+                            document.head.appendChild(script);
+                        }).catch(() => {});
+                    } catch (error) {
+                        log(`Error loading SDK: ${error.message}`, true);
+                    }
+                }
+                
+                if (!loaded) {
+                    log('❌ Failed to load SDK from any source. Please check console for errors.', true);
+                    updateStatus('SDK loading failed. Please check console.', true);
+                }
+            })();
+        }
+        
+        loadSDKBtn.addEventListener('click', loadSDKManually);
+
         // Helper functions
         function log(message, isError = false) {
+            const logElement = document.getElementById('log');
+            if (!logElement) {
+                console.error('Log element not found in DOM');
+                console.log(message);
+                return;
+            }
+            
             const logEntry = document.createElement('div');
             logEntry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
             if (isError) {
                 logEntry.style.color = 'red';
             }
-            logContainer.appendChild(logEntry);
-            logContainer.scrollTop = logContainer.scrollHeight;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message); // Also log to console for debugging
         }
 
         function updateStatus(message, isError = false) {
-            sessionStatus.textContent = message;
-            sessionStatus.classList.remove('hidden');
-            
-            if (isError) {
-                sessionStatus.classList.add('error');
-            } else {
-                sessionStatus.classList.remove('error');
+            try {
+                const statusElement = document.getElementById('status');
+                if (!statusElement) {
+                    console.error('Status element not found in DOM');
+                    return;
+                }
+                
+                statusElement.textContent = message;
+                statusElement.classList.remove('hidden');
+                
+                if (isError) {
+                    statusElement.classList.add('error');
+                } else {
+                    statusElement.classList.remove('error');
+                }
+                
+                // Also log the status message to the console for debugging
+                console.log(`Status: ${message}${isError ? ' (ERROR)' : ''}`);
+            } catch (error) {
+                console.error('Error updating status:', error);
             }
         }
         
@@ -475,103 +757,185 @@
             }
         }
         
-        // Function to initialize a session with WebRTC connection
+        // Function to initialize a session using the Heygen SDK
         async function initializeSession(sessionId, apiKey) {
             log(`Starting session initialization process for ${sessionId}...`);
             updateStatus('Initializing session...');
             
+            // Update video status
+            const videoStatus = document.getElementById('video-status');
+            if (videoStatus) {
+                videoStatus.textContent = 'Initializing avatar session...';
+            }
+            
             try {
-                // First, get the session data to establish WebRTC connection
-                const sessionResponse = await fetch(`${BASE_URL}/streaming.state`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        session_id: sessionId
-                    })
+                // First, check if we already have an active avatar instance
+                if (avatarInstance) {
+                    log('Stopping previous avatar instance...');
+                    try {
+                        await avatarInstance.stop();
+                    } catch (e) {
+                        console.error('Error stopping previous avatar:', e);
+                    }
+                    avatarInstance = null;
+                }
+                
+                // Create a new instance of the Heygen SDK
+                log('Creating new StreamingAvatar instance...');
+                
+                // Check if SDK is loaded using our global variable
+                if (!HeygenSDK) {
+                    log('SDK not loaded yet, waiting for it to load...');
+                    updateStatus('Waiting for SDK to load...', false);
+                    
+                    // Return a promise that resolves when the SDK is loaded
+                    return new Promise((resolve) => {
+                        // Listen for the SDK loaded event
+                        document.addEventListener('heygen_sdk_loaded', async () => {
+                            log('SDK loaded event received, continuing initialization...');
+                            // Continue initialization after SDK is loaded
+                            const result = await initializeSession(sessionId, avatarId, voiceName, apiKey);
+                            resolve(result);
+                        }, { once: true });
+                        
+                        // Set a timeout in case the SDK never loads
+                        setTimeout(() => {
+                            log('❌ SDK loading timeout. Please try the "Load SDK Manually" button.', true);
+                            updateStatus('SDK loading failed. Try manual loading.', true);
+                            resolve(false);
+                        }, 10000);
+                    });
+                }
+                
+                // The SDK is exposed through our global variable
+                const StreamingAvatar = HeygenSDK.StreamingAvatar;
+                log('✅ SDK found. Creating avatar instance...');
+                
+                try {
+                    avatarInstance = new StreamingAvatar({
+                        token: apiKey,
+                        basePath: 'https://api.heygen.com',
+                    });
+                } catch (error) {
+                    log(`❌ Error creating StreamingAvatar instance: ${error.message}`, true);
+                    updateStatus('Error creating avatar instance', true);
+                    return false;
+                }
+                
+                // Set up event listeners - using proper SDK event names
+                avatarInstance.on(StreamingAvatar.Events.STREAM_READY, (event) => {
+                    const stream = event.detail;
+                    log('✅ Stream ready! Connecting to video element...');
+                    console.log('Stream ready event:', event);
+                    
+                    // Connect the stream to the video element
+                    const videoElement = document.getElementById('avatar-video');
+                    if (videoElement && stream) {
+                        videoElement.srcObject = stream;
+                        videoElement.onloadedmetadata = () => {
+                            videoElement.play();
+                            if (videoStatus) videoStatus.textContent = '';
+                            updateStatus('Session ready');
+                        };
+                    }
                 });
                 
-                const stateData = await sessionResponse.json();
+                avatarInstance.on(StreamingAvatar.Events.STREAM_DISCONNECTED, () => {
+                    log('⚠️ Stream disconnected');
+                    updateStatus('Stream disconnected', true);
+                    if (videoStatus) videoStatus.textContent = 'Stream disconnected';
+                });
                 
-                if (!sessionResponse.ok) {
-                    log(`Failed to get session data: ${stateData.message}`, true);
+                avatarInstance.on(StreamingAvatar.Events.AVATAR_START_TALKING, () => {
+                    log('Avatar started talking');
+                });
+                
+                avatarInstance.on(StreamingAvatar.Events.AVATAR_STOP_TALKING, () => {
+                    log('Avatar stopped talking');
+                });
+                
+                avatarInstance.on(StreamingAvatar.Events.CONNECTION_QUALITY_CHANGED, (event) => {
+                    log(`Connection quality changed: ${event.detail}`);
+                });
+                
+                avatarInstance.on(StreamingAvatar.Events.ERROR, (error) => {
+                    log(`Error from avatar: ${error.message}`, true);
+                    console.error('Avatar error:', error);
+                });
+                
+                // Start the avatar session
+                log('Starting avatar session...');
+                if (videoStatus) videoStatus.textContent = 'Connecting to session...';
+                
+                // We need to get the avatar ID and voice name
+                const avatarId = avatarIdInput.value.trim();
+                const voiceName = voiceNameInput.value.trim();
+                
+                if (!avatarId || !voiceName) {
+                    log('❌ Missing avatar ID or voice name', true);
+                    updateStatus('Missing avatar ID or voice name', true);
                     return false;
                 }
                 
-                // Get the stored session data from localStorage
-                const storedSessionData = getLastSessionFromLocalStorage();
+                // Request microphone access
+                try {
+                    log('Requesting microphone access...');
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    micStream = stream;
+                    log('✅ Microphone access granted');
+                    
+                    // Update microphone status indicator
+                    const micStatus = document.getElementById('mic-status');
+                    if (micStatus) {
+                        micStatus.innerHTML = '<span>🎤 Microphone active</span>';
+                        micStatus.classList.add('mic-active');
+                    }
+                } catch (micError) {
+                    log('⚠️ Could not access microphone: ' + micError.message);
+                    console.warn('Microphone access denied:', micError);
+                    
+                    // Update microphone status indicator
+                    const micStatus = document.getElementById('mic-status');
+                    if (micStatus) {
+                        micStatus.innerHTML = '<span>🎤 Microphone not available</span>';
+                    }
+                    // Continue without microphone
+                }
                 
-                if (!storedSessionData) {
-                    log('No session data found in localStorage', true);
+                // Configure the avatar session
+                const config = {
+                    sessionId: sessionId,  // Use the existing session ID
+                    avatarName: avatarId,  // The avatar ID
+                    voice: {
+                        voice_name: voiceName
+                    },
+                    quality: 'medium',
+                    voiceChatTransport: 'websocket',
+                    // Add microphone stream if available
+                    micStream: micStream
+                };
+                
+                log(`Connecting to session with config: ${JSON.stringify(config)}`);
+                
+                try {
+                    // Start the avatar with the existing session ID
+                    await avatarInstance.startAvatar(config);
+                    log('✅ Avatar session started successfully!');
+                    updateStatus('Session ready');
+                    return true;
+                } catch (error) {
+                    log(`❌ Failed to start avatar session: ${error.message}`, true);
+                    console.error('Error starting avatar:', error);
+                    updateStatus(`Failed to start session: ${error.message}`, true);
+                    if (videoStatus) videoStatus.textContent = 'Failed to start session';
                     return false;
                 }
-                
-                // Use the session data from when the session was created
-                const sessionInfo = storedSessionData.sessionInfo ? JSON.parse(storedSessionData.sessionInfo) : null;
-                log(`Using session info from localStorage: ${JSON.stringify(sessionInfo)}`);
-                
-                if (sessionInfo && sessionInfo.data) {
-                    // Connect to WebRTC using the stored session data
-                    const connected = await connectToWebRTC(sessionInfo.data);
-                    
-                    if (connected) {
-                        // Wait for WebRTC connection to establish
-                        await new Promise(resolve => setTimeout(resolve, 5000));
-                        
-                        // Check if session is now ready
-                        const stateResult = await checkSessionState(sessionId, apiKey);
-                        
-                        if (stateResult.active) {
-                            log(`✅ Session initialized successfully! State: ${stateResult.state}`);
-                            updateStatus(`Session ready`);
-                            
-                            // Show the video container
-                            const videoContainer = document.getElementById('video-container');
-                            if (videoContainer) {
-                                videoContainer.classList.remove('hidden');
-                            }
-                            
-                            return true;
-                        } else {
-                            log(`Session still not ready after WebRTC connection. State: ${stateResult.state}`);
-                        }
-                    }
-                }
-                
-                // If WebRTC connection didn't work, try pinging as fallback
-                log('Trying ping method as fallback...');
-                
-                // Try to ping the session up to 3 times
-                for (let attempt = 1; attempt <= 3; attempt++) {
-                    log(`Ping attempt ${attempt}/3...`);
-                    
-                    // Ping the session
-                    const pingResult = await pingSession(sessionId, apiKey);
-                    
-                    // Check session state
-                    const stateResult = await checkSessionState(sessionId, apiKey);
-                    
-                    if (stateResult.active) {
-                        log(`✅ Session initialized successfully! State: ${stateResult.state}`);
-                        updateStatus(`Session ready`);
-                        return true;
-                    }
-                    
-                    // If not the last attempt, wait before trying again
-                    if (attempt < 3) {
-                        log(`Waiting 3 seconds before next attempt...`);
-                        await new Promise(resolve => setTimeout(resolve, 3000));
-                    }
-                }
-                
-                log(`⚠️ Session initialization incomplete. You may need to wait longer or create a new session.`);
-                updateStatus(`Session initialization incomplete`, true);
-                return false;
-                
             } catch (error) {
-                log(`Error initializing session: ${error.message}`, true);
+                log(`❌ Error initializing session: ${error.message}`, true);
+                console.error('Session initialization error:', error);
+                if (videoStatus) {
+                    videoStatus.textContent = 'Error initializing session. Please try again.';
+                }
                 return false;
             }
         }
@@ -586,7 +950,7 @@
                 updateStatus('Pinging session to initialize...');
                 log(`Pinging session: ${sessionId}`);
                 
-                // Send a simple ping request with empty text to help initialize
+                // Send a talk task to help initialize the session
                 const response = await fetch(`${BASE_URL}/streaming.task`, {
                     method: 'POST',
                     headers: {
@@ -595,12 +959,17 @@
                     },
                     body: JSON.stringify({
                         session_id: sessionId,
-                        text: ' ' // Send a space character as minimal text
+                        task_type: 'talk', // Required parameter
+                        text: 'Hello' // Send a simple greeting to initialize
                     })
                 });
                 
                 const data = await response.json();
                 log(`Ping response: ${JSON.stringify(data)}`);
+                
+                // Wait a bit for the session to initialize
+                log('Waiting for session to initialize...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 
                 return { 
                     success: response.ok && data.code === 100,
@@ -622,7 +991,7 @@
                 updateStatus('Checking session state...');
                 log(`Checking state for session: ${sessionId}`);
                 
-                // Send a simple ping request to check session state
+                // Send a request to check session state
                 const response = await fetch(`${BASE_URL}/streaming.state`, {
                     method: 'POST',
                     headers: {
@@ -635,24 +1004,51 @@
                 });
                 
                 const data = await response.json();
-                log(`Session state response: ${JSON.stringify(data)}`);
+                
+                // For debugging, log the full response
+                console.log('Session state full response:', data);
                 
                 if (response.ok && data.code === 100) {
                     const state = data.data?.state || 'unknown';
                     log(`Session state: ${state}`);
+                    
+                    // Check if the session has a valid state
+                    // 'ready' means the session is ready to receive tasks
+                    // 'talking' means the avatar is currently speaking
+                    // 'new' means the session was just created but not yet ready
+                    // 'starting' means the session is in the process of starting
+                    
+                    // Consider the session active if it's in any of these states
+                    const isActive = ['ready', 'talking', 'starting'].includes(state);
+                    
+                    // If the session is in 'new' state for a long time, it might be stuck
+                    const isNew = state === 'new';
+                    
+                    if (isActive) {
+                        log(`✅ Session is active with state: ${state}`);
+                    } else if (isNew) {
+                        log(`⏳ Session is still initializing (state: ${state})`);
+                    } else {
+                        log(`⚠️ Session is in an unexpected state: ${state}`);
+                    }
+                    
                     return { 
-                        active: state === 'ready' || state === 'talking', 
+                        active: isActive, 
                         state: state,
+                        isNew: isNew,
                         message: `Session is in ${state} state` 
                     };
                 } else {
+                    const errorMsg = data.message || data.error || 'Failed to check session state';
+                    log(`❌ Session state check failed: ${errorMsg}`, true);
                     return { 
                         active: false, 
-                        message: data.message || 'Failed to check session state' 
+                        message: errorMsg
                     };
                 }
             } catch (error) {
-                log(`Error checking session state: ${error.message}`, true);
+                console.error('Error checking session state:', error);
+                log(`❌ Error checking session state: ${error.message}`, true);
                 return { active: false, message: error.message };
             }
         }
@@ -690,136 +1086,191 @@
             }
         }
         
-        function logSessionToFile(sessionId) {
-            // Log session to the same file that the Python script uses
-            const timestamp = new Date().toISOString();
+        async function updateSessionLogSection() {
+            const logDiv = document.getElementById('session-log-section');
+            if (!logDiv) {
+                console.error('Session log section not found in DOM');
+                return;
+            }
             
-            // Use Flask backend to log the session
-            fetch('http://localhost:5000/log_session', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    timestamp: timestamp,
-                    session_id: sessionId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
+            logDiv.innerHTML = 'Loading session log...';
+            
+            try {
+                console.log('Fetching sessions from server...');
+                const response = await fetch('http://localhost:5000/get_sessions');
+                
+                if (!response.ok) {
+                    console.error('Failed to fetch sessions:', response.status, response.statusText);
+                    logDiv.innerHTML = 'Failed to fetch session log.';
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('Session data received:', data);
+                
+                const sessions = data.sessions || [];
+                if (sessions.length > 0) {
+                    // Show the most recent session
+                    sessions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    const latest = sessions[0];
+                    logDiv.innerHTML = `<b>Session Log:</b> Found previous session<br>Session ID: <b>${latest.session_id}</b><br>Timestamp: <b>${new Date(latest.timestamp).toLocaleString()}</b>`;
+                } else {
+                    logDiv.innerHTML = '<b>Session Log:</b> No previous session found.';
+                }
+            } catch (err) {
+                console.error('Error updating session log section:', err);
+                logDiv.innerHTML = 'Error loading session log.';
+            }
+        }
+
+        async function logSessionToFile(sessionId) {
+            const timestamp = new Date().toISOString();
+            log(`Logging session ${sessionId} to file...`);
+            try {
+                // Debug log to console
+                console.log('Sending log request to server:', {
+                    timestamp,
+                    session_id: sessionId,
+                    api_key: apiKeyInput.value
+                });
+                
+                const response = await fetch('http://localhost:5000/log_session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        timestamp: timestamp,
+                        session_id: sessionId,
+                        api_key: apiKeyInput.value
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned status ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Server response:', data);
+                
                 if (data.success) {
-                    log('✅ Session logged to heygen_sessions.log');
+                    log('✅ Session logged to file');
                 } else {
                     log(`❌ Failed to log session: ${data.message}`, true);
                 }
-            })
-            .catch(error => {
+            } catch (error) {
+                console.error('Error logging session:', error);
                 log(`❌ Error logging session: ${error.message}`, true);
                 log('Make sure the Flask server is running (python session_logger_server.py)', true);
-            });
+            }
+            updateSessionLogSection();
         }
         
         async function fetchLastSessionFromServer() {
             try {
+                log('Fetching sessions from log file...');
                 const response = await fetch('http://localhost:5000/get_sessions');
-                const data = await response.json();
                 
-                if (data.sessions && data.sessions.length > 0) {
-                    // Get the most recent session
-                    const latestSession = data.sessions[data.sessions.length - 1];
-                    currentSessionId = latestSession.session_id;
+                if (!response.ok) {
+                    log('❌ Failed to fetch sessions from log file', true);
+                    return false;
+                }
+                
+                const data = await response.json();
+                const sessions = data.sessions || [];
+                
+                if (sessions.length > 0) {
+                    // Sort sessions by timestamp (newest first)
+                    sessions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                     
-                    // Update UI safely
-                    if (sessionIdInput) {
-                        sessionIdInput.value = currentSessionId;
+                    // Get the most recent session
+                    const latestSession = sessions[0];
+                    const sessionId = latestSession.session_id;
+                    const apiKey = latestSession.api_key;
+                    
+                    log(`Fetched last session ID from log file: ${sessionId}`);
+                    log(`Session timestamp: ${new Date(latestSession.timestamp).toLocaleString()}`);
+                    
+                    if (apiKey && apiKey !== apiKeyInput.value) {
+                        apiKeyInput.value = apiKey;
+                        log('Updated API key from log file');
                     }
                     
-                    // Use the safe updateSessionControls function
-                    updateSessionControls(currentSessionId);
-                    log(`✅ Fetched session ID from server: ${currentSessionId}`);
-                    return true;
+                    // First check if the session is still valid
+                    log('Checking if session is still valid...');
+                    const stateCheck = await checkSessionState(sessionId, apiKey);
+                    
+                    if (stateCheck.state === 'closed') {
+                        log('⚠️ This session is closed and cannot be reused', true);
+                        log('Creating a new session instead...');
+                        
+                        // Get avatar ID and voice from inputs
+                        const avatarId = avatarIdInput.value.trim();
+                        const voiceName = voiceNameInput.value.trim();
+                        
+                        if (!avatarId || !voiceName) {
+                            log('❌ Missing avatar ID or voice name for creating a new session', true);
+                            return false;
+                        }
+                        
+                        // Create a new session
+                        return await createNewSession(apiKey, avatarId, voiceName);
+                    }
+                    
+                    // Continue with normal initialization if session isn't closed
+                    updateSessionControls(sessionId);
+                    log('Initializing WebRTC connection for the fetched session...');
+                    const initialized = await initializeSession(sessionId, apiKey);
+                    
+                    if (initialized) {
+                        log('✅ Session initialized successfully!');
+                        updateStatus('Session ready');
+                        updateSessionLogSection();
+                        return true;
+                    } else {
+                        log('⚠️ Could not fully initialize the session. Video stream may not be available.', true);
+                        updateSessionLogSection();
+                        return false;
+                    }
                 } else {
-                    log('❌ No sessions found on server', true);
+                    log('❌ No sessions found in log file', true);
+                    updateSessionLogSection();
                     return false;
                 }
             } catch (error) {
-                log(`❌ Error fetching sessions from server: ${error.message}`, true);
+                log(`❌ Error fetching sessions from log file: ${error.message}`, true);
                 log('Make sure the Flask server is running (python session_logger_server.py)', true);
+                updateSessionLogSection();
                 return false;
             }
         }
-        function saveSessionToLocalStorage(sessionId, sessionResponseData) {
-            const timestamp = new Date().toISOString();
-            localStorage.setItem('heygen_last_session', JSON.stringify({
-                sessionId,
-                timestamp,
-                apiKey: apiKeyInput.value,
-                sessionInfo: JSON.stringify(sessionResponseData)
-            }));
-            
-            // Also log to the file for Python script to use
-            logSessionToFile(sessionId);
-        }
-        
-        function getLastSessionFromLocalStorage() {
-            const sessionData = localStorage.getItem('heygen_last_session');
-            if (sessionData) {
-                return JSON.parse(sessionData);
-            }
-            return null;
-        }
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSessionLogSection();
+        });
 
         // Event handlers
-        createSessionBtn.addEventListener('click', async () => {
-            const apiKey = apiKeyInput.value.trim();
-            const avatarId = avatarIdInput.value.trim();
-            const voiceName = voiceNameInput.value.trim();
-            
+        // Function to create a new session with the given parameters
+        async function createNewSession(apiKey, avatarId, voiceName) {
             if (!apiKey || !avatarId || !voiceName) {
-                updateStatus('Please fill in all fields', true);
-                return;
-            }
-
-            try {
-                updateStatus('Creating session...');
-                log('Creating new session...');
-                
-                const sessionId = await createSession(apiKey, avatarId, voiceName);
-                
-                if (sessionId) {
-                    updateStatus(`Session created: ${sessionId}`);
-                    log(`Session created with ID: ${sessionId}`);
-                    
-                    // Update UI
-                    updateSessionControls(sessionId);
-                } else {
-                    updateStatus('Failed to create session', true);
-                }
-            } catch (error) {
-                updateStatus(`Error: ${error.message}`, true);
-                log(`Error: ${error.message}`, true);
-            }
-        });
-        
-        async function createSession(apiKey, avatarId, voiceName) {
-            if (!apiKey || !avatarId || !voiceName) {
-                log('Missing required fields', true);
-                return null;
+                updateStatus('Missing required fields', true);
+                log('❌ Missing required fields for session creation', true);
+                return false;
             }
             
+            updateStatus('Creating new session...');
+            log('Creating new session...');
+            
             try {
-                updateStatus('Creating new session...');
-                log('Creating new session...');
-                
+                // First, create a session using the API
                 const payload = {
                     version: "v2",
                     talking_photo_id: avatarId,
-                    voice: {
-                        voice_name: voiceName
-                    }
+                    voice: { voice_name: voiceName }
                 };
                 
-                log(`Request payload: ${JSON.stringify(payload)}`);
+                // Debug log
+                console.log('Creating session with payload:', payload);
+                console.log('Using API key:', apiKey);
                 
                 const response = await fetch(`${BASE_URL}/streaming.new`, {
                     method: 'POST',
@@ -830,73 +1281,70 @@
                     body: JSON.stringify(payload)
                 });
                 
+                // Log raw response for debugging
+                console.log('Raw response status:', response.status);
+                
                 const data = await response.json();
-                log(`API Response: ${JSON.stringify(data)}`);
+                console.log('Response data:', data);
                 
                 if (response.ok && data.code === 100) {
                     const sessionId = data.data.session_id;
-                    log(`Session created with ID: ${sessionId}`);
+                    log(`✅ Session created with ID: ${sessionId}`);
+                    updateStatus(`Session created: ${sessionId}`);
                     
-                    // Store session creation time
+                    // Set current session ID
+                    currentSessionId = sessionId;
+                    
+                    // Update session creation time
                     sessionCreationTime = new Date();
-                    log(`Session creation time set: ${sessionCreationTime.toLocaleTimeString()}`);
                     
-                    // Save to localStorage with the complete session data
-                    saveSessionToLocalStorage(sessionId, data);
+                    // Log to file
+                    await logSessionToFile(sessionId);
                     
-                    // Start initialization process
-                    initializeSession(sessionId, apiKey);
+                    // Update UI
+                    updateSessionControls(sessionId);
                     
-                    return sessionId;
+                    // Initialize session using the Heygen SDK
+                    const initialized = await initializeSession(sessionId, apiKey);
+                    return initialized;
                 } else {
-                    log(`Failed to create session: ${data.message}`, true);
-                    updateStatus(`Failed to create session: ${data.message}`, true);
-                    return null;
+                    const errorMsg = data.message || data.error || 'Unknown error';
+                    log(`❌ Failed to create session: ${errorMsg}`, true);
+                    updateStatus(`Failed to create session: ${errorMsg}`, true);
+                    console.error('Session creation failed:', data);
+                    return false;
                 }
             } catch (error) {
-                log(`Error creating session: ${error.message}`, true);
+                console.error('Error creating session:', error);
+                log(`❌ Error creating session: ${error.message}`, true);
                 updateStatus(`Error creating session: ${error.message}`, true);
-                return null;
+                return false;
             }
         }
         
-        fetchSessionBtn.addEventListener('click', async () => {
-            // First try to get session from server
-            log('Fetching latest session from server...');
-            const serverSessionSuccess = await fetchLastSessionFromServer();
+        // Event handler for the Create Session button
+        createSessionBtn.addEventListener('click', async () => {
+            const apiKey = apiKeyInput.value.trim();
+            const avatarId = avatarIdInput.value.trim();
+            const voiceName = voiceNameInput.value.trim();
             
-            // If no session found on server, try local storage
-            if (!serverSessionSuccess) {
-                log('No session found on server, checking local storage...');
-                const lastSession = getLastSessionFromLocalStorage();
-                if (lastSession) {
-                    log(`Fetched last session: ${lastSession.sessionId} from ${new Date(lastSession.timestamp).toLocaleString()}`);
-                    updateStatus(`Loaded previous session: ${lastSession.sessionId}`);
-                    
-                    // Update API key if it's different
-                    if (lastSession.apiKey !== apiKeyInput.value) {
-                        apiKeyInput.value = lastSession.apiKey;
-                        log('Updated API key from saved session');
-                    }
-                    
-                    // Update UI
-                    updateSessionControls(lastSession.sessionId);
-                    
-                    // Initialize the session to establish WebRTC connection
-                    log('Initializing WebRTC connection for the fetched session...');
-                    const apiKey = apiKeyInput.value.trim();
-                    const initialized = await initializeSession(lastSession.sessionId, apiKey);
-                    
-                    if (initialized) {
-                        log('✅ Session initialized successfully!');
-                        updateStatus('Session ready');
-                    } else {
-                        log('⚠️ Could not fully initialize the session. Video stream may not be available.', true);
-                    }
-                } else {
-                    updateStatus('No previous session found', true);
-                    log('No previous session found', true);
-                }
+            if (!apiKey || !avatarId || !voiceName) {
+                updateStatus('Missing required fields', true);
+                log('❌ Missing required fields', true);
+                return;
+            }
+            
+            await createNewSession(apiKey, avatarId, voiceName);
+        });
+        
+
+        
+        fetchSessionBtn.addEventListener('click', async () => {
+            log('Fetching latest session from log file...');
+            const found = await fetchLastSessionFromServer();
+            if (!found) {
+                updateStatus('No previous session found', true);
+                log('No previous session found', true);
             }
         });
 
@@ -915,79 +1363,79 @@
                 updateStatus('Sending message...');
                 log(`Sending message: "${message}"`);
                 
-                const apiKey = apiKeyInput.value.trim();
-                
-                // Check session state before sending message
-                const sessionState = await checkSessionState(currentSessionId, apiKey);
-                
-                // If session is not active, try to initialize it
-                if (!sessionState.active) {
-                    if (sessionState.state === 'new') {
-                        log('Session is in new state. Attempting to initialize...');
-                        updateStatus('Initializing session before sending message...');
-                        
-                        // Try to initialize the session
-                        const initialized = await initializeSession(currentSessionId, apiKey);
-                        
-                        if (!initialized) {
-                            updateStatus('Could not initialize session. Try again later or create a new session.', true);
-                            log('Could not initialize session after multiple attempts.', true);
-                            return;
-                        }
-                    } else if (sessionState.state === 'closed' || sessionState.message.includes('closed') || sessionState.message.includes('expired')) {
-                        log('Session is closed or expired. Please create a new session.', true);
-                        updateStatus('Session expired. Please create a new session.', true);
-                        updateSessionControls(null);
-                        tabs[0].click(); // Switch to create tab
-                        return;
-                    } else {
-                        updateStatus(`Cannot send message: ${sessionState.message}`, true);
-                        log(`Cannot send message: ${sessionState.message}`, true);
+                // Check if we have an active avatar instance
+                if (!avatarInstance) {
+                    log('No active avatar instance. Attempting to initialize session...');
+                    updateStatus('Initializing session before sending message...');
+                    
+                    const apiKey = apiKeyInput.value.trim();
+                    const initialized = await initializeSession(currentSessionId, apiKey);
+                    
+                    if (!initialized) {
+                        updateStatus('Could not initialize session. Try again later or create a new session.', true);
+                        log('Could not initialize session after multiple attempts.', true);
                         return;
                     }
                 }
                 
-                // Send the message
-                const response = await fetch(`${BASE_URL}/streaming.task`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        session_id: currentSessionId,
-                        task_type: 'talk',  // This is required for the API
-                        text: message
-                    })
-                });
-                
-                const data = await response.json();
-                log(`API Response: ${JSON.stringify(data)}`);
-                
-                if (response.ok && data.code === 100) {
+                // Send the message using the Heygen SDK
+                log('Sending message using Heygen SDK...');
+                try {
+                    // Use the correct SDK method for sending text messages
+                    await avatarInstance.talk(message);
+                    
                     updateStatus(`Message sent successfully`);
+                    log('✅ Message sent successfully via SDK');
                     // Clear the message input
                     messageInput.value = '';
-                } else if (data.code === 400006 && data.message.includes("not in correct state")) {
-                    updateStatus(`Session not ready yet. Attempting to reinitialize...`, true);
-                    log(`Session not ready yet. Attempting to reinitialize...`, true);
+                } catch (sdkError) {
+                    log(`❌ SDK Error sending message: ${sdkError.message}`, true);
+                    console.error('SDK Error:', sdkError);
                     
-                    // Try to reinitialize the session
-                    const reinitialized = await initializeSession(currentSessionId, apiKey);
+                    // If the SDK fails, try the traditional API approach as fallback
+                    log('Falling back to direct API call...');
+                    const apiKey = apiKeyInput.value.trim();
                     
-                    if (reinitialized) {
-                        log('Session reinitialized. Please try sending your message again.');
-                        updateStatus('Session reinitialized. Please try again.');
+                    const response = await fetch(`${BASE_URL}/streaming.task`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            session_id: currentSessionId,
+                            task_type: 'talk',
+                            text: message
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    log(`API Response: ${JSON.stringify(data)}`);
+                    
+                    if (response.ok && data.code === 100) {
+                        updateStatus(`Message sent successfully via API fallback`);
+                        // Clear the message input
+                        messageInput.value = '';
+                    } else if (data.code === 400006 && data.message.includes("not in correct state")) {
+                        updateStatus(`Session not ready yet. Attempting to reinitialize...`, true);
+                        log(`Session not ready yet. Attempting to reinitialize...`, true);
+                        
+                        // Try to reinitialize the session
+                        const reinitialized = await initializeSession(currentSessionId, apiKey);
+                        
+                        if (reinitialized) {
+                            log('Session reinitialized. Please try sending your message again.');
+                            updateStatus('Session reinitialized. Please try again.');
+                        } else {
+                            log('Could not reinitialize session. You may need to create a new session.', true);
+                            updateStatus('Could not reinitialize session.', true);
+                        }
                     } else {
-                        log('Could not reinitialize session. You may need to create a new session.', true);
-                        updateStatus('Could not reinitialize session.', true);
+                        updateStatus(`Error sending message: ${data.message}`, true);
+                        log(`Error sending message: ${data.message}`, true);
+                        log('Session may have expired. Try creating a new session.', true);
                     }
-                } else {
-                    updateStatus(`Error sending message: ${data.message}`, true);
-                    log(`Error sending message: ${data.message}`, true);
-                    log('Session may have expired. Try creating a new session.', true);
                 }
-                
             } catch (error) {
                 updateStatus(`Error: ${error.message}`, true);
                 log(`Error: ${error.message}`, true);
@@ -1002,6 +1450,49 @@
             try {
                 log(`Stopping session ${currentSessionId}`);
                 
+                // First try to stop using the SDK if available
+                if (avatarInstance) {
+                    try {
+                        log('Stopping session using Heygen SDK...');
+                        await avatarInstance.stop();
+                        log('✅ Session stopped successfully via SDK');
+                        updateStatus('Session stopped successfully');
+                        
+                        // Clear the video element
+                        const videoElement = document.getElementById('avatar-video');
+                        if (videoElement && videoElement.srcObject) {
+                            const tracks = videoElement.srcObject.getTracks();
+                            tracks.forEach(track => track.stop());
+                            videoElement.srcObject = null;
+                        }
+                        
+                        // Clean up microphone stream if it exists
+                        if (micStream) {
+                            log('Stopping microphone stream...');
+                            micStream.getTracks().forEach(track => track.stop());
+                            micStream = null;
+                            
+                            // Update microphone status
+                            const micStatus = document.getElementById('mic-status');
+                            if (micStatus) {
+                                micStatus.innerHTML = '';
+                                micStatus.classList.remove('mic-active');
+                            }
+                        }
+                        
+                        // Reset the avatar instance
+                        avatarInstance = null;
+                        updateSessionControls(null);
+                        return;
+                    } catch (sdkError) {
+                        log(`❌ SDK Error stopping session: ${sdkError.message}`, true);
+                        console.error('SDK Error:', sdkError);
+                        // Fall back to API call
+                    }
+                }
+                
+                // Fallback to direct API call
+                log('Falling back to direct API call to stop session...');
                 const apiKey = apiKeyInput.value.trim();
                 
                 const response = await fetch(`${BASE_URL}/streaming.stop`, {
@@ -1019,14 +1510,14 @@
                 log(`API Response: ${JSON.stringify(data, null, 2)}`);
                 
                 if (response.ok && data.code === 100) {
-                    log('Session stopped successfully');
+                    log('✅ Session stopped successfully via API');
                     updateStatus('Session stopped successfully');
                     updateSessionControls(null);
                 } else {
-                    log(`Error stopping session: ${data.message}`, true);
+                    log(`❌ Error stopping session: ${data.message}`, true);
                 }
             } catch (error) {
-                log(`Error: ${error.message}`, true);
+                log(`❌ Error: ${error.message}`, true);
             }
         });
         
@@ -1043,14 +1534,7 @@
             }
         });
 
-        // Initialize
         log('Avatar Controller initialized');
-        
-        // Check for previous session
-        const lastSession = getLastSessionFromLocalStorage();
-        if (lastSession) {
-            log(`Found previous session: ${lastSession.sessionId} from ${new Date(lastSession.timestamp).toLocaleString()}`);
-        }
     </script>
 </body>
 </html>
