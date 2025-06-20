@@ -461,7 +461,8 @@ const lastSessionIdRef = useRef<string>('');
     if (!userId || !sessionId) return;
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsBase = process.env.NEXT_PUBLIC_API_BASE;
+    // Use environment variable or fallback to Heroku backend URL
+    const wsBase = process.env.NEXT_PUBLIC_API_BASE || 'squidgy-back-919bc0659e35.herokuapp.com';
     const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
     
     console.log("[WebSocket] Connecting to:", wsUrl);
