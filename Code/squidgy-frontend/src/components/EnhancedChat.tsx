@@ -61,7 +61,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
     const connectWebSocket = () => {
       if (!profile) return;
       
-      const wsBase = process.env.NEXT_PUBLIC_API_BASE;
+      const wsBase = 'squidgy-back-919bc0659e35.herokuapp.com';
       const wsUrl = `wss://${wsBase}/ws/${profile.user_id}/${sessionId}`;
       
       try {

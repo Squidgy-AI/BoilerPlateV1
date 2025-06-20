@@ -46,8 +46,8 @@ class WebSocketService {
       this.setStatus('connecting');
       
       // Use the backend URL and replace http/https with ws/wss
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-      const wsUrl = backendUrl.replace(/^https?:/, window.location.protocol === 'https:' ? 'wss:' : 'ws:') + 
+      const backendUrl = 'https://squidgy-back-919bc0659e35.herokuapp.com';
+      const wsUrl = backendUrl.replace(/^https?:/, 'wss:') + 
                    `/ws/${this.config.userId}/${this.config.sessionId}`;
       
       // Log the connecting destination
