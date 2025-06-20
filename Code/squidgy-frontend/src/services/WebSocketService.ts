@@ -82,7 +82,9 @@ class WebSocketService {
             this.config.onOpen();
           }
           
-          resolve(this.ws);
+          if (this.ws) {
+            resolve(this.ws);
+          }
         };
         
         this.ws.onmessage = (event) => {

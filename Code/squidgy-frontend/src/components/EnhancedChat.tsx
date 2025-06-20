@@ -57,102 +57,103 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   const availableAgents = AGENT_CONFIG;
   
   // Connect WebSocket
-  useEffect(() => {
-    const connectWebSocket = () => {
-      if (!profile) return;
+  // DISABLED: Using centralized WebSocket from ChatContext instead
+  // useEffect(() => {
+  //   const connectWebSocket = () => {
+  //     if (!profile) return;
       
-      const wsBase = 'squidgy-back-919bc0659e35.herokuapp.com';
-      const wsUrl = `wss://${wsBase}/ws/${profile.user_id}/${sessionId}`;
+  //     const wsBase = 'squidgy-back-919bc0659e35.herokuapp.com';
+  //     const wsUrl = `wss://${wsBase}/ws/${profile.user_id}/${sessionId}`;
       
-      try {
-        const ws = new WebSocket(wsUrl);
-        setWebsocketStatus('connecting');
+  //     try {
+  //       const ws = new WebSocket(wsUrl);
+  //       setWebsocketStatus('connecting');
         
-        ws.onopen = () => {
-          console.log('WebSocket connected');
-          setWebsocketStatus('connected');
-        };
+  //       ws.onopen = () => {
+  //         console.log('WebSocket connected');
+  //         setWebsocketStatus('connected');
+  //       };
         
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('WebSocket message:', data);
+  //       ws.onmessage = (event) => {
+  //         try {
+  //           const data = JSON.parse(event.data);
+  //           console.log('WebSocket message:', data);
             
-            switch (data.type) {
-              case 'agent_thinking':
-                setAgentThinking(`${data.agent} is thinking...`);
-                break;
+  //           switch (data.type) {
+  //             case 'agent_thinking':
+  //               setAgentThinking(`${data.agent} is thinking...`);
+  //               break;
                 
-              case 'agent_response':
-                if (data.final) {
-                  setAgentThinking(null);
+  //             case 'agent_response':
+  //               if (data.final) {
+  //                 setAgentThinking(null);
                   
-                  // Add message to chat
-                  const newAgentMessage: ChatMessage = {
-                    id: `agent-${Date.now()}`,
-                    sender_id: agentType || 'AI',
-                    recipient_id: profile.user_id,
-                    message: data.message,
-                    timestamp: new Date().toISOString(),
-                    sender_name: getAgentName(agentType),
-                    is_agent: true,
-                    agent_type: agentType
-                  };
+  //                 // Add message to chat
+  //                 const newAgentMessage: ChatMessage = {
+  //                   id: `agent-${Date.now()}`,
+  //                   sender_id: agentType || 'AI',
+  //                   recipient_id: profile.user_id,
+  //                   message: data.message,
+  //                   timestamp: new Date().toISOString(),
+  //                   sender_name: getAgentName(agentType),
+  //                   is_agent: true,
+  //                   agent_type: agentType
+  //                 };
                   
-                  setMessages(prev => [...prev, newAgentMessage]);
+  //                 setMessages(prev => [...prev, newAgentMessage]);
                   
-                  // Send to n8n for processing
-                  if (agentType) {
-                    processAgentResponse(data.message, agentType, sessionId);
-                  }
+  //                 // Send to n8n for processing
+  //                 if (agentType) {
+  //                   processAgentResponse(data.message, agentType, sessionId);
+  //                 }
                   
-                  // Have avatar speak if enabled
-                  if (avatarRef.current && videoEnabled && voiceEnabled) {
-                    speakWithAvatar(data.message);
-                  }
-                }
-                break;
-            }
-          } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
-          }
-        };
+  //                 // Have avatar speak if enabled
+  //                 if (avatarRef.current && videoEnabled && voiceEnabled) {
+  //                   speakWithAvatar(data.message);
+  //                 }
+  //               }
+  //               break;
+  //           }
+  //         } catch (error) {
+  //           console.error('Error parsing WebSocket message:', error);
+  //         }
+  //       };
         
-        ws.onclose = () => {
-          console.log('WebSocket disconnected');
-          setWebsocketStatus('disconnected');
+  //       ws.onclose = () => {
+  //         console.log('WebSocket disconnected');
+  //         setWebsocketStatus('disconnected');
           
-          // Try to reconnect after a delay
-          setTimeout(connectWebSocket, 3000);
-        };
+  //         // Try to reconnect after a delay
+  //         setTimeout(connectWebSocket, 3000);
+  //       };
         
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          ws.close();
-        };
+  //       ws.onerror = (error) => {
+  //         console.error('WebSocket error:', error);
+  //         ws.close();
+  //       };
         
-        websocketRef.current = ws;
+  //       websocketRef.current = ws;
         
-        return () => {
-          ws.close();
-        };
-      } catch (error) {
-        console.error('Error connecting to WebSocket:', error);
-        setWebsocketStatus('disconnected');
+  //       return () => {
+  //         ws.close();
+  //       };
+  //     } catch (error) {
+  //       console.error('Error connecting to WebSocket:', error);
+  //       setWebsocketStatus('disconnected');
         
-        // Try to reconnect after a delay
-        setTimeout(connectWebSocket, 3000);
-      }
-    };
+  //       // Try to reconnect after a delay
+  //       setTimeout(connectWebSocket, 3000);
+  //     }
+  //   };
     
-    connectWebSocket();
+  //   connectWebSocket();
     
-    return () => {
-      if (websocketRef.current) {
-        websocketRef.current.close();
-      }
-    };
-  }, [profile, sessionId]);
+  //   return () => {
+  //     if (websocketRef.current) {
+  //       websocketRef.current.close();
+  //     }
+  //   };
+  // }, [profile, sessionId]);
   
   // Load session details and messages
   useEffect(() => {

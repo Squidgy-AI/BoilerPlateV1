@@ -369,13 +369,13 @@ useEffect(() => {
     avatarLoadingTimeout.current = null;
   }
   
-  // Connect to WebSocket
-  if (websocketRef.current) {
-    websocketRef.current.close();
-    websocketRef.current = null;
-  }
+  // DISABLED: Using centralized WebSocket from ChatContext instead
+  // if (websocketRef.current) {
+  //   websocketRef.current.close();
+  //   websocketRef.current = null;
+  // }
   
-  connectWebSocket();
+  // connectWebSocket();
   
   // Fetch chat history
 const fetchChatHistory = async () => {
