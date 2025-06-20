@@ -1,8 +1,11 @@
 // src/app/layout.tsx
+'use client';
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "../animations.css";
+import { AuthProvider } from "@/components/Auth/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,10 +17,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Squidgy - B2B Agent Platform",
-  description: "Collaborative agent platform for business teams",
-};
+// Note: metadata export must be removed when using 'use client'
+// You can move this to a separate metadata file if needed
 
 export default function RootLayout({
   children,
@@ -29,7 +30,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

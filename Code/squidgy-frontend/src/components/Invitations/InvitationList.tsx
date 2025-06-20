@@ -39,7 +39,7 @@ const InvitationList: React.FC = () => {
         const { data, error } = await supabase
           .from('invitations')
           .select('*, sender:sender_id(full_name, avatar_url), group:group_id(name)')
-          .eq('recipient_id', profile.id)
+          .eq('recipient_id', profile.user_id)
           .eq('status', 'pending')
           .order('created_at', { ascending: false });
           
@@ -65,7 +65,7 @@ const InvitationList: React.FC = () => {
           event: 'INSERT',
           schema: 'public',
           table: 'invitations',
-          filter: `recipient_id=eq.${profile.id}`
+          filter: `recipient_id=eq.${profile.user_id}`
         },
         async (payload) => {
           // Fetch full invitation with sender and group info

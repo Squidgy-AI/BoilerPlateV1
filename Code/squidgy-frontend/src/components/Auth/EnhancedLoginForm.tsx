@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
-import Image from 'next/image';
+import SquidgyLogo from './SquidgyLogo';
 
 type AuthMode = 'login' | 'signup' | 'forgotPassword';
 
@@ -25,25 +25,6 @@ const EnhancedLoginForm: React.FC = () => {
     setMessage('');
   }, [mode]);
 
-  const handleSocialLogin = async (provider: 'google' | 'apple' | 'whatsapp') => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      if (provider === 'google') {
-        await signIn('google');
-      } else if (provider === 'apple') {
-        await signIn('apple');
-      } else if (provider === 'whatsapp') {
-        // This would need a custom implementation
-        setError('WhatsApp login is coming soon');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Error with social login. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,13 +41,20 @@ const EnhancedLoginForm: React.FC = () => {
         }
         await signUp({ email, password, fullName });
         setMessage('Registration successful! Please check your email to verify your account.');
-        setMode('login');
+        setTimeout(() => {
+          setMode('login');
+        }, 2000);
       } else if (mode === 'forgotPassword') {
         await sendPasswordResetEmail(email);
         setMessage('Password reset link sent to your email!');
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      // Handle rate limiting specifically
+      if (err.message.includes('rate limit') || err.message.includes('Too many')) {
+        setError('Too many attempts. Please wait 5-10 minutes and try again. If this persists, the rate limits may need to be adjusted in Supabase dashboard.');
+      } else {
+        setError(err.message || 'An error occurred');
+      }
     } finally {
       setLoading(false);
     }
@@ -75,9 +63,7 @@ const EnhancedLoginForm: React.FC = () => {
   return (
     <div className="bg-[#2D3B4F] p-8 rounded-lg shadow-md w-full max-w-md">
       <div className="flex justify-center mb-6">
-        <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center">
-          <span className="text-3xl font-bold text-white">S</span>
-        </div>
+        <SquidgyLogo width={96} />
       </div>
       
       <h2 className="text-2xl font-bold text-white mb-6 text-center">
@@ -128,7 +114,7 @@ const EnhancedLoginForm: React.FC = () => {
           />
         </div>
         
-        {mode !== 'forgotPassword' && (
+        {(mode === 'login' || mode === 'signup') && (
           <div>
             <label htmlFor="password" className="block text-gray-300 mb-2">
               Password
@@ -177,6 +163,8 @@ const EnhancedLoginForm: React.FC = () => {
         </button>
       </form>
       
+      {/* Social login section hidden as requested */}
+      {/*
       <div className="mt-6">
         <div className="relative flex items-center">
           <div className="flex-grow border-t border-gray-700"></div>
@@ -219,6 +207,7 @@ const EnhancedLoginForm: React.FC = () => {
           </button>
         </div>
       </div>
+      */}
       
       <div className="mt-6 text-center text-gray-400">
         {mode === 'login' ? (

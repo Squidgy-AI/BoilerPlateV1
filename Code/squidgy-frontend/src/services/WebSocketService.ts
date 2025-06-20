@@ -32,6 +32,10 @@ class WebSocketService {
     };
   }
 
+  public get rawWebSocket(): WebSocket | null {
+    return this.ws;
+  }
+
   public connect(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -41,9 +45,10 @@ class WebSocketService {
       
       this.setStatus('connecting');
       
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsBase = process.env.NEXT_PUBLIC_API_BASE;
-      const wsUrl = `${wsProtocol}//${wsBase}/ws/${this.config.userId}/${this.config.sessionId}`;
+      // Use the backend URL and replace http/https with ws/wss
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const wsUrl = backendUrl.replace(/^https?:/, window.location.protocol === 'https:' ? 'wss:' : 'ws:') + 
+                   `/ws/${this.config.userId}/${this.config.sessionId}`;
       
       // Log the connecting destination
       if (this.config.onLog) {
@@ -83,6 +88,24 @@ class WebSocketService {
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            
+            // Handle ping/pong messages
+            if (data.type === 'ping') {
+              // Respond to server ping with pong
+              this.ws?.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+              return;
+            } else if (data.type === 'pong') {
+              // Server responded to our ping, connection is alive
+              if (this.config.onLog) {
+                this.config.onLog({
+                  type: 'info',
+                  message: 'Received pong from server - connection alive',
+                  data: { timestamp: data.timestamp }
+                });
+              }
+              return;
+            }
+            
             if (this.config.onMessage) {
               this.config.onMessage(data);
             }
@@ -196,7 +219,13 @@ class WebSocketService {
     this.pingInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         // Send a ping message
-        this.ws.send(JSON.stringify({ type: 'ping' }));
+        this.ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+        if (this.config.onLog) {
+          this.config.onLog({
+            type: 'info',
+            message: 'Sent ping to server to keep connection alive'
+          });
+        }
       }
     }, 30000);
   }

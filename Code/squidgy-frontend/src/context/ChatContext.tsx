@@ -104,7 +104,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Create new WebSocket service
     const wsService = new WebSocketService({
-      userId: profile.id,
+      userId: profile.user_id,
       sessionId: currentSessionId,
       onStatusChange: (status) => {
         setConnectionStatus(status);
@@ -448,7 +448,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Save to chat_history table (matches backend)
       await supabase.from('chat_history').insert({
-        user_id: profile.id,
+        user_id: profile.user_id,
         session_id: currentSessionId,
         sender: message.sender === 'User' ? 'user' : 'agent',
         message: message.message,
@@ -464,13 +464,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!profile) throw new Error('User not authenticated');
     
     // Generate a new session ID
-    const newSessionId = `${profile.id}_${Date.now()}`;
+    const newSessionId = `${profile.user_id}_${Date.now()}`;
     
     try {
       // Save session to database
       await supabase.from('sessions').insert({
         id: newSessionId,
-        user_id: profile.id,
+        user_id: profile.user_id,
         is_group: false,
         last_active: new Date().toISOString()
       });
@@ -492,7 +492,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('chat_history')
         .select('*')
         .eq('session_id', sessionId)
-        .eq('user_id', profile.id)
+        .eq('user_id', profile.user_id)
         .order('timestamp', { ascending: true });
         
       if (error) throw error;

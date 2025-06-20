@@ -31,13 +31,5 @@ const WelcomeScreenContent: React.FC = () => {
   return <EnhancedDashboard />;
 };
 
-// Wrap the component with AuthProvider
-const WelcomeScreen: React.FC = () => {
-  return (
-    <AuthProvider>
-      <WelcomeScreenContent />
-    </AuthProvider>
-  );
-};
-
-export default WelcomeScreen;
+// AuthProvider is now in root layout, so just export the content directly
+export default WelcomeScreenContent;
