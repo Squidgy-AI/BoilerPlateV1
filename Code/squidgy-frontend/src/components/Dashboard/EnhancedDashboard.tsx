@@ -291,9 +291,69 @@ const agents = AGENT_CONFIG;
       case 'agent_response':
         if (data.final) {
           setAgentThinking(null);
+          
+          // Check for agent switching scenario
+          const responseAgentName = data.agent_name;
+          const outputAction = data.output_action;
+          const agentResponse = data.agent_response || data.message;
+          const currentAgentId = selectedAgent?.id;
+          
+          console.log('🔄 Agent response processing:', {
+            currentAgentId,
+            responseAgentName,
+            outputAction,
+            agentResponse
+          });
+          
+          // Handle agent switching when output_action is "need_website_info"
+          if (outputAction === 'need_website_info' && responseAgentName) {
+            console.log('🔄 Need website info - checking for agent switch');
+            
+            // Find the target agent by agent_name
+            const targetAgent = agents.find(agent => agent.agent_name === responseAgentName);
+            
+            if (targetAgent && targetAgent.id !== currentAgentId) {
+              console.log(`🔄 Switching from ${currentAgentId} to ${targetAgent.id} (${targetAgent.name})`);
+              
+              // Switch to the target agent tab
+              await handleAgentSelect(targetAgent);
+              
+              // Show message indicating the switch
+              const switchMessage = {
+                sender: 'agent',
+                text: `Hey I am the right person to answer this question: ${agentResponse}`,
+                timestamp: new Date().toISOString()
+              };
+              
+              addMessage(switchMessage);
+              
+              // Save agent message to database
+              if (currentSessionId) {
+                saveMessageToDatabase(switchMessage.text, switchMessage.sender);
+              }
+              
+              // Speak with avatar if enabled
+              if (avatarRef.current && videoEnabled && voiceEnabled) {
+                avatarRef.current.speak({
+                  text: switchMessage.text,
+                  taskType: "talk" as any,
+                  taskMode: 1 as any
+                });
+              }
+              
+              return; // Exit early since we handled the switch
+            } else if (targetAgent && targetAgent.id === currentAgentId) {
+              console.log('🔄 Same agent - showing normal response');
+              // Same agent, just show the response normally
+            } else {
+              console.log('🔄 Target agent not found:', responseAgentName);
+            }
+          }
+          
+          // Normal agent response handling
           const agentMessage = { 
             sender: 'agent', 
-            text: data.message,
+            text: agentResponse,
             timestamp: new Date().toISOString()
           };
           console.log('Received agent response:', agentMessage);
@@ -318,7 +378,7 @@ const agents = AGENT_CONFIG;
           // Speak with avatar if enabled
           if (avatarRef.current && videoEnabled && voiceEnabled) {
             avatarRef.current.speak({
-              text: data.message,
+              text: agentResponse,
               taskType: "talk" as any,
               taskMode: 1 as any
             });
