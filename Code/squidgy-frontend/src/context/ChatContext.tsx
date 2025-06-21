@@ -212,6 +212,37 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleToolResult(data);
         break;
         
+      case 'agent_switch':
+        // Handle agent switching while maintaining session history
+        console.log('🔄 AGENT SWITCH:', data);
+        setIsProcessing(false);
+        setAgentThinking(null);
+        
+        if (textEnabled) {
+          // Add transition message to chat
+          const transitionMessage: ChatMessage = {
+            id: `agent-switch-${Date.now()}`,
+            sender: data.to_agent || 'AI',
+            message: data.message,
+            timestamp: new Date().toISOString(),
+            requestId: data.requestId,
+            status: 'complete',
+            is_agent: true,
+            agent_type: data.to_agent
+          };
+          
+          setMessages(prev => [...prev, transitionMessage]);
+          
+          // Save transition message to database
+          saveMessageToDatabase(transitionMessage);
+          
+          // Note: Frontend should handle agent tab switching here if needed
+          // The session_id remains the same to maintain history
+          console.log(`🔄 Agent switched from ${data.from_agent} to ${data.to_agent}`);
+          console.log(`📝 Session maintained: ${data.session_id}`);
+        }
+        break;
+        
     }
   };
   
