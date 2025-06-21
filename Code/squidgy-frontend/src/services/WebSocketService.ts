@@ -166,7 +166,7 @@ class WebSocketService {
     });
   }
   
-  public async sendMessage(message: string, requestId?: string): Promise<void> {
+  public async sendMessage(message: string, requestId?: string, agentName?: string): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       try {
         await this.connect();
@@ -178,7 +178,8 @@ class WebSocketService {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         message,
-        requestId: requestId || `req_${Date.now()}`
+        requestId: requestId || `req_${Date.now()}`,
+        agent: agentName || 'presaleskb'  // Include agent name in WebSocket message
       }));
     } else {
       throw new Error('WebSocket not connected');

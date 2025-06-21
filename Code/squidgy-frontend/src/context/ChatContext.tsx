@@ -444,9 +444,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Store timeout for later cleanup
     messageTimeoutsRef.current[requestId] = messageTimeout;
     
-    // Send message via WebSocket
+    // Extract agent name from session_id (format: userId_agentName)
+    const agentName = currentSessionId.split('_').pop() || 'presaleskb';
+    
+    // Send message via WebSocket with agent name
     try {
-      await websocket.sendMessage(message, requestId);
+      await websocket.sendMessage(message, requestId, agentName);
     } catch (error) {
       console.error('Error sending message:', error);
       
