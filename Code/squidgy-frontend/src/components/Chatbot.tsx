@@ -885,11 +885,13 @@ const handleAgentResponse = (data: any) => {
         }
 
         const agent = getCurrentAgent();
+        const agentName = agent?.agent_name || agent?.id || 'presaleskb';
+        console.log(`📨 Chatbot sending WebSocket message with agent: ${agentName}`);
+        
         websocketRef.current.send(JSON.stringify({
           message: userInput,
           requestId,
-          agent: selectedAvatarId,
-          agentName: agent?.agent_name || selectedAvatarId // Add this line
+          agent: agentName  // Send the actual agent name, not avatar ID
         }));
         
         const messageTimeout = setTimeout(() => {
