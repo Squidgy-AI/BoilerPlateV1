@@ -26,6 +26,7 @@ interface ChatbotProps {
   sessionId: string;
   onSessionChange?: (sessionId: string) => void;
   initialTopic?: string | null;
+  currentAgent?: any; // Current selected agent from parent component
 }
 
 export interface ChatProcessingState {
@@ -48,7 +49,7 @@ export const getChatProcessingState = (): ChatProcessingState => {
   };
 };
 
-const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic }) => {
+const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic, currentAgent }) => {
   // Force enable text display for debugging
   const textEnabled = true;
   const videoEnabled = true; 
@@ -884,21 +885,33 @@ const handleAgentResponse = (data: any) => {
           return;
         }
 
-        // Extract agent name from session_id (format: userId_agentName_timestamp)
-        const sessionParts = sessionId.split('_');
-        const agentNameFromSession = sessionParts.length >= 3 ? sessionParts[sessionParts.length - 2] : null;
+        // Get agent name with priority: prop -> session_id -> selected state -> default
+        let agentName = 'presaleskb'; // default fallback
         
-        const agent = getCurrentAgent();
-        const agentName = agentNameFromSession || agent?.agent_name || agent?.id || 'presaleskb';
+        // First try: Use agent from props if provided
+        if (currentAgent?.agent_name) {
+          agentName = currentAgent.agent_name;
+        }
+        // Second try: Extract from session_id format (userId_agentName_timestamp)
+        else {
+          const sessionParts = sessionId.split('_');
+          if (sessionParts.length >= 3) {
+            const sessionAgent = sessionParts[sessionParts.length - 2];
+            // Verify it's a valid agent name
+            const validAgent = getAgentById(sessionAgent);
+            if (validAgent) {
+              agentName = validAgent.agent_name;
+            }
+          }
+        }
         
-        // Debug logging to track agent selection issues
-        console.log(`🔍 Debug agent selection:`);
-        console.log(`   selectedAvatarId: ${selectedAvatarId}`);
+        // Debug logging to track agent selection
+        console.log(`🎯 Agent Resolution:`);
+        console.log(`   currentAgent prop: ${JSON.stringify(currentAgent)}`);
         console.log(`   sessionId: ${sessionId}`);
-        console.log(`   agentNameFromSession: ${agentNameFromSession}`);
-        console.log(`   getCurrentAgent(): ${JSON.stringify(agent)}`);
-        console.log(`   Final agentName: ${agentName}`);
-        console.log(`📨 Chatbot sending WebSocket message with agent: ${agentName}`);
+        console.log(`   selectedAvatarId: ${selectedAvatarId}`);
+        console.log(`   Resolved agentName: ${agentName}`);
+        console.log(`📨 Sending WebSocket message with agent: ${agentName}`);
         
         websocketRef.current.send(JSON.stringify({
           message: userInput,
