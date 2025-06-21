@@ -277,7 +277,7 @@ const agents = AGENT_CONFIG;
     }
   };
   
-  const handleWebSocketMessage = (data: any) => {
+  const handleWebSocketMessage = async (data: any) => {
     console.log('WebSocket message:', data);
     
     // Only log important WebSocket events
