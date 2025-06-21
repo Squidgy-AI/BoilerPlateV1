@@ -78,9 +78,28 @@ const agents = AGENT_CONFIG;
   
   // Initialize with first agent on mount
   useEffect(() => {
-    const presalesAgent = agents.find(a => a.id === 'presaleskb') || agents[0];
-    setSelectedAgent(presalesAgent);
-    setCurrentSessionId(`${profile?.user_id}_${presalesAgent.id}`);
+    if (!profile) return;
+    
+    // Try to restore last selected agent from localStorage
+    const lastSelectedAgentId = localStorage.getItem('selectedAgentId');
+    let agentToSelect;
+    
+    if (lastSelectedAgentId) {
+      // Try to find the stored agent
+      agentToSelect = agents.find(a => a.id === lastSelectedAgentId);
+      console.log(`🔄 Restoring agent from localStorage: ${lastSelectedAgentId}`, agentToSelect ? 'Found' : 'Not found');
+    }
+    
+    // Fallback to presaleskb if no stored agent or agent not found
+    if (!agentToSelect) {
+      agentToSelect = agents.find(a => a.id === 'presaleskb') || agents[0];
+      console.log(`🔄 Using fallback agent: ${agentToSelect?.id}`);
+    }
+    
+    setSelectedAgent(agentToSelect);
+    setCurrentSessionId(`${profile.user_id}_${agentToSelect.id}`);
+    
+    console.log(`✅ Initialized with agent: ${agentToSelect.id}, session: ${profile.user_id}_${agentToSelect.id}`);
   }, [profile]);
   
   // Fetch people and groups
@@ -372,6 +391,10 @@ const agents = AGENT_CONFIG;
       setSelectedAgent(agent);
       setSelectedAvatarId(agent.id);
       setIsGroupSession(false);
+      
+      // Save selected agent to localStorage for persistence across tab switches
+      localStorage.setItem('selectedAgentId', agent.id);
+      console.log(`💾 Saved agent to localStorage: ${agent.id}`);
       
       // Close any existing avatar streaming session
       if (websocket) {
