@@ -444,8 +444,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Store timeout for later cleanup
     messageTimeoutsRef.current[requestId] = messageTimeout;
     
-    // Extract agent name from session_id (format: userId_agentName)
-    const agentName = currentSessionId.split('_').pop() || 'presaleskb';
+    // Extract agent name from session_id (format: userId_agentName_timestamp)
+    const sessionParts = currentSessionId.split('_');
+    // Agent name is the second-to-last part (before timestamp)
+    const agentName = sessionParts.length >= 3 ? sessionParts[sessionParts.length - 2] : 'presaleskb';
+    console.log(`📨 Sending message with agent: ${agentName} from session: ${currentSessionId}`);
     
     // Send message via WebSocket with agent name
     try {
