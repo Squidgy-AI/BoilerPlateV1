@@ -214,13 +214,38 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       case 'response':
         // Handle response from backend (n8n workflow response)
-        if (data.response && data.response.agent_response) {
+        console.log('Received response message:', data);
+        console.log('Response data:', data.response);
+        console.log('Text enabled:', textEnabled);
+        
+        // Check if response is a string (JSON) that needs parsing
+        let responseData = data.response;
+        if (typeof responseData === 'string') {
+          try {
+            responseData = JSON.parse(responseData);
+            console.log('Parsed response data:', responseData);
+          } catch (e) {
+            console.error('Failed to parse response:', e);
+          }
+        }
+        
+        // Handle both direct agent_response and nested output structure
+        const agentResponse = responseData?.agent_response || 
+                            responseData?.output?.agent_response ||
+                            (responseData?.output && typeof responseData.output === 'string' ? 
+                              JSON.parse(responseData.output).agent_response : null);
+        
+        console.log('Extracted agent response:', agentResponse);
+        
+        if (agentResponse) {
           setIsProcessing(false);
           setAgentThinking(null);
           
-          // Extract the agent response
-          const agentResponse = data.response.agent_response;
-          const agentName = data.response.agent_name || data.response.agent || 'AI';
+          // Extract the agent name
+          const agentName = responseData?.agent_name || 
+                          responseData?.agent || 
+                          responseData?.output?.agent_name ||
+                          'AI';
           
           // Add AI response to chat if text is enabled
           if (textEnabled) {
@@ -465,7 +490,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const errorMessage: ChatMessage = {
         id: `system-${Date.now()}`,
         sender: 'System',
-        message: `Error sending message: ${error.message}`,
+        message: `Error sending message: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date().toISOString(),
         requestId,
         status: 'error'
