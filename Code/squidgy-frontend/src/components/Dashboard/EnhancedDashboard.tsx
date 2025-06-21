@@ -124,8 +124,15 @@ const agents = AGENT_CONFIG;
         setSelectedAvatarId(firstAgent.id);
         console.log(`Auto-selected default agent: ${firstAgent.name}`);
         
-        // Load chat history for the default agent
-        await loadChatHistoryForAgent(firstAgent);
+        // Get or create a persistent session ID for this agent
+        let sessionId = agentSessions[firstAgent.id];
+        if (!sessionId) {
+          sessionId = `${profile.user_id}_${firstAgent.id}_${Date.now()}`;
+          setAgentSessions(prev => ({ ...prev, [firstAgent.id]: sessionId }));
+        }
+        
+        // Load chat history for the default agent with specific session
+        await loadChatHistoryForAgent(firstAgent, sessionId);
       }
     } catch (error) {
       console.error('Error initializing agent sessions:', error);
@@ -476,7 +483,7 @@ const agents = AGENT_CONFIG;
       } else {
         console.log(`No cached messages found for agent: ${agent.name}, loading from database...`);
         // Load chat history from database for this specific agent session
-        await loadChatHistoryForAgent(agent);
+        await loadChatHistoryForAgent(agent, sessionId);
       }
       
       console.log(`Selected agent: ${agent.name}, Session: ${sessionId}`);
@@ -574,20 +581,28 @@ const agents = AGENT_CONFIG;
     }
   };
   
-  // Function to load chat history for a specific agent from database
-  const loadChatHistoryForAgent = async (agent: any) => {
+  // Function to load chat history for a specific agent session from database
+  const loadChatHistoryForAgent = async (agent: any, sessionId?: string) => {
     if (!profile?.user_id) return;
     
     try {
-      console.log(`Loading chat history from database for agent: ${agent.name}`);
+      console.log(`Loading chat history from database for agent: ${agent.name}, session: ${sessionId}`);
       
-      // Get all chat history for this user and agent combination
-      const { data: chatHistory, error: historyError } = await supabase
+      // Get all chat history (both user and agent messages) for this specific session
+      const query = supabase
         .from('chat_history')
         .select('*')
         .eq('user_id', profile.user_id)
-        .ilike('session_id', `%_${agent.id}_%`) // Match any session with this agent
         .order('timestamp', { ascending: true });
+      
+      // If we have a specific session ID, use it; otherwise fall back to pattern matching
+      if (sessionId) {
+        query.eq('session_id', sessionId);
+      } else {
+        query.ilike('session_id', `%_${agent.id}_%`); // Match any session with this agent
+      }
+      
+      const { data: chatHistory, error: historyError } = await query;
         
       if (historyError) {
         console.error('Error loading chat history:', historyError);
@@ -600,14 +615,19 @@ const agents = AGENT_CONFIG;
           text: msg.message,
           timestamp: msg.timestamp
         }));
+        
+        // Count user vs agent messages for debugging
+        const userMessages = formattedMessages.filter(msg => msg.sender === 'user').length;
+        const agentMessages = formattedMessages.filter(msg => msg.sender === 'agent').length;
+        
         setMessages(formattedMessages);
         // Cache the messages for this agent
         setAgentChatCache(prev => ({ ...prev, [agent.id]: formattedMessages }));
-        console.log(`Loaded ${chatHistory.length} messages for agent: ${agent.name}`);
+        console.log(`✅ Loaded ${chatHistory.length} messages for agent: ${agent.name} (${userMessages} user, ${agentMessages} agent)`);
       } else {
         setMessages([]);
         setAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
-        console.log(`No previous messages found for agent: ${agent.name}`);
+        console.log(`No previous messages found for agent: ${agent.name} session: ${sessionId}`);
       }
     } catch (error) {
       console.error('Error loading chat history:', error);
