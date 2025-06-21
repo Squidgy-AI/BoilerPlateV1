@@ -211,6 +211,40 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 'tool_result':
         handleToolResult(data);
         break;
+        
+      case 'response':
+        // Handle response from backend (n8n workflow response)
+        if (data.response && data.response.agent_response) {
+          setIsProcessing(false);
+          setAgentThinking(null);
+          
+          // Extract the agent response
+          const agentResponse = data.response.agent_response;
+          const agentName = data.response.agent_name || data.response.agent || 'AI';
+          
+          // Add AI response to chat if text is enabled
+          if (textEnabled) {
+            const newMessage: ChatMessage = {
+              id: `ai-${Date.now()}`,
+              sender: agentName,
+              message: agentResponse,
+              timestamp: new Date().toISOString(),
+              requestId: data.requestId,
+              status: 'complete',
+              is_agent: true,
+              agent_type: agentName
+            };
+            
+            setMessages(prev => [
+              ...prev.filter(msg => !(msg.requestId === data.requestId && msg.sender === 'AI')),
+              newMessage
+            ]);
+            
+            // Save message to database
+            saveMessageToDatabase(newMessage);
+          }
+        }
+        break;
     }
   };
   
