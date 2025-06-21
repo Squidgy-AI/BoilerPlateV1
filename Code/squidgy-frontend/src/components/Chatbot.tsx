@@ -884,8 +884,20 @@ const handleAgentResponse = (data: any) => {
           return;
         }
 
+        // Extract agent name from session_id (format: userId_agentName_timestamp)
+        const sessionParts = sessionId.split('_');
+        const agentNameFromSession = sessionParts.length >= 3 ? sessionParts[sessionParts.length - 2] : null;
+        
         const agent = getCurrentAgent();
-        const agentName = agent?.agent_name || agent?.id || 'presaleskb';
+        const agentName = agentNameFromSession || agent?.agent_name || agent?.id || 'presaleskb';
+        
+        // Debug logging to track agent selection issues
+        console.log(`🔍 Debug agent selection:`);
+        console.log(`   selectedAvatarId: ${selectedAvatarId}`);
+        console.log(`   sessionId: ${sessionId}`);
+        console.log(`   agentNameFromSession: ${agentNameFromSession}`);
+        console.log(`   getCurrentAgent(): ${JSON.stringify(agent)}`);
+        console.log(`   Final agentName: ${agentName}`);
         console.log(`📨 Chatbot sending WebSocket message with agent: ${agentName}`);
         
         websocketRef.current.send(JSON.stringify({
