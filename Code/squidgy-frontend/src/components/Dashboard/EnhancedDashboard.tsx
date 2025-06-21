@@ -604,7 +604,10 @@ const agents = AGENT_CONFIG;
     console.log('WebSocket status:', websocket.getStatus(), 'Connection state:', connectionStatus);
     
     try {
-      await websocket.sendMessage(userMessage);
+      // Pass the selected agent's agent_name to WebSocket
+      const agentName = selectedAgent.agent_name || selectedAgent.id;
+      console.log(`🎯 Sending message with agent: ${agentName} (selected agent: ${selectedAgent.name})`);
+      await websocket.sendMessage(userMessage, undefined, agentName);
     } catch (error) {
       console.error('Failed to send message:', error);
       setWebsocketLogs(prev => [...prev, {
