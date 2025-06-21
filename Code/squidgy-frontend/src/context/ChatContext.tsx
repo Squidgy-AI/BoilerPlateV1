@@ -214,9 +214,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
       case 'response':
         // Handle response from backend (n8n workflow response)
-        console.log('Received response message:', data);
-        console.log('Response data:', data.response);
-        console.log('Text enabled:', textEnabled);
+        console.log('🎯 RESPONSE MESSAGE RECEIVED:', data);
+        console.log('🎯 Response data:', data.response);
+        console.log('🎯 Agent response:', data.response?.agent_response);
+        console.log('🎯 Text enabled:', textEnabled);
         
         // Check if response is a string (JSON) that needs parsing
         let responseData = data.response;
@@ -233,9 +234,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const agentResponse = responseData?.agent_response || 
                             responseData?.output?.agent_response ||
                             (responseData?.output && typeof responseData.output === 'string' ? 
-                              JSON.parse(responseData.output).agent_response : null);
+                              JSON.parse(responseData.output).agent_response : null) ||
+                            responseData?.message ||  // Fallback to message field
+                            "Test response - agent_response was empty"; // Debug fallback
         
-        console.log('Extracted agent response:', agentResponse);
+        console.log('🎯 Extracted agent response:', agentResponse);
+        console.log('🎯 Agent response length:', agentResponse?.length);
         
         if (agentResponse) {
           setIsProcessing(false);
