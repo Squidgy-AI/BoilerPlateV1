@@ -212,68 +212,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleToolResult(data);
         break;
         
-      case 'response':
-        // Handle response from backend (n8n workflow response)
-        console.log('🎯 RESPONSE MESSAGE RECEIVED:', data);
-        console.log('🎯 Response data:', data.response);
-        console.log('🎯 Agent response:', data.response?.agent_response);
-        console.log('🎯 Text enabled:', textEnabled);
-        
-        // Check if response is a string (JSON) that needs parsing
-        let responseData = data.response;
-        if (typeof responseData === 'string') {
-          try {
-            responseData = JSON.parse(responseData);
-            console.log('Parsed response data:', responseData);
-          } catch (e) {
-            console.error('Failed to parse response:', e);
-          }
-        }
-        
-        // Handle both direct agent_response and nested output structure
-        const agentResponse = responseData?.agent_response || 
-                            responseData?.output?.agent_response ||
-                            (responseData?.output && typeof responseData.output === 'string' ? 
-                              JSON.parse(responseData.output).agent_response : null) ||
-                            responseData?.message ||  // Fallback to message field
-                            "Test response - agent_response was empty"; // Debug fallback
-        
-        console.log('🎯 Extracted agent response:', agentResponse);
-        console.log('🎯 Agent response length:', agentResponse?.length);
-        
-        if (agentResponse) {
-          setIsProcessing(false);
-          setAgentThinking(null);
-          
-          // Extract the agent name
-          const agentName = responseData?.agent_name || 
-                          responseData?.agent || 
-                          responseData?.output?.agent_name ||
-                          'AI';
-          
-          // Add AI response to chat if text is enabled
-          if (textEnabled) {
-            const newMessage: ChatMessage = {
-              id: `ai-${Date.now()}`,
-              sender: agentName,
-              message: agentResponse,
-              timestamp: new Date().toISOString(),
-              requestId: data.requestId,
-              status: 'complete',
-              is_agent: true,
-              agent_type: agentName
-            };
-            
-            setMessages(prev => [
-              ...prev.filter(msg => !(msg.requestId === data.requestId && msg.sender === 'AI')),
-              newMessage
-            ]);
-            
-            // Save message to database
-            saveMessageToDatabase(newMessage);
-          }
-        }
-        break;
     }
   };
   
@@ -546,7 +484,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Fetch messages for a session
-  const fetchSessionMessages = async (sessionId: string, isGroup: boolean) => {
+  const fetchSessionMessages = async (sessionId: string, _isGroup: boolean) => {
     if (!profile) return;
     
     try {
