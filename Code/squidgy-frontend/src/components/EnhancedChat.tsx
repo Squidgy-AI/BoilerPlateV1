@@ -57,102 +57,103 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   const availableAgents = AGENT_CONFIG;
   
   // Connect WebSocket
-  useEffect(() => {
-    const connectWebSocket = () => {
-      if (!profile) return;
+  // DISABLED: Using centralized WebSocket from ChatContext instead
+  // useEffect(() => {
+  //   const connectWebSocket = () => {
+  //     if (!profile) return;
       
-      const wsBase = process.env.NEXT_PUBLIC_API_BASE;
-      const wsUrl = `wss://${wsBase}/ws/${profile.id}/${sessionId}`;
+  //     const wsBase = 'squidgy-back-919bc0659e35.herokuapp.com';
+  //     const wsUrl = `wss://${wsBase}/ws/${profile.user_id}/${sessionId}`;
       
-      try {
-        const ws = new WebSocket(wsUrl);
-        setWebsocketStatus('connecting');
+  //     try {
+  //       const ws = new WebSocket(wsUrl);
+  //       setWebsocketStatus('connecting');
         
-        ws.onopen = () => {
-          console.log('WebSocket connected');
-          setWebsocketStatus('connected');
-        };
+  //       ws.onopen = () => {
+  //         console.log('WebSocket connected');
+  //         setWebsocketStatus('connected');
+  //       };
         
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log('WebSocket message:', data);
+  //       ws.onmessage = (event) => {
+  //         try {
+  //           const data = JSON.parse(event.data);
+  //           console.log('WebSocket message:', data);
             
-            switch (data.type) {
-              case 'agent_thinking':
-                setAgentThinking(`${data.agent} is thinking...`);
-                break;
+  //           switch (data.type) {
+  //             case 'agent_thinking':
+  //               setAgentThinking(`${data.agent} is thinking...`);
+  //               break;
                 
-              case 'agent_response':
-                if (data.final) {
-                  setAgentThinking(null);
+  //             case 'agent_response':
+  //               if (data.final) {
+  //                 setAgentThinking(null);
                   
-                  // Add message to chat
-                  const newAgentMessage: ChatMessage = {
-                    id: `agent-${Date.now()}`,
-                    sender_id: agentType || 'AI',
-                    recipient_id: profile.id,
-                    message: data.message,
-                    timestamp: new Date().toISOString(),
-                    sender_name: getAgentName(agentType),
-                    is_agent: true,
-                    agent_type: agentType
-                  };
+  //                 // Add message to chat
+  //                 const newAgentMessage: ChatMessage = {
+  //                   id: `agent-${Date.now()}`,
+  //                   sender_id: agentType || 'AI',
+  //                   recipient_id: profile.user_id,
+  //                   message: data.message,
+  //                   timestamp: new Date().toISOString(),
+  //                   sender_name: getAgentName(agentType),
+  //                   is_agent: true,
+  //                   agent_type: agentType
+  //                 };
                   
-                  setMessages(prev => [...prev, newAgentMessage]);
+  //                 setMessages(prev => [...prev, newAgentMessage]);
                   
-                  // Send to n8n for processing
-                  if (agentType) {
-                    processAgentResponse(data.message, agentType, sessionId);
-                  }
+  //                 // Send to n8n for processing
+  //                 if (agentType) {
+  //                   processAgentResponse(data.message, agentType, sessionId);
+  //                 }
                   
-                  // Have avatar speak if enabled
-                  if (avatarRef.current && videoEnabled && voiceEnabled) {
-                    speakWithAvatar(data.message);
-                  }
-                }
-                break;
-            }
-          } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
-          }
-        };
+  //                 // Have avatar speak if enabled
+  //                 if (avatarRef.current && videoEnabled && voiceEnabled) {
+  //                   speakWithAvatar(data.message);
+  //                 }
+  //               }
+  //               break;
+  //           }
+  //         } catch (error) {
+  //           console.error('Error parsing WebSocket message:', error);
+  //         }
+  //       };
         
-        ws.onclose = () => {
-          console.log('WebSocket disconnected');
-          setWebsocketStatus('disconnected');
+  //       ws.onclose = () => {
+  //         console.log('WebSocket disconnected');
+  //         setWebsocketStatus('disconnected');
           
-          // Try to reconnect after a delay
-          setTimeout(connectWebSocket, 3000);
-        };
+  //         // Try to reconnect after a delay
+  //         setTimeout(connectWebSocket, 3000);
+  //       };
         
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          ws.close();
-        };
+  //       ws.onerror = (error) => {
+  //         console.error('WebSocket error:', error);
+  //         ws.close();
+  //       };
         
-        websocketRef.current = ws;
+  //       websocketRef.current = ws;
         
-        return () => {
-          ws.close();
-        };
-      } catch (error) {
-        console.error('Error connecting to WebSocket:', error);
-        setWebsocketStatus('disconnected');
+  //       return () => {
+  //         ws.close();
+  //       };
+  //     } catch (error) {
+  //       console.error('Error connecting to WebSocket:', error);
+  //       setWebsocketStatus('disconnected');
         
-        // Try to reconnect after a delay
-        setTimeout(connectWebSocket, 3000);
-      }
-    };
+  //       // Try to reconnect after a delay
+  //       setTimeout(connectWebSocket, 3000);
+  //     }
+  //   };
     
-    connectWebSocket();
+  //   connectWebSocket();
     
-    return () => {
-      if (websocketRef.current) {
-        websocketRef.current.close();
-      }
-    };
-  }, [profile, sessionId]);
+  //   return () => {
+  //     if (websocketRef.current) {
+  //       websocketRef.current.close();
+  //     }
+  //   };
+  // }, [profile, sessionId]);
   
   // Load session details and messages
   useEffect(() => {
@@ -246,7 +247,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
             const { data: messagesData, error: messagesError } = await supabase
               .from('messages')
               .select('*')
-              .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`)
+              .or(`sender_id.eq.${profile.user_id},recipient_id.eq.${profile.user_id}`)
               .or(`sender_id.eq.${sessionId},recipient_id.eq.${sessionId}`)
               .order('timestamp', { ascending: true });
               
@@ -254,8 +255,8 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
             
             // Filter to only include messages between these two users
             const userMessages = messagesData.filter(msg => 
-              (msg.sender_id === profile.id && msg.recipient_id === sessionId) ||
-              (msg.sender_id === sessionId && msg.recipient_id === profile.id)
+              (msg.sender_id === profile.user_id && msg.recipient_id === sessionId) ||
+              (msg.sender_id === sessionId && msg.recipient_id === profile.user_id)
             );
             
             // Get sender names
@@ -310,7 +311,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
     
     // Create the message object
     const messageObj: Partial<ChatMessage> = {
-      sender_id: profile.id,
+      sender_id: profile.user_id,
       recipient_id: sessionId,
       message: messageText,
       timestamp: new Date().toISOString(),
@@ -333,7 +334,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
           .from('group_messages')
           .insert({
             group_id: sessionId,
-            sender_id: profile.id,
+            sender_id: profile.user_id,
             message: messageText,
             timestamp: messageObj.timestamp,
             is_agent: false
@@ -364,7 +365,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
         const { data, error } = await supabase
           .from('messages')
           .insert({
-            sender_id: profile.id,
+            sender_id: profile.user_id,
             recipient_id: sessionId,
             message: messageText,
             timestamp: messageObj.timestamp
@@ -417,7 +418,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
       const initialMessage: ChatMessage = {
         id: `initial-${Date.now()}`,
         sender_id: agentType,
-        recipient_id: profile?.id || '',
+        recipient_id: profile?.user_id || '',
         message: `Hi! I'm ${getAgentName(agentType)}. How can I help you today?`,
         timestamp: new Date().toISOString(),
         sender_name: getAgentName(agentType),
@@ -554,18 +555,18 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
             {messages.map((msg) => (
               <div 
                 key={msg.id}
-                className={`flex ${msg.sender_id === profile?.id ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${msg.sender_id === profile?.user_id ? 'justify-end' : 'justify-start'}`}
               >
                 <div 
                   className={`max-w-[80%] rounded-lg p-3 ${
-                    msg.sender_id === profile?.id 
+                    msg.sender_id === profile?.user_id 
                       ? 'bg-blue-600 text-white rounded-br-none'
                       : msg.is_agent
                         ? 'bg-purple-700 text-white rounded-bl-none' 
                         : 'bg-gray-700 text-white rounded-bl-none'
                   }`}
                 >
-                  {(isGroup || msg.is_agent) && msg.sender_id !== profile?.id && (
+                  {(isGroup || msg.is_agent) && msg.sender_id !== profile?.user_id && (
                     <div className="text-xs text-gray-300 mb-1">
                       {msg.sender_name || 'Unknown'}
                     </div>

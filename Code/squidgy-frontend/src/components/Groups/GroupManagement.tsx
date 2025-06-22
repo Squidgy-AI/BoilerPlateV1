@@ -145,10 +145,10 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ groupId, onClose }) =
     }
     
     try {
-      // Search for users by name or email
+      // Search only among people you're connected to (secure)
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, avatar_url')
+        .from('user_connections')
+        .select('id, user_id, full_name, email, avatar_url')
         .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
         .limit(10);
         
@@ -156,7 +156,7 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ groupId, onClose }) =
       
       // Filter out users who are already members
       const existingUserIds = members.map(m => m.user_id);
-      const filteredResults = data.filter(user => !existingUserIds.includes(user.id));
+      const filteredResults = data.filter(user => !existingUserIds.includes(user.user_id));
       
       setSearchResults(filteredResults);
     } catch (error) {

@@ -104,7 +104,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Create new WebSocket service
     const wsService = new WebSocketService({
-      userId: profile.id,
+      userId: profile.user_id,
       sessionId: currentSessionId,
       onStatusChange: (status) => {
         setConnectionStatus(status);
@@ -211,6 +211,38 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 'tool_result':
         handleToolResult(data);
         break;
+        
+      case 'agent_switch':
+        // Handle agent switching while maintaining session history
+        console.log('🔄 AGENT SWITCH:', data);
+        setIsProcessing(false);
+        setAgentThinking(null);
+        
+        if (textEnabled) {
+          // Add transition message to chat
+          const transitionMessage: ChatMessage = {
+            id: `agent-switch-${Date.now()}`,
+            sender: data.to_agent || 'AI',
+            message: data.message,
+            timestamp: new Date().toISOString(),
+            requestId: data.requestId,
+            status: 'complete',
+            is_agent: true,
+            agent_type: data.to_agent
+          };
+          
+          setMessages(prev => [...prev, transitionMessage]);
+          
+          // Save transition message to database
+          saveMessageToDatabase(transitionMessage);
+          
+          // Note: Frontend should handle agent tab switching here if needed
+          // The session_id remains the same to maintain history
+          console.log(`🔄 Agent switched from ${data.from_agent} to ${data.to_agent}`);
+          console.log(`📝 Session maintained: ${data.session_id}`);
+        }
+        break;
+        
     }
   };
   
@@ -412,9 +444,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Store timeout for later cleanup
     messageTimeoutsRef.current[requestId] = messageTimeout;
     
-    // Send message via WebSocket
+    // Extract agent name from session_id (format: userId_agentName_timestamp)
+    const sessionParts = currentSessionId.split('_');
+    // Agent name is the second-to-last part (before timestamp)
+    const agentName = sessionParts.length >= 3 ? sessionParts[sessionParts.length - 2] : 'presaleskb';
+    console.log(`📨 Sending message with agent: ${agentName} from session: ${currentSessionId}`);
+    
+    // Send message via WebSocket with agent name
     try {
-      await websocket.sendMessage(message, requestId);
+      await websocket.sendMessage(message, requestId, agentName);
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -431,7 +469,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const errorMessage: ChatMessage = {
         id: `system-${Date.now()}`,
         sender: 'System',
-        message: `Error sending message: ${error.message}`,
+        message: `Error sending message: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date().toISOString(),
         requestId,
         status: 'error'
@@ -448,7 +486,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Save to chat_history table (matches backend)
       await supabase.from('chat_history').insert({
-        user_id: profile.id,
+        user_id: profile.user_id,
         session_id: currentSessionId,
         sender: message.sender === 'User' ? 'user' : 'agent',
         message: message.message,
@@ -464,13 +502,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!profile) throw new Error('User not authenticated');
     
     // Generate a new session ID
-    const newSessionId = `${profile.id}_${Date.now()}`;
+    const newSessionId = `${profile.user_id}_${Date.now()}`;
     
     try {
       // Save session to database
       await supabase.from('sessions').insert({
         id: newSessionId,
-        user_id: profile.id,
+        user_id: profile.user_id,
         is_group: false,
         last_active: new Date().toISOString()
       });
@@ -483,7 +521,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Fetch messages for a session
-  const fetchSessionMessages = async (sessionId: string, isGroup: boolean) => {
+  const fetchSessionMessages = async (sessionId: string, _isGroup: boolean) => {
     if (!profile) return;
     
     try {
@@ -492,7 +530,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('chat_history')
         .select('*')
         .eq('session_id', sessionId)
-        .eq('user_id', profile.id)
+        .eq('user_id', profile.user_id)
         .order('timestamp', { ascending: true });
         
       if (error) throw error;

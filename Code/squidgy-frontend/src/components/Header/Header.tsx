@@ -5,6 +5,7 @@ import { useAuth } from '../Auth/AuthProvider';
 import { useChat } from '../../context/ChatContext';
 import { Menu, X, Settings, PlusCircle, LogOut } from 'lucide-react';
 import ConnectionStatus from '../ConnectionStatus';
+import SquidgyLogo from '../Auth/SquidgyLogo';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -31,7 +32,10 @@ const Header: React.FC<HeaderProps> = ({
           <Menu size={24} />
         </button>
         
-        <h1 className="font-bold text-xl">Squidgy</h1>
+        <div className="flex items-center">
+          <SquidgyLogo width={32} className="mr-2" />
+          <h1 className="font-bold text-xl">Squidgy</h1>
+        </div>
         
         <div className="ml-4">
           <ConnectionStatus 

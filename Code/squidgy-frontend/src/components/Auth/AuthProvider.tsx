@@ -5,6 +5,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { Provider, Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/supabase';
+import { authService } from '@/lib/auth-service';
 
 type AuthContextType = {
   session: Session | null;
@@ -204,34 +205,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign in with provider (email, google, etc.)
   const signIn = async (provider: string, credentials?: { email?: string; password?: string }) => {
     try {
-      let result;
-      
       if (provider === 'email') {
         if (!credentials?.email || !credentials.password) {
           throw new Error('Email and password are required');
         }
         
-        result = await supabase.auth.signInWithPassword({
+        const result = await authService.signIn({
           email: credentials.email,
           password: credentials.password,
         });
+        
+        // Update local state
+        setUser(result.user);
+        setProfile(result.profile);
+        
       } else if (['google', 'apple', 'github', 'whatsapp'].includes(provider)) {
         // Handle whatsapp special case
         if (provider === 'whatsapp') {
           throw new Error('WhatsApp login is not yet implemented');
         }
         
-        result = await supabase.auth.signInWithOAuth({
+        const result = await supabase.auth.signInWithOAuth({
           provider: provider as Provider,
           options: {
             redirectTo: `${window.location.origin}/auth/callback`,
           },
         });
+        
+        if (result.error) throw result.error;
       } else {
         throw new Error(`Unsupported sign-in method: ${provider}`);
       }
-      
-      if (result.error) throw result.error;
     } catch (error: any) {
       throw new Error(error.message || 'Sign-in failed');
     }
@@ -240,19 +244,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign up with email and password
   const signUp = async ({ email, password, fullName }: { email: string; password: string; fullName: string }) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
+      const result = await authService.signUp({ email, password, fullName });
       
-      if (error) throw error;
+      // Update local state
+      setUser(result.user);
+      setProfile(result.profile);
       
-      // Profile will be created by the database trigger or onAuthStateChange handler
     } catch (error: any) {
       throw new Error(error.message || 'Sign-up failed');
     }
@@ -270,11 +267,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Send password reset email
   const sendPasswordResetEmail = async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-      });
-      
-      if (error) throw error;
+      await authService.sendPasswordResetEmail({ email });
     } catch (error: any) {
       throw new Error(error.message || 'Failed to send reset email');
     }
@@ -306,7 +299,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check if there's already a user with this email
       const { data: existingUsers } = await supabase
         .from('profiles')
-        .select('id, email')
+        .select('user_id, email')
         .eq('email', email)
         .limit(1);
       
@@ -317,8 +310,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase
         .from('invitations')
         .insert({
-          sender_id: user?.id,
-          recipient_id: existingUsers && existingUsers.length > 0 ? existingUsers[0].id : null,
+          sender_id: profile?.user_id,
+          recipient_id: existingUsers && existingUsers.length > 0 ? existingUsers[0].user_id : null,
           recipient_email: email,
           group_id: groupId,
           company_id: profile?.company_id,
@@ -331,12 +324,99 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) throw error;
       
-      // In a real app, you'd send an email with the invitation link
-      // For now, just return the token
-      return {
-        status: 'success',
-        message: `Invitation sent to ${email}`
-      };
+      // Send invitation email using Supabase Auth
+      const inviteUrl = `${window.location.origin}/invite/${token}`;
+      
+      try {
+        console.log('Attempting to send invitation email to:', email);
+        console.log('Invitation URL:', inviteUrl);
+        
+        // Send invitation email through API route (which has admin access)
+        const emailResponse = await fetch('/api/send-invitation-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            token,
+            senderName: profile?.full_name || user?.email,
+            inviteUrl
+          })
+        });
+        
+        console.log('Email API response status:', emailResponse.status);
+        
+        if (!emailResponse.ok) {
+          console.error('Email API request failed with status:', emailResponse.status);
+          const errorText = await emailResponse.text();
+          console.error('Error response:', errorText);
+          throw new Error(`Email API failed: ${emailResponse.status}`);
+        }
+        
+        const emailResult = await emailResponse.json();
+        console.log('Email API result:', emailResult);
+        
+        if (emailResult.success) {
+          return {
+            status: 'success',
+            message: `Invitation email sent to ${email}`
+          };
+        } else {
+          console.warn('Email sending failed:', emailResult.error);
+          console.warn('Email error details:', emailResult.details);
+          
+          // If we have a fallback URL, show it to the user
+          if (emailResult.fallback_url) {
+            return {
+              status: 'partial_success',
+              message: `Invitation created for ${email}. Please share this link manually:`,
+              invitation_link: emailResult.fallback_url,
+              error_details: emailResult.error
+            };
+          }
+          
+          return {
+            status: 'success',
+            message: `Invitation created for ${email}. Email failed: ${emailResult.error}. Manual link: ${inviteUrl}`
+          };
+        }
+      } catch (emailError) {
+        console.error('Frontend email API failed, trying backend...', emailError);
+        
+        // Try backend as fallback
+        try {
+          const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+          const backendResponse = await fetch(`${backendUrl}/api/send-invitation-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email,
+              token,
+              senderName: profile?.full_name || user?.email,
+              inviteUrl
+            })
+          });
+          
+          const backendResult = await backendResponse.json();
+          console.log('Backend email result:', backendResult);
+          
+          if (backendResult.fallback_url) {
+            return {
+              status: 'partial_success',
+              message: `Invitation created for ${email}. Please share this link manually:`,
+              invitation_link: backendResult.fallback_url,
+              error_details: 'Email automation not configured'
+            };
+          }
+          
+        } catch (backendError) {
+          console.error('Backend email also failed:', backendError);
+        }
+        
+        return {
+          status: 'success',
+          message: `Invitation created for ${email}. Email automation unavailable. Share this link: ${inviteUrl}`
+        };
+      }
     } catch (error: any) {
       console.error('Failed to invite user:', error);
       return {

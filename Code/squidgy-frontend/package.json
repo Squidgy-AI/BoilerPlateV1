@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "ts-node scripts/seed-database.ts"
+    "seed": "ts-node scripts/seed-database.ts",
+    "migrate": "ts-node scripts/run-database-migration.ts"
   },
   "dependencies": {
     "@heygen/streaming-avatar": "^2.0.9",

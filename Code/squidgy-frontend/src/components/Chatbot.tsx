@@ -26,6 +26,7 @@ interface ChatbotProps {
   sessionId: string;
   onSessionChange?: (sessionId: string) => void;
   initialTopic?: string | null;
+  currentAgent?: any; // Current selected agent from parent component
 }
 
 export interface ChatProcessingState {
@@ -48,7 +49,7 @@ export const getChatProcessingState = (): ChatProcessingState => {
   };
 };
 
-const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic }) => {
+const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic, currentAgent }) => {
   // Force enable text display for debugging
   const textEnabled = true;
   const videoEnabled = true; 
@@ -369,13 +370,13 @@ useEffect(() => {
     avatarLoadingTimeout.current = null;
   }
   
-  // Connect to WebSocket
-  if (websocketRef.current) {
-    websocketRef.current.close();
-    websocketRef.current = null;
-  }
+  // DISABLED: Using centralized WebSocket from ChatContext instead
+  // if (websocketRef.current) {
+  //   websocketRef.current.close();
+  //   websocketRef.current = null;
+  // }
   
-  connectWebSocket();
+  // connectWebSocket();
   
   // Fetch chat history
 const fetchChatHistory = async () => {
@@ -461,7 +462,8 @@ const lastSessionIdRef = useRef<string>('');
     if (!userId || !sessionId) return;
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsBase = process.env.NEXT_PUBLIC_API_BASE;
+    // Use environment variable or fallback to Heroku backend URL
+    const wsBase = process.env.NEXT_PUBLIC_API_BASE || 'squidgy-back-919bc0659e35.herokuapp.com';
     const wsUrl = `${wsProtocol}//${wsBase}/ws/${userId}/${sessionId}`;
     
     console.log("[WebSocket] Connecting to:", wsUrl);
@@ -883,12 +885,38 @@ const handleAgentResponse = (data: any) => {
           return;
         }
 
-        const agent = getCurrentAgent();
+        // Get agent name with priority: prop -> session_id -> selected state -> default
+        let agentName = 'presaleskb'; // default fallback
+        
+        // First try: Use agent from props if provided
+        if (currentAgent?.agent_name) {
+          agentName = currentAgent.agent_name;
+        }
+        // Second try: Extract from session_id format (userId_agentName_timestamp)
+        else {
+          const sessionParts = sessionId.split('_');
+          if (sessionParts.length >= 3) {
+            const sessionAgent = sessionParts[sessionParts.length - 2];
+            // Verify it's a valid agent name
+            const validAgent = getAgentById(sessionAgent);
+            if (validAgent) {
+              agentName = validAgent.agent_name;
+            }
+          }
+        }
+        
+        // Debug logging to track agent selection
+        console.log(`🎯 Agent Resolution:`);
+        console.log(`   currentAgent prop: ${JSON.stringify(currentAgent)}`);
+        console.log(`   sessionId: ${sessionId}`);
+        console.log(`   selectedAvatarId: ${selectedAvatarId}`);
+        console.log(`   Resolved agentName: ${agentName}`);
+        console.log(`📨 Sending WebSocket message with agent: ${agentName}`);
+        
         websocketRef.current.send(JSON.stringify({
           message: userInput,
           requestId,
-          agent: selectedAvatarId,
-          agentName: agent?.agent_name || selectedAvatarId // Add this line
+          agent: agentName  // Send the actual agent name, not avatar ID
         }));
         
         const messageTimeout = setTimeout(() => {

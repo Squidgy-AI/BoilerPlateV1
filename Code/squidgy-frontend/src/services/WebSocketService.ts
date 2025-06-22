@@ -32,6 +32,10 @@ class WebSocketService {
     };
   }
 
+  public get rawWebSocket(): WebSocket | null {
+    return this.ws;
+  }
+
   public connect(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -41,9 +45,10 @@ class WebSocketService {
       
       this.setStatus('connecting');
       
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsBase = process.env.NEXT_PUBLIC_API_BASE;
-      const wsUrl = `${wsProtocol}//${wsBase}/ws/${this.config.userId}/${this.config.sessionId}`;
+      // Use the backend URL and replace http/https with ws/wss
+      const backendUrl = 'https://squidgy-back-919bc0659e35.herokuapp.com';
+      const wsUrl = backendUrl.replace(/^https?:/, 'wss:') + 
+                   `/ws/${this.config.userId}/${this.config.sessionId}`;
       
       // Log the connecting destination
       if (this.config.onLog) {
@@ -77,12 +82,32 @@ class WebSocketService {
             this.config.onOpen();
           }
           
-          resolve(this.ws);
+          if (this.ws) {
+            resolve(this.ws);
+          }
         };
         
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            
+            // Handle ping/pong messages
+            if (data.type === 'ping') {
+              // Respond to server ping with pong
+              this.ws?.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+              return;
+            } else if (data.type === 'pong') {
+              // Server responded to our ping, connection is alive
+              if (this.config.onLog) {
+                this.config.onLog({
+                  type: 'info',
+                  message: 'Received pong from server - connection alive',
+                  data: { timestamp: data.timestamp }
+                });
+              }
+              return;
+            }
+            
             if (this.config.onMessage) {
               this.config.onMessage(data);
             }
@@ -141,7 +166,7 @@ class WebSocketService {
     });
   }
   
-  public async sendMessage(message: string, requestId?: string): Promise<void> {
+  public async sendMessage(message: string, requestId?: string, agentName?: string): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       try {
         await this.connect();
@@ -153,7 +178,8 @@ class WebSocketService {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         message,
-        requestId: requestId || `req_${Date.now()}`
+        requestId: requestId || `req_${Date.now()}`,
+        agent: agentName || 'presaleskb'  // Include agent name in WebSocket message
       }));
     } else {
       throw new Error('WebSocket not connected');
@@ -196,7 +222,13 @@ class WebSocketService {
     this.pingInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         // Send a ping message
-        this.ws.send(JSON.stringify({ type: 'ping' }));
+        this.ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+        if (this.config.onLog) {
+          this.config.onLog({
+            type: 'info',
+            message: 'Sent ping to server to keep connection alive'
+          });
+        }
       }
     }, 30000);
   }
