@@ -198,16 +198,29 @@ export class AuthService {
 
       // Use Supabase Auth's built-in password reset
       // This handles everything including email sending
+      const redirectUrl = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/reset-password`
+        : `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/auth/reset-password`;
+        
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         data.email.toLowerCase(),
         {
-          redirectTo: `${window.location.origin}/auth/reset-password`,
+          redirectTo: redirectUrl,
         }
       );
 
       if (resetError) {
         console.error('Reset password error:', resetError);
-        // Don't expose the actual error to prevent email enumeration
+        
+        // Handle specific error types
+        if (resetError.message.includes('Failed to fetch') || 
+            resetError.message.includes('CORS') ||
+            resetError.message.includes('502') ||
+            resetError.message.includes('Bad Gateway')) {
+          throw new Error('Service temporarily unavailable. Please check your internet connection and try again in a few minutes.');
+        }
+        
+        // Don't expose other errors to prevent email enumeration
         return { message: 'If an account with this email exists, you will receive a password reset link' };
       }
 
