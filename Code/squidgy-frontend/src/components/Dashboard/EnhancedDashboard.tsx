@@ -306,6 +306,16 @@ const agents = AGENT_CONFIG;
         const newAgent = agents.find(agent => agent.agent_name === toAgent || agent.id === toAgent);
         if (newAgent) {
           console.log(`🔄 Switching from ${fromAgent} to ${toAgent}`);
+          
+          // Save current messages to cache before switching
+          if (selectedAgent && messages.length > 0) {
+            console.log(`💾 Saving ${messages.length} messages to cache for agent: ${selectedAgent.name}`);
+            setAgentChatCache(prevCache => ({ 
+              ...prevCache, 
+              [selectedAgent.id]: [...messages] 
+            }));
+          }
+          
           await handleAgentSelect(newAgent);
           
           // Show the switch message
@@ -356,8 +366,20 @@ const agents = AGENT_CONFIG;
             if (targetAgent && targetAgent.id !== currentAgentId) {
               console.log(`🔄 Switching from ${currentAgentId} to ${targetAgent.id} (${targetAgent.name})`);
               
+              // Save current messages to cache before switching (excluding this response)
+              if (selectedAgent && messages.length > 0) {
+                console.log(`💾 Saving ${messages.length} messages to cache for agent: ${selectedAgent.name}`);
+                setAgentChatCache(prevCache => ({ 
+                  ...prevCache, 
+                  [selectedAgent.id]: [...messages] 
+                }));
+              }
+              
               // Switch to the target agent tab
               await handleAgentSelect(targetAgent);
+              
+              // Add a small delay to ensure the agent switch is complete
+              await new Promise(resolve => setTimeout(resolve, 100));
               
               // Show transition message from the new agent
               const transitionMessage = {
