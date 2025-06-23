@@ -48,6 +48,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const [sessionCleanupInProgress, setSessionCleanupInProgress] = useState(false);
   const [avatarReadyState, setAvatarReadyState] = useState<'idle' | 'initializing' | 'ready' | 'failed'>('idle');
   const initializationAttemptRef = useRef<number>(0);
+  const isCleaningUpRef = useRef<boolean>(false);
+  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
