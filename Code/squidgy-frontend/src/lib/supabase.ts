@@ -1,24 +1,15 @@
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 
-// Fallback values in case environment variables are not loaded
-const FALLBACK_SUPABASE_URL = 'https://aoteeitreschwzkbpqyd.supabase.co';
-const FALLBACK_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvdGVlaXRyZXNjaHd6a2JwcXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxMjAwMzQsImV4cCI6MjA1OTY5NjAzNH0.S7P9-G4CaSE6DWycNq0grv-x6UCIsfLvXooCtMwaKHM';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || FALLBACK_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || FALLBACK_SUPABASE_ANON_KEY;
-
-console.log('🔍 Supabase initialization:', {
-  hasUrl: !!supabaseUrl,
-  hasKey: !!supabaseAnonKey,
-  urlPreview: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'missing',
-  keyPreview: supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'missing',
-  usingFallback: !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-});
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('❌ Supabase credentials are missing even with fallback!');
-  throw new Error('Supabase configuration error: Missing URL or API key');
+  console.error('Missing required environment variables:', {
+    NEXT_PUBLIC_SUPABASE_URL: !!supabaseUrl,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: !!supabaseAnonKey
+  });
+  throw new Error('Missing required Supabase environment variables. Please check your .env.local file.');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
