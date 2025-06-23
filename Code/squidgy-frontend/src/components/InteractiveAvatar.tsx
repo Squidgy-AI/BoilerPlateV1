@@ -44,6 +44,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const [avatarFailed, setAvatarFailed] = useState(false);
   const avatarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showFallback, setShowFallback] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
@@ -70,12 +71,27 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   async function startAvatarSession() {
     if (!enabled) return;
     
+    // Prevent multiple simultaneous sessions
+    if (isInitializing) {
+      console.log("Avatar already initializing, skipping...");
+      return;
+    }
+    
     console.log(`Starting avatar session with timeout: ${avatarTimeout}ms`);
+    setIsInitializing(true);
     setIsLoadingSession(true);
     setError(null);
     setErrorType(null);
     setAvatarFailed(false);
     setShowFallback(false);
+    
+    // Ensure any existing session is completely ended first
+    if (actualAvatarRef.current || sessionActive) {
+      console.log("Ending existing session before starting new one...");
+      await endSession();
+      // Add a small delay to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
     
     // Set timeout for avatar initialization
     avatarTimeoutRef.current = setTimeout(() => {
@@ -144,6 +160,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         currentSessionIdRef.current = sessionId;
         currentAvatarIdRef.current = avatarId;
         setIsLoadingSession(false);
+        setIsInitializing(false);
   
         console.log("Avatar successfully initialized");
         if (onAvatarReady) {
@@ -232,6 +249,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     setError(errorMessage);
     setAvatarFailed(true);
     setIsLoadingSession(false);
+    setIsInitializing(false);
     setSessionActive(false);
     setShowFallback(true);
     
@@ -374,7 +392,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
             ref={mediaStream}
             autoPlay
             playsInline
-            className={`w-full h-full object-contain scale-90 ${
+            className={`w-full h-full object-cover ${
               stream && !showFallback ? 'opacity-100' : 'opacity-0'
             } transition-opacity duration-500`}
             style={{ display: stream && !showFallback ? 'block' : 'none' }}
@@ -392,7 +410,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
             <img 
               src={fallbackImagePath} 
               alt="Agent" 
-              className="w-full h-full object-contain scale-90"
+              className="w-full h-full object-cover"
             />
             {avatarFailed && (
               <div className="absolute bottom-4 left-0 right-0 text-center">
