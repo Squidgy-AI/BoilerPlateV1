@@ -4,8 +4,18 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+console.log('🔍 Supabase initialization:', {
+  hasUrl: !!supabaseUrl,
+  hasKey: !!supabaseAnonKey,
+  urlPreview: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'missing',
+  keyPreview: supabaseAnonKey ? supabaseAnonKey.substring(0, 20) + '...' : 'missing'
+});
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials are missing. Features requiring authentication will not work.');
+  console.error('❌ Supabase credentials are missing!', {
+    NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: supabaseAnonKey ? 'Present' : 'Missing'
+  });
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
