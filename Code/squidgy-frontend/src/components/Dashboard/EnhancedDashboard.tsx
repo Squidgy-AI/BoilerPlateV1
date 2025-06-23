@@ -528,6 +528,21 @@ const agents = AGENT_CONFIG;
   
   const handleAgentSelect = async (agent: any) => {
     try {
+      // Prevent rapid switching by checking if we're already on this agent
+      if (selectedAgent?.id === agent.id) {
+        console.log(`🔄 Already on agent ${agent.id}, skipping switch`);
+        return;
+      }
+      
+      console.log(`🔄 Switching to agent: ${agent.name} (${agent.id})`);
+      
+      // Cache current messages before switching
+      if (selectedAgent && messages.length > 0) {
+        console.log(`💾 Caching ${messages.length} messages for agent: ${selectedAgent.name}`);
+        setAgentChatCache(prev => ({ ...prev, [selectedAgent.id]: [...messages] }));
+      }
+      
+      // Update states immediately to prevent race conditions
       setSelectedAgent(agent);
       setSelectedAvatarId(agent.id);
       setIsGroupSession(false);
@@ -536,9 +551,13 @@ const agents = AGENT_CONFIG;
       localStorage.setItem('selectedAgentId', agent.id);
       console.log(`💾 Saved agent to localStorage: ${agent.id}`);
       
-      // Close any existing avatar streaming session
+      // Close any existing avatar streaming session gracefully
       if (websocket) {
-        websocket.close();
+        try {
+          websocket.close();
+        } catch (error) {
+          console.log('Websocket already closed or error closing:', error);
+        }
       }
       
       // Get or create a persistent session ID for this agent
@@ -549,17 +568,19 @@ const agents = AGENT_CONFIG;
       }
       setCurrentSessionId(sessionId);
       
-      // Check if we have cached messages for this agent first
-      if (agentChatCache[agent.id]) {
-        console.log(`Loading ${agentChatCache[agent.id].length} cached messages for agent: ${agent.name}`);
+      // Check if we have cached messages for this agent first (faster UX)
+      if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
+        console.log(`⚡ Loading ${agentChatCache[agent.id].length} cached messages for agent: ${agent.name}`);
         setMessages(agentChatCache[agent.id]);
       } else {
-        console.log(`No cached messages found for agent: ${agent.name}, loading from database...`);
+        console.log(`🔍 No cached messages found for agent: ${agent.name}, loading from database...`);
+        // Clear messages immediately for better UX
+        setMessages([]);
         // Load chat history from database for this specific agent session
         await loadChatHistoryForAgent(agent, sessionId);
       }
       
-      console.log(`Selected agent: ${agent.name}, Session: ${sessionId}`);
+      console.log(`✅ Selected agent: ${agent.name}, Session: ${sessionId}`);
       
       // TODO: Uncomment when sessions table is available
       /*
@@ -1140,6 +1161,7 @@ const agents = AGENT_CONFIG;
                       sessionId={currentSessionId}
                       voiceEnabled={voiceEnabled}
                       avatarId={selectedAvatarId}
+                      avatarTimeout={6000}
                     />
                     
                     {/* Fallback when avatar is loading */}

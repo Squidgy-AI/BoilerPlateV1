@@ -45,6 +45,9 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const avatarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showFallback, setShowFallback] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [sessionCleanupInProgress, setSessionCleanupInProgress] = useState(false);
+  const [avatarReadyState, setAvatarReadyState] = useState<'idle' | 'initializing' | 'ready' | 'failed'>('idle');
+  const initializationAttemptRef = useRef<number>(0);
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
@@ -72,10 +75,14 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     if (!enabled) return;
     
     // Prevent multiple simultaneous sessions
-    if (isInitializing) {
-      console.log("Avatar already initializing, skipping...");
+    if (isInitializing || sessionCleanupInProgress) {
+      console.log("Avatar already initializing or cleanup in progress, skipping...");
       return;
     }
+    
+    // Increment attempt counter for this initialization
+    const currentAttempt = ++initializationAttemptRef.current;
+    console.log(`🚀 Starting avatar session attempt #${currentAttempt}`);
     
     console.log(`Starting avatar session with timeout: ${avatarTimeout}ms`);
     setIsInitializing(true);
@@ -84,13 +91,21 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     setErrorType(null);
     setAvatarFailed(false);
     setShowFallback(false);
+    setAvatarReadyState('initializing');
     
     // Ensure any existing session is completely ended first
     if (actualAvatarRef.current || sessionActive) {
       console.log("Ending existing session before starting new one...");
       await endSession();
+      
+      // Check if this attempt is still valid after cleanup
+      if (currentAttempt !== initializationAttemptRef.current) {
+        console.log(`🚫 Initialization attempt #${currentAttempt} canceled - newer attempt started`);
+        return;
+      }
+      
       // Add a small delay to ensure cleanup is complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
     
     // Set timeout for avatar initialization
@@ -156,13 +171,20 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           avatarTimeoutRef.current = null;
         }
   
+        // Check if this attempt is still valid
+        if (currentAttempt !== initializationAttemptRef.current) {
+          console.log(`🚫 Initialization attempt #${currentAttempt} canceled during success`);
+          return;
+        }
+        
         setSessionActive(true);
         currentSessionIdRef.current = sessionId;
         currentAvatarIdRef.current = avatarId;
         setIsLoadingSession(false);
         setIsInitializing(false);
+        setAvatarReadyState('ready');
   
-        console.log("Avatar successfully initialized");
+        console.log(`✅ Avatar successfully initialized (attempt #${currentAttempt})`);
         if (onAvatarReady) {
           onAvatarReady();
         }
@@ -214,12 +236,20 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
               avatarTimeoutRef.current = null;
             }
             
+            // Check if this attempt is still valid
+            if (currentAttempt !== initializationAttemptRef.current) {
+              console.log(`🚫 Fallback attempt #${currentAttempt} canceled during success`);
+              return;
+            }
+            
             setSessionActive(true);
             currentSessionIdRef.current = sessionId;
             currentAvatarIdRef.current = avatarId;
             setIsLoadingSession(false);
+            setIsInitializing(false);
+            setAvatarReadyState('ready');
             
-            console.log("Fallback avatar configuration succeeded");
+            console.log(`✅ Fallback avatar configuration succeeded (attempt #${currentAttempt})`);
             if (onAvatarReady) {
               onAvatarReady();
             }
@@ -252,6 +282,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     setIsInitializing(false);
     setSessionActive(false);
     setShowFallback(true);
+    setAvatarReadyState('failed');
     
     if (onAvatarError) {
       onAvatarError(errorMessage);
@@ -288,33 +319,46 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   }
 
   async function endSession() {
-    // Clear timeout if still pending
-    if (avatarTimeoutRef.current) {
-      clearTimeout(avatarTimeoutRef.current);
-      avatarTimeoutRef.current = null;
-    }
+    setSessionCleanupInProgress(true);
     
-    if (actualAvatarRef.current) {
-      try {
-        // Only attempt to stop avatar if we have an active session
-        if (sessionActive) {
-          await actualAvatarRef.current.stopAvatar();
-        }
-      } catch (error: any) {
-        // Handle 401 error gracefully
-        if (error.message && error.message.includes('401')) {
-          console.log("Token expired or invalid when stopping avatar - session already closed");
-        } else {
-          console.error("Error stopping avatar:", error);
-        }
-      } finally {
-        // Always clean up resources regardless of stop result
-        actualAvatarRef.current = null;
-        setSessionActive(false);
-        setStream(undefined);
-        // Clear the token so a fresh one is fetched next time
-        tokenRef.current = "";
+    try {
+      // Clear timeout if still pending
+      if (avatarTimeoutRef.current) {
+        clearTimeout(avatarTimeoutRef.current);
+        avatarTimeoutRef.current = null;
       }
+      
+      if (actualAvatarRef.current) {
+        try {
+          // Only attempt to stop avatar if we have an active session
+          if (sessionActive) {
+            console.log("🛑 Stopping active avatar session...");
+            await Promise.race([
+              actualAvatarRef.current.stopAvatar(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Stop timeout')), 3000))
+            ]);
+          }
+        } catch (error: any) {
+          // Handle 401 error gracefully
+          if (error.message && error.message.includes('401')) {
+            console.log("Token expired or invalid when stopping avatar - session already closed");
+          } else if (error.message && error.message.includes('Stop timeout')) {
+            console.log("Avatar stop operation timed out - forcing cleanup");
+          } else {
+            console.error("Error stopping avatar:", error);
+          }
+        } finally {
+          // Always clean up resources regardless of stop result
+          actualAvatarRef.current = null;
+          setSessionActive(false);
+          setStream(undefined);
+          setAvatarReadyState('idle');
+          // Clear the token so a fresh one is fetched next time
+          tokenRef.current = "";
+        }
+      }
+    } finally {
+      setSessionCleanupInProgress(false);
     }
   }
 
@@ -329,25 +373,45 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     };
   }, [enabled]);
 
-  // Handle session changes
+  // Handle session changes with debouncing
   useEffect(() => {
     if (sessionId !== currentSessionIdRef.current && enabled) {
-      console.log("Session changed, reinitializing avatar");
-      endSession().then(() => {
-        startAvatarSession();
-      });
+      console.log(`📱 Session changed: ${currentSessionIdRef.current} → ${sessionId}`);
+      
+      // Cancel any pending initialization
+      initializationAttemptRef.current++;
+      
+      const reinitialize = async () => {
+        await endSession();
+        // Only start new session if this effect is still valid
+        if (sessionId !== currentSessionIdRef.current && enabled) {
+          await startAvatarSession();
+        }
+      };
+      
+      reinitialize();
     }
   }, [sessionId, enabled]);
 
-  // Handle avatar ID changes
+  // Handle avatar ID changes with debouncing
   useEffect(() => {
-    if (sessionActive && currentAvatarIdRef.current !== avatarId) {
-      console.log("Avatar ID changed, reinitializing");
-      endSession().then(() => {
-        startAvatarSession();
-      });
+    if (currentAvatarIdRef.current !== avatarId && enabled) {
+      console.log(`🔄 Avatar ID changed: ${currentAvatarIdRef.current} → ${avatarId}`);
+      
+      // Cancel any pending initialization
+      initializationAttemptRef.current++;
+      
+      const reinitialize = async () => {
+        await endSession();
+        // Only start new session if this effect is still valid
+        if (currentAvatarIdRef.current !== avatarId && enabled) {
+          await startAvatarSession();
+        }
+      };
+      
+      reinitialize();
     }
-  }, [avatarId]);
+  }, [avatarId, enabled]);
 
   // Handle voice enabled changes
   useEffect(() => {
@@ -377,13 +441,19 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     <div className="w-full h-full bg-[#2D3B4F] rounded-lg overflow-hidden relative">
       {enabled ? (
         <>
-          {/* Loading state */}
-          {isLoadingSession && !avatarFailed && (
+          {/* Loading state with better UX */}
+          {(isLoadingSession || sessionCleanupInProgress) && !avatarFailed && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-[#2D3B4F] z-10">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-              <div className="text-xl mb-2">Loading avatar...</div>
-              <div className="text-sm text-gray-400">This may take up to {avatarTimeout/1000} seconds</div>
-              <div className="text-xs text-gray-500 mt-2">If this takes too long, we'll use a fallback image</div>
+              <div className="text-xl mb-2">
+                {sessionCleanupInProgress ? 'Switching avatar...' : 'Loading avatar...'}
+              </div>
+              {!sessionCleanupInProgress && (
+                <>
+                  <div className="text-sm text-gray-400">Using {heygenAvatarId}</div>
+                  <div className="text-xs text-gray-500 mt-2">This usually takes 3-5 seconds</div>
+                </>
+              )}
             </div>
           )}
 
