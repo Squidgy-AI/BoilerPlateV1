@@ -312,9 +312,10 @@ const agents = AGENT_CONFIG;
             agentResponse
           });
           
-          // Handle agent switching when output_action is "need_website_info"
-          if (outputAction === 'need_website_info' && responseAgentName) {
-            console.log('🔄 Need website info - checking for agent switch');
+          // Handle agent switching when the response comes from a different agent
+          if (responseAgentName && responseAgentName !== selectedAgent?.agent_name) {
+            console.log('🔄 Agent routing detected - checking for agent switch');
+            console.log(`Current agent: ${selectedAgent?.agent_name}, Response from: ${responseAgentName}`);
             
             // Find the target agent by agent_name
             const targetAgent = agents.find(agent => agent.agent_name === responseAgentName);
@@ -325,24 +326,24 @@ const agents = AGENT_CONFIG;
               // Switch to the target agent tab
               await handleAgentSelect(targetAgent);
               
-              // Show message indicating the switch
-              const switchMessage = {
+              // Show transition message from the new agent
+              const transitionMessage = {
                 sender: 'agent',
-                text: `Hey I am the right person to answer this question: ${agentResponse}`,
+                text: `Hey, I'm ${targetAgent.name} and I'll be better able to help you with this. ${agentResponse}`,
                 timestamp: new Date().toISOString()
               };
               
-              addMessage(switchMessage);
+              addMessage(transitionMessage);
               
               // Save agent message to database
               if (currentSessionId) {
-                saveMessageToDatabase(switchMessage.text, switchMessage.sender);
+                saveMessageToDatabase(transitionMessage.text, transitionMessage.sender);
               }
               
               // Speak with avatar if enabled
               if (avatarRef.current && videoEnabled && voiceEnabled) {
                 avatarRef.current.speak({
-                  text: switchMessage.text,
+                  text: transitionMessage.text,
                   taskType: "talk" as any,
                   taskMode: 1 as any
                 });

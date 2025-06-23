@@ -27,6 +27,7 @@ interface ChatbotProps {
   onSessionChange?: (sessionId: string) => void;
   initialTopic?: string | null;
   currentAgent?: any; // Current selected agent from parent component
+  onAgentSwitch?: (agentId: string) => void; // Callback to switch agent tabs
 }
 
 export interface ChatProcessingState {
@@ -49,7 +50,7 @@ export const getChatProcessingState = (): ChatProcessingState => {
   };
 };
 
-const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic, currentAgent }) => {
+const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic, currentAgent, onAgentSwitch }) => {
   // Force enable text display for debugging
   const textEnabled = true;
   const videoEnabled = true; 
@@ -825,6 +826,35 @@ const handleAgentResponse = (data: any) => {
           console.log("Full n8n response received:", n8nResponse);
           console.log("Agent response field:", n8nResponse.agent_response);
           console.log("Text enabled:", textEnabled);
+          
+          // Check if the response indicates a different agent should handle this
+          if (n8nResponse.agent_name && n8nResponse.agent_name !== agentName) {
+            console.log(`Agent routing detected: from ${agentName} to ${n8nResponse.agent_name}`);
+            
+            // Find the target agent to get the friendly name
+            const targetAgent = getAgentById(n8nResponse.agent_name);
+            const targetAgentName = targetAgent?.name || n8nResponse.agent_name;
+            
+            // Switch to the new agent if callback is provided
+            if (onAgentSwitch) {
+              onAgentSwitch(n8nResponse.agent_name);
+              
+              // Add a transition message
+              const transitionMessage = `Hey, I'm ${targetAgentName} and I'll be better able to help you with this. Let me assist you...`;
+              setChatHistory(prevHistory => [
+                ...prevHistory,
+                { 
+                  sender: 'AI', 
+                  message: transitionMessage, 
+                  requestId: `transition-${Date.now()}`, 
+                  status: 'complete' 
+                }
+              ]);
+              
+              // Wait a bit before showing the actual response
+              await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+          }
           
           // Clear thinking state
           setAgentThinking(null);
