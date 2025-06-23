@@ -70,8 +70,10 @@ export class AuthService {
 
       if (authError) {
         // Handle specific error cases
-        if (authError.message.includes('rate limit')) {
-          throw new Error('Too many signup attempts. Please wait a few minutes and try again.');
+        if (authError.message.includes('rate limit') || 
+            authError.message.includes('too many requests') ||
+            authError.message.includes('429')) {
+          throw new Error('Too many attempts. Please wait 5-10 minutes and try again. If this persists, the rate limits may need to be adjusted in Supabase dashboard.');
         }
         if (authError.message.includes('already registered') || 
             authError.message.includes('already been registered')) {
@@ -151,6 +153,11 @@ export class AuthService {
       if (authError) {
         if (authError.message.includes('Invalid login credentials')) {
           throw new Error('Invalid email or password');
+        }
+        if (authError.message.includes('rate limit') || 
+            authError.message.includes('too many requests') ||
+            authError.message.includes('429')) {
+          throw new Error('Too many login attempts. Please wait 5-10 minutes and try again.');
         }
         throw authError;
       }
