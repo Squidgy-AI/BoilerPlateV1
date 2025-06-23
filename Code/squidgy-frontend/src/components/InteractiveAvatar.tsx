@@ -216,6 +216,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
             error: avatarError,
             avatarId: heygenAvatarId,
             token: tokenRef.current ? 'Present' : 'Missing',
+            responseText: avatarError.responseText || 'No response text',
             config: {
               quality: AvatarQuality.Low,
               avatarName: heygenAvatarId,
@@ -227,6 +228,13 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
               disableIdleTimeout: true,
             }
           });
+          
+          // Check if it's an "avatar not found" error
+          if (avatarError.responseText && avatarError.responseText.includes('avatar not found')) {
+            console.error(`❌ Avatar ID "${heygenAvatarId}" not found in HeyGen. This avatar may have been deleted or is not accessible.`);
+            handleAvatarFailure(`Avatar "${heygenAvatarId}" not found. Please update the avatar ID in the configuration.`);
+            return;
+          }
           
           // Try with a different avatar configuration
           console.log("Attempting fallback avatar configuration...");

@@ -19,10 +19,10 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/presales-consultant.jpg',
     type: 'PreSalesConsultant',
     description: 'Provides technical expertise and solution demonstrations',
-    heygenAvatarId: '413a244b053949f39e8ab50099a895ea', // Original avatar ID
-    // heygenAvatarId: 'Thaddeus_ProfessionalLook_public', // Public avatar from HeyGen API
-    // heygenAvatarId: 'Wayne_20240711', // Previous working avatar
-    // heygenAvatarId: 'Alessandra_ProfessionalLook_public', // Previous public avatar
+    // heygenAvatarId: '413a244b053949f39e8ab50099a895ea', // Original avatar ID - NOT FOUND ERROR
+    heygenAvatarId: 'Wayne_20240711', // Using Wayne as presales consultant
+    // heygenAvatarId: 'Thaddeus_ProfessionalLook_public', // Alternative public avatar
+    // heygenAvatarId: 'Alessandra_ProfessionalLook_public', // Alternative public avatar
     fallbackAvatar: '/avatars/presales-fallback.jpg',
     agent_name: 'presaleskb',
     introMessage: "Hi! I'm your Pre-Sales Consultant. I help analyze businesses and provide tailored solutions including ROI analysis and technical implementation details."
