@@ -102,9 +102,15 @@ export const getAgentGreeting = (agentId: string): string => {
 
 // Helper function to validate avatar ID format
 export const isValidAvatarId = (avatarId: string): boolean => {
-  // HeyGen avatar IDs are typically 32-character hex strings
+  // HeyGen avatar IDs can be:
+  // 1. 32-character hex strings (e.g., "413a244b053949f39e8ab50099a895ea")
+  // 2. Named avatars with dates (e.g., "Wayne_20240711")
+  // 3. Public avatars (e.g., "Thaddeus_ProfessionalLook_public")
   const hexPattern = /^[a-f0-9]{32}$/i;
-  return hexPattern.test(avatarId);
+  const namedPattern = /^[A-Za-z]+_\d{8}$/; // Name_YYYYMMDD format
+  const publicPattern = /_public$/;
+  
+  return hexPattern.test(avatarId) || namedPattern.test(avatarId) || publicPattern.test(avatarId);
 };
 
 // Helper function to get a validated avatar ID with fallback
@@ -117,10 +123,9 @@ export const getValidatedAvatarId = (agentId: string): string => {
     return 'Thaddeus_ProfessionalLook_public';
   }
   
-  // For public avatars, we accept the string format (not just hex)
-  // Public avatars have names like "Alessandra_ProfessionalLook_public"
-  if (avatarId.includes('_public') || isValidAvatarId(avatarId)) {
-    console.log(`Using validated avatar ID for agent ${agentId}:`, avatarId);
+  // Check if it's a valid avatar ID format
+  if (isValidAvatarId(avatarId)) {
+    console.log(`Using validated avatar ID for agent ${agentId}: ${avatarId}`);
     return avatarId;
   }
   
