@@ -84,30 +84,32 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     }, avatarTimeout);
     
     try {
-      // Only fetch a new token if we don't have one
-      if (!tokenRef.current) {
-        const token = await fetchAccessToken();
-        if (!token) {
-          throw new Error("Failed to obtain access token");
-        }
+      // Always fetch a fresh token for each new session
+      const token = await fetchAccessToken();
+      if (!token) {
+        throw new Error("Failed to obtain access token");
       }
+      tokenRef.current = token;
   
-      // Create a new StreamingAvatar instance only if needed
-      if (!actualAvatarRef.current) {
-        try {
-          actualAvatarRef.current = new StreamingAvatar({
-            token: tokenRef.current,
-          });
-          setupAvatarEventListeners();
-        } catch (initError) {
-          console.error("Avatar initialization error:", initError);
-          handleAvatarFailure("Failed to initialize avatar");
-          return;
+      // Always create a new StreamingAvatar instance with fresh token
+      try {
+        // Clean up any existing instance first
+        if (actualAvatarRef.current) {
+          actualAvatarRef.current = null;
         }
+        
+        actualAvatarRef.current = new StreamingAvatar({
+          token: tokenRef.current,
+        });
+        setupAvatarEventListeners();
+      } catch (initError) {
+        console.error("Avatar initialization error:", initError);
+        handleAvatarFailure("Failed to initialize avatar");
+        return;
       }
   
       try {
-        const res = await actualAvatarRef.current.createStartAvatar({
+        await actualAvatarRef.current.createStartAvatar({
           quality: AvatarQuality.Low,
           avatarName: heygenAvatarId,
           voice: {
@@ -208,13 +210,25 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     
     if (actualAvatarRef.current) {
       try {
-        await actualAvatarRef.current.stopAvatar();
-      } catch (error) {
-        console.error("Error stopping avatar:", error);
+        // Only attempt to stop avatar if we have an active session
+        if (sessionActive) {
+          await actualAvatarRef.current.stopAvatar();
+        }
+      } catch (error: any) {
+        // Handle 401 error gracefully
+        if (error.message && error.message.includes('401')) {
+          console.log("Token expired or invalid when stopping avatar - session already closed");
+        } else {
+          console.error("Error stopping avatar:", error);
+        }
+      } finally {
+        // Always clean up resources regardless of stop result
+        actualAvatarRef.current = null;
+        setSessionActive(false);
+        setStream(undefined);
+        // Clear the token so a fresh one is fetched next time
+        tokenRef.current = "";
       }
-      actualAvatarRef.current = null;
-      setSessionActive(false);
-      setStream(undefined);
     }
   }
 
