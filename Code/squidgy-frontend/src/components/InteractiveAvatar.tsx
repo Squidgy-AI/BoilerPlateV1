@@ -95,17 +95,28 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     
     // Ensure any existing session is completely ended first
     if (actualAvatarRef.current || sessionActive) {
-      console.log("Ending existing session before starting new one...");
+      console.log("🔄 Ending existing session before starting new one...");
       await endSession();
       
       // Check if this attempt is still valid after cleanup
       if (currentAttempt !== initializationAttemptRef.current) {
         console.log(`🚫 Initialization attempt #${currentAttempt} canceled - newer attempt started`);
+        setIsInitializing(false);
+        setIsLoadingSession(false);
         return;
       }
       
-      // Add a small delay to ensure cleanup is complete
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Add a longer delay to ensure HeyGen resources are fully released
+      console.log("⏱️ Waiting for HeyGen resources to be released...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Double-check if attempt is still valid after delay
+      if (currentAttempt !== initializationAttemptRef.current) {
+        console.log(`🚫 Initialization attempt #${currentAttempt} canceled after cleanup delay`);
+        setIsInitializing(false);
+        setIsLoadingSession(false);
+        return;
+      }
     }
     
     // Set timeout for avatar initialization
@@ -124,9 +135,11 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   
       // Always create a new StreamingAvatar instance with fresh token
       try {
-        // Clean up any existing instance first
+        // Ensure no existing instance
         if (actualAvatarRef.current) {
+          console.log("⚠️ Found existing avatar instance during initialization - cleaning up");
           actualAvatarRef.current = null;
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         actualAvatarRef.current = new StreamingAvatar({
@@ -319,45 +332,104 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   }
 
   async function endSession() {
+    // Prevent multiple concurrent cleanup operations
+    if (isCleaningUpRef.current) {
+      console.log("🔄 Cleanup already in progress, waiting...");
+      return;
+    }
+    
+    isCleaningUpRef.current = true;
     setSessionCleanupInProgress(true);
     
+    // Cancel any pending initialization
+    initializationAttemptRef.current++;
+    
     try {
-      // Clear timeout if still pending
+      // Clear all timeouts
       if (avatarTimeoutRef.current) {
         clearTimeout(avatarTimeoutRef.current);
         avatarTimeoutRef.current = null;
       }
+      if (cleanupTimeoutRef.current) {
+        clearTimeout(cleanupTimeoutRef.current);
+        cleanupTimeoutRef.current = null;
+      }
       
       if (actualAvatarRef.current) {
+        console.log("🛑 Starting avatar session cleanup...");
+        
         try {
+          // Force cleanup after 5 seconds
+          cleanupTimeoutRef.current = setTimeout(() => {
+            console.log("⚠️ Forcing avatar cleanup after timeout");
+            actualAvatarRef.current = null;
+            setSessionActive(false);
+            setStream(undefined);
+            setAvatarReadyState('idle');
+            tokenRef.current = "";
+          }, 5000);
+          
           // Only attempt to stop avatar if we have an active session
           if (sessionActive) {
             console.log("🛑 Stopping active avatar session...");
+            
+            // Try graceful shutdown with timeout
             await Promise.race([
               actualAvatarRef.current.stopAvatar(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('Stop timeout')), 3000))
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Stop timeout')), 2000))
             ]);
+            
+            console.log("✅ Avatar session stopped successfully");
           }
+          
+          // Clear the forced cleanup timeout since we succeeded
+          if (cleanupTimeoutRef.current) {
+            clearTimeout(cleanupTimeoutRef.current);
+            cleanupTimeoutRef.current = null;
+          }
+          
         } catch (error: any) {
-          // Handle 401 error gracefully
+          // Handle various error types gracefully
           if (error.message && error.message.includes('401')) {
-            console.log("Token expired or invalid when stopping avatar - session already closed");
+            console.log("🔑 Token expired or invalid when stopping avatar - session already closed");
           } else if (error.message && error.message.includes('Stop timeout')) {
-            console.log("Avatar stop operation timed out - forcing cleanup");
+            console.log("⏰ Avatar stop operation timed out - forcing cleanup");
+          } else if (error.message && error.message.includes('400')) {
+            console.log("🚫 Avatar session already closed or invalid - proceeding with cleanup");
           } else {
-            console.error("Error stopping avatar:", error);
+            console.error("❌ Error stopping avatar:", error);
           }
         } finally {
           // Always clean up resources regardless of stop result
+          console.log("🧹 Cleaning up avatar resources...");
+          
+          // Wait a moment for any pending operations to complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           actualAvatarRef.current = null;
           setSessionActive(false);
           setStream(undefined);
           setAvatarReadyState('idle');
           // Clear the token so a fresh one is fetched next time
           tokenRef.current = "";
+          
+          // Clear any remaining timeouts
+          if (cleanupTimeoutRef.current) {
+            clearTimeout(cleanupTimeoutRef.current);
+            cleanupTimeoutRef.current = null;
+          }
+          
+          console.log("✅ Avatar cleanup completed");
         }
+      } else {
+        // No avatar to clean up, just reset states
+        setSessionActive(false);
+        setStream(undefined);
+        setAvatarReadyState('idle');
+        tokenRef.current = "";
       }
     } finally {
+      isCleaningUpRef.current = false;
       setSessionCleanupInProgress(false);
     }
   }

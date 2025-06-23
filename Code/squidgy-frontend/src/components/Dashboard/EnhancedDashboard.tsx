@@ -547,6 +547,13 @@ const agents = AGENT_CONFIG;
       setSelectedAvatarId(agent.id);
       setIsGroupSession(false);
       
+      // Clear any browser caching for avatar switching
+      if (typeof window !== 'undefined') {
+        // Force component re-render by clearing any cached avatar data
+        localStorage.removeItem(`avatar_cache_${agent.id}`);
+        console.log(`🗑️ Cleared avatar cache for ${agent.id}`);
+      }
+      
       // Save selected agent to localStorage for persistence across tab switches
       localStorage.setItem('selectedAgentId', agent.id);
       console.log(`💾 Saved agent to localStorage: ${agent.id}`);

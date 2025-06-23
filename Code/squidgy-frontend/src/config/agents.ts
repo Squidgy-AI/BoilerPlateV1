@@ -33,7 +33,8 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/social-media-manager.jpg',
     type: 'SocialMediaManager',
     description: 'Creates and manages social media strategies',
-    heygenAvatarId: 'Pedro_ProfessionalLook_public', // Public avatar from HeyGen API
+    heygenAvatarId: 'Thaddeus_ProfessionalLook_public', // Verified working public avatar
+    // heygenAvatarId: 'Pedro_ProfessionalLook_public', // Previous public avatar
     // heygenAvatarId: 'Santa_Fireplace_Front_public', // Previous working avatar
     // heygenAvatarId: 'Anthony_ProfessionalLook_public', // Previous public avatar
     // heygenAvatarId: 'e0e84faea390465896db75a83be45085', // Original avatar ID
@@ -47,7 +48,8 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/lead-gen-specialist.jpg',
     type: 'LeadGenSpecialist',
     description: 'Focuses on generating and qualifying leads',
-    heygenAvatarId: 'Marianne_ProfessionalLook_public', // Public avatar from HeyGen API
+    heygenAvatarId: 'Pedro_ProfessionalLook_public', // Verified working public avatar
+    // heygenAvatarId: 'Marianne_ProfessionalLook_public', // Previous public avatar
     // heygenAvatarId: 'Bryan_FitnessCoach_public', // Previous working avatar
     // heygenAvatarId: 'Graham_ProfessionalLook_public', // Previous public avatar
     // heygenAvatarId: '4743944d7cbf40d0b6e5c3baf935ceff', // Original working avatar ID
