@@ -97,10 +97,19 @@ const agents = AGENT_CONFIG;
     }
     
     setSelectedAgent(agentToSelect);
+    setSelectedAvatarId(agentToSelect.id); // 🔧 FIX: Sync avatar with selected agent
     setCurrentSessionId(`${profile.user_id}_${agentToSelect.id}`);
     
-    console.log(`✅ Initialized with agent: ${agentToSelect.id}, session: ${profile.user_id}_${agentToSelect.id}`);
+    console.log(`✅ Initialized with agent: ${agentToSelect.id}, avatar: ${agentToSelect.id}, session: ${profile.user_id}_${agentToSelect.id}`);
   }, [profile]);
+
+  // Safety sync: Ensure avatar ID always matches selected agent
+  useEffect(() => {
+    if (selectedAgent && selectedAvatarId !== selectedAgent.id) {
+      console.log(`🔧 Avatar sync: ${selectedAvatarId} → ${selectedAgent.id}`);
+      setSelectedAvatarId(selectedAgent.id);
+    }
+  }, [selectedAgent, selectedAvatarId]);
   
   // Fetch people and groups
   useEffect(() => {
