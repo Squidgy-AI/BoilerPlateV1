@@ -123,8 +123,10 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     
     // Set timeout for avatar initialization
     avatarTimeoutRef.current = setTimeout(() => {
-      console.log("Avatar initialization timeout reached - using fallback");
-      handleAvatarFailure("Avatar loading timed out - using fallback image");
+      console.error(`⏰ Avatar timeout after ${avatarTimeout}ms - ${avatarId} (${heygenAvatarId})`);
+      console.error(`   Session: ${sessionId}`);
+      console.error(`   Attempt: ${currentAttempt}`);
+      handleAvatarFailure(`Avatar loading timed out after ${avatarTimeout}ms`);
     }, avatarTimeout);
     
     try {
@@ -167,11 +169,13 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           disableIdleTimeout: true,
         };
         
-        console.log('Starting avatar with config:', avatarConfig);
-        console.log('Using HeyGen avatar ID:', heygenAvatarId);
+        console.log(`🎬 Starting avatar for ${avatarId}:`, avatarConfig);
+        console.log(`   HeyGen Avatar ID: ${heygenAvatarId}`);
+        console.log(`   Session: ${sessionId}`);
+        console.log(`   Attempt: #${currentAttempt}`);
         
         const result = await actualAvatarRef.current.createStartAvatar(avatarConfig);
-        console.log('Avatar start result:', result);
+        console.log(`✅ Avatar start successful for ${avatarId}:`, result);
   
         // Only start voice chat if voice is enabled
         if (voiceEnabled) {
@@ -283,7 +287,9 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   }
 
   function handleAvatarFailure(errorMessage: string) {
-    console.log("Avatar failed, using fallback:", errorMessage);
+    console.error(`❌ Avatar failure for ${avatarId} (${heygenAvatarId}):`, errorMessage);
+    console.error(`   Session: ${sessionId}`);
+    console.error(`   Attempt: ${initializationAttemptRef.current}`);
     
     // Clear timeout if still pending
     if (avatarTimeoutRef.current) {
@@ -291,7 +297,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       avatarTimeoutRef.current = null;
     }
     
-    setError(errorMessage);
+    setError(`${avatarId}: ${errorMessage}`);
     setAvatarFailed(true);
     setIsLoadingSession(false);
     setIsInitializing(false);
@@ -300,7 +306,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     setAvatarReadyState('failed');
     
     if (onAvatarError) {
-      onAvatarError(errorMessage);
+      onAvatarError(`${avatarId}: ${errorMessage}`);
     }
     
     // Still call onAvatarReady to proceed with chat
@@ -337,6 +343,10 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     // Prevent multiple concurrent cleanup operations
     if (isCleaningUpRef.current) {
       console.log("🔄 Cleanup already in progress, waiting...");
+      // Wait for current cleanup to complete
+      while (isCleaningUpRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       return;
     }
     
@@ -436,56 +446,46 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     }
   }
 
-  // Main initialization effect
+  // Consolidated initialization effect with debouncing
   useEffect(() => {
-    if (enabled) {
+    let timeoutId: NodeJS.Timeout;
+    
+    const shouldReinitialize = 
+      enabled && (
+        sessionId !== currentSessionIdRef.current ||
+        currentAvatarIdRef.current !== avatarId
+      );
+    
+    if (shouldReinitialize) {
+      console.log(`🔄 Change detected - Session: ${currentSessionIdRef.current} → ${sessionId}, Avatar: ${currentAvatarIdRef.current} → ${avatarId}`);
+      
+      // Debounce multiple rapid changes
+      timeoutId = setTimeout(async () => {
+        // Cancel any pending initialization
+        initializationAttemptRef.current++;
+        
+        await endSession();
+        
+        // Only start if still needed and enabled
+        if (enabled && 
+            (sessionId !== currentSessionIdRef.current || currentAvatarIdRef.current !== avatarId)) {
+          await startAvatarSession();
+        }
+      }, 300); // 300ms debounce
+      
+    } else if (enabled && !sessionActive && !isInitializing) {
+      // Initial start when enabled
+      console.log("🚀 Initial avatar start");
       startAvatarSession();
     }
     
     return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       endSession();
     };
-  }, [enabled]);
-
-  // Handle session changes with debouncing
-  useEffect(() => {
-    if (sessionId !== currentSessionIdRef.current && enabled) {
-      console.log(`📱 Session changed: ${currentSessionIdRef.current} → ${sessionId}`);
-      
-      // Cancel any pending initialization
-      initializationAttemptRef.current++;
-      
-      const reinitialize = async () => {
-        await endSession();
-        // Only start new session if this effect is still valid
-        if (sessionId !== currentSessionIdRef.current && enabled) {
-          await startAvatarSession();
-        }
-      };
-      
-      reinitialize();
-    }
-  }, [sessionId, enabled]);
-
-  // Handle avatar ID changes with debouncing
-  useEffect(() => {
-    if (currentAvatarIdRef.current !== avatarId && enabled) {
-      console.log(`🔄 Avatar ID changed: ${currentAvatarIdRef.current} → ${avatarId}`);
-      
-      // Cancel any pending initialization
-      initializationAttemptRef.current++;
-      
-      const reinitialize = async () => {
-        await endSession();
-        // Only start new session if this effect is still valid
-        if (currentAvatarIdRef.current !== avatarId && enabled) {
-          await startAvatarSession();
-        }
-      };
-      
-      reinitialize();
-    }
-  }, [avatarId, enabled]);
+  }, [enabled, sessionId, avatarId]); // Combined dependencies
 
   // Handle voice enabled changes
   useEffect(() => {
