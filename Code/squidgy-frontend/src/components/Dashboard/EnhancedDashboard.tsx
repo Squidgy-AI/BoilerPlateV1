@@ -97,10 +97,19 @@ const agents = AGENT_CONFIG;
     }
     
     setSelectedAgent(agentToSelect);
+    setSelectedAvatarId(agentToSelect.id); // 🔧 FIX: Sync avatar with selected agent
     setCurrentSessionId(`${profile.user_id}_${agentToSelect.id}`);
     
-    console.log(`✅ Initialized with agent: ${agentToSelect.id}, session: ${profile.user_id}_${agentToSelect.id}`);
+    console.log(`✅ Initialized with agent: ${agentToSelect.id}, avatar: ${agentToSelect.id}, session: ${profile.user_id}_${agentToSelect.id}`);
   }, [profile]);
+
+  // Safety sync: Ensure avatar ID always matches selected agent
+  useEffect(() => {
+    if (selectedAgent && selectedAvatarId !== selectedAgent.id) {
+      console.log(`🔧 Avatar sync: ${selectedAvatarId} → ${selectedAgent.id}`);
+      setSelectedAvatarId(selectedAgent.id);
+    }
+  }, [selectedAgent, selectedAvatarId]);
   
   // Fetch people and groups
   useEffect(() => {
@@ -295,26 +304,70 @@ const agents = AGENT_CONFIG;
         setAgentThinking(`${data.agent} is thinking...`);
         break;
         
+      case 'agent_switch':
+        // Handle explicit agent switch message from backend
+        console.log('🔄 Agent switch message received:', data);
+        const fromAgent = data.from_agent;
+        const toAgent = data.to_agent;
+        const switchMessage = data.message;
+        
+        // Find the target agent
+        const newAgent = agents.find(agent => agent.agent_name === toAgent || agent.id === toAgent);
+        if (newAgent) {
+          console.log(`🔄 Switching from ${fromAgent} to ${toAgent}`);
+          
+          // Save current messages to cache before switching
+          if (selectedAgent && messages.length > 0) {
+            console.log(`💾 Saving ${messages.length} messages to cache for agent: ${selectedAgent.name}`);
+            setAgentChatCache(prevCache => ({ 
+              ...prevCache, 
+              [selectedAgent.id]: [...messages] 
+            }));
+          }
+          
+          await handleAgentSelect(newAgent);
+          
+          // Show the switch message
+          if (switchMessage) {
+            addMessage({
+              sender: 'agent',
+              text: switchMessage,
+              timestamp: new Date().toISOString()
+            });
+            
+            // Save to database
+            if (currentSessionId) {
+              saveMessageToDatabase(switchMessage, 'agent');
+            }
+          }
+        }
+        break;
+        
       case 'agent_response':
         if (data.final) {
           setAgentThinking(null);
           
           // Check for agent switching scenario
-          const responseAgentName = data.agent_name;
+          const responseAgentName = data.agent_name || data.agent; // Backend sends 'agent' field
           const outputAction = data.output_action;
           const agentResponse = data.agent_response || data.message;
           const currentAgentId = selectedAgent?.id;
+          const currentAgentName = selectedAgent?.agent_name || selectedAgent?.id;
           
           console.log('🔄 Agent response processing:', {
             currentAgentId,
+            currentAgentName,
             responseAgentName,
             outputAction,
-            agentResponse
+            agentResponse,
+            fullData: data
           });
           
-          // Handle agent switching when output_action is "need_website_info"
-          if (outputAction === 'need_website_info' && responseAgentName) {
-            console.log('🔄 Need website info - checking for agent switch');
+          // Handle agent switching when the response comes from a different agent
+          if (responseAgentName && responseAgentName !== currentAgentName) {
+            console.log('🔄 Agent routing detected - checking for agent switch');
+            console.log(`Current agent: ${currentAgentName}, Response from: ${responseAgentName}`);
+            console.log('Available agents:', agents.map(a => ({ id: a.id, agent_name: a.agent_name, name: a.name })));
             
             // Find the target agent by agent_name
             const targetAgent = agents.find(agent => agent.agent_name === responseAgentName);
@@ -322,30 +375,46 @@ const agents = AGENT_CONFIG;
             if (targetAgent && targetAgent.id !== currentAgentId) {
               console.log(`🔄 Switching from ${currentAgentId} to ${targetAgent.id} (${targetAgent.name})`);
               
+              // Save current messages to cache before switching (excluding this response)
+              if (selectedAgent && messages.length > 0) {
+                console.log(`💾 Saving ${messages.length} messages to cache for agent: ${selectedAgent.name}`);
+                setAgentChatCache(prevCache => ({ 
+                  ...prevCache, 
+                  [selectedAgent.id]: [...messages] 
+                }));
+              }
+              
               // Switch to the target agent tab
               await handleAgentSelect(targetAgent);
               
-              // Show message indicating the switch
-              const switchMessage = {
+              // Add a small delay to ensure the agent switch is complete
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
+              // Show transition message from the new agent
+              const transitionMessage = {
                 sender: 'agent',
-                text: `Hey I am the right person to answer this question: ${agentResponse}`,
+                text: `Hey, I'm ${targetAgent.name} and I'll be better able to help you with this. ${agentResponse}`,
                 timestamp: new Date().toISOString()
               };
               
-              addMessage(switchMessage);
+              addMessage(transitionMessage);
               
               // Save agent message to database
               if (currentSessionId) {
-                saveMessageToDatabase(switchMessage.text, switchMessage.sender);
+                saveMessageToDatabase(transitionMessage.text, transitionMessage.sender);
               }
               
               // Speak with avatar if enabled
               if (avatarRef.current && videoEnabled && voiceEnabled) {
-                avatarRef.current.speak({
-                  text: switchMessage.text,
-                  taskType: "talk" as any,
-                  taskMode: 1 as any
-                });
+                try {
+                  avatarRef.current.speak({
+                    text: transitionMessage.text,
+                    taskType: "talk" as any,
+                    taskMode: 1 as any
+                  });
+                } catch (error) {
+                  console.error('Error speaking with avatar:', error);
+                }
               }
               
               return; // Exit early since we handled the switch
@@ -384,11 +453,15 @@ const agents = AGENT_CONFIG;
           
           // Speak with avatar if enabled
           if (avatarRef.current && videoEnabled && voiceEnabled) {
-            avatarRef.current.speak({
-              text: agentResponse,
-              taskType: "talk" as any,
-              taskMode: 1 as any
-            });
+            try {
+              avatarRef.current.speak({
+                text: agentResponse,
+                taskType: "talk" as any,
+                taskMode: 1 as any
+              });
+            } catch (error) {
+              console.error('Error speaking with avatar:', error);
+            }
           }
         }
         break;
@@ -455,17 +528,43 @@ const agents = AGENT_CONFIG;
   
   const handleAgentSelect = async (agent: any) => {
     try {
+      // Prevent rapid switching by checking if we're already on this agent
+      if (selectedAgent?.id === agent.id) {
+        console.log(`🔄 Already on agent ${agent.id}, skipping switch`);
+        return;
+      }
+      
+      console.log(`🔄 Switching to agent: ${agent.name} (${agent.id})`);
+      
+      // Cache current messages before switching
+      if (selectedAgent && messages.length > 0) {
+        console.log(`💾 Caching ${messages.length} messages for agent: ${selectedAgent.name}`);
+        setAgentChatCache(prev => ({ ...prev, [selectedAgent.id]: [...messages] }));
+      }
+      
+      // Update states immediately to prevent race conditions
       setSelectedAgent(agent);
       setSelectedAvatarId(agent.id);
       setIsGroupSession(false);
+      
+      // Clear any browser caching for avatar switching
+      if (typeof window !== 'undefined') {
+        // Force component re-render by clearing any cached avatar data
+        localStorage.removeItem(`avatar_cache_${agent.id}`);
+        console.log(`🗑️ Cleared avatar cache for ${agent.id}`);
+      }
       
       // Save selected agent to localStorage for persistence across tab switches
       localStorage.setItem('selectedAgentId', agent.id);
       console.log(`💾 Saved agent to localStorage: ${agent.id}`);
       
-      // Close any existing avatar streaming session
+      // Close any existing avatar streaming session gracefully
       if (websocket) {
-        websocket.close();
+        try {
+          websocket.close();
+        } catch (error) {
+          console.log('Websocket already closed or error closing:', error);
+        }
       }
       
       // Get or create a persistent session ID for this agent
@@ -476,17 +575,19 @@ const agents = AGENT_CONFIG;
       }
       setCurrentSessionId(sessionId);
       
-      // Check if we have cached messages for this agent first
-      if (agentChatCache[agent.id]) {
-        console.log(`Loading ${agentChatCache[agent.id].length} cached messages for agent: ${agent.name}`);
+      // Check if we have cached messages for this agent first (faster UX)
+      if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
+        console.log(`⚡ Loading ${agentChatCache[agent.id].length} cached messages for agent: ${agent.name}`);
         setMessages(agentChatCache[agent.id]);
       } else {
-        console.log(`No cached messages found for agent: ${agent.name}, loading from database...`);
+        console.log(`🔍 No cached messages found for agent: ${agent.name}, loading from database...`);
+        // Clear messages immediately for better UX
+        setMessages([]);
         // Load chat history from database for this specific agent session
         await loadChatHistoryForAgent(agent, sessionId);
       }
       
-      console.log(`Selected agent: ${agent.name}, Session: ${sessionId}`);
+      console.log(`✅ Selected agent: ${agent.name}, Session: ${sessionId}`);
       
       // TODO: Uncomment when sessions table is available
       /*
@@ -1067,6 +1168,7 @@ const agents = AGENT_CONFIG;
                       sessionId={currentSessionId}
                       voiceEnabled={voiceEnabled}
                       avatarId={selectedAvatarId}
+                      avatarTimeout={6000}
                     />
                     
                     {/* Fallback when avatar is loading */}
