@@ -41,7 +41,7 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/lead-gen-specialist.jpg',
     type: 'LeadGenSpecialist',
     description: 'Focuses on generating and qualifying leads',
-    heygenAvatarId: '1732660983',
+    heygenAvatarId: '4743944d7cbf40d0b6e5c3baf935ceff', // Updated to working avatar ID
     fallbackAvatar: '/avatars/leadgen-fallback.jpg',
     agent_name: 'leadgenkb',
     introMessage: "Hi there! I'm your Lead Generation Specialist. I help schedule demos, coordinate follow-ups, and ensure all your business needs are properly addressed."
@@ -59,7 +59,12 @@ export const getAgentByHeygenId = (heygenId: string): Agent | undefined => {
 
 export const getHeygenAvatarId = (agentId: string): string => {
   const agent = getAgentById(agentId);
-  return agent?.heygenAvatarId || 'Anna_public_3_20240108'; // Default
+  const avatarId = agent?.heygenAvatarId || '4743944d7cbf40d0b6e5c3baf935ceff'; // Updated default to working ID
+  
+  // Log the avatar ID being used for debugging
+  console.log(`Getting HeyGen avatar ID for agent ${agentId}:`, avatarId);
+  
+  return avatarId;
 };
 
 export const getFallbackAvatar = (agentIdOrHeygenId: string): string => {
@@ -82,4 +87,30 @@ export const getAgentName = (agentId: string): string => {
 export const getAgentGreeting = (agentId: string): string => {
   const agent = getAgentById(agentId);
   return agent?.introMessage || `Hello! I'm your ${agentId} assistant. How can I help you today?`;
+};
+
+// Helper function to validate avatar ID format
+export const isValidAvatarId = (avatarId: string): boolean => {
+  // HeyGen avatar IDs are typically 32-character hex strings
+  const hexPattern = /^[a-f0-9]{32}$/i;
+  return hexPattern.test(avatarId);
+};
+
+// Helper function to get a validated avatar ID with fallback
+export const getValidatedAvatarId = (agentId: string): string => {
+  const agent = getAgentById(agentId);
+  const avatarId = agent?.heygenAvatarId;
+  
+  if (!avatarId) {
+    console.warn(`No avatar ID found for agent ${agentId}, using default`);
+    return '4743944d7cbf40d0b6e5c3baf935ceff';
+  }
+  
+  if (!isValidAvatarId(avatarId)) {
+    console.warn(`Invalid avatar ID format for agent ${agentId}: ${avatarId}, using default`);
+    return '4743944d7cbf40d0b6e5c3baf935ceff';
+  }
+  
+  console.log(`Using validated avatar ID for agent ${agentId}:`, avatarId);
+  return avatarId;
 };

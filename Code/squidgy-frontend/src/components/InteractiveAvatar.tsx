@@ -8,7 +8,7 @@ import StreamingAvatar, {
   TaskType,
   VoiceEmotion,
 } from "@heygen/streaming-avatar";
-import { getHeygenAvatarId, getFallbackAvatar } from '@/config/agents';
+import { getHeygenAvatarId, getFallbackAvatar, getValidatedAvatarId } from '@/config/agents';
 
 interface InteractiveAvatarProps {
   onAvatarReady?: () => void;
@@ -47,8 +47,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
 
   const actualAvatarRef = avatarRef || localAvatarRef;
 
-  // Get the actual HeyGen avatar ID
-  const heygenAvatarId = getHeygenAvatarId(avatarId);
+  // Get the actual HeyGen avatar ID with validation
+  const heygenAvatarId = getValidatedAvatarId(avatarId);
   
   // Get the appropriate fallback image
   const fallbackImagePath = getFallbackAvatar(avatarId);
@@ -109,7 +109,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       }
   
       try {
-        await actualAvatarRef.current.createStartAvatar({
+        // Use the correct parameters based on HeyGen SDK documentation
+        const avatarConfig = {
           quality: AvatarQuality.Low,
           avatarName: heygenAvatarId,
           voice: {
@@ -118,7 +119,13 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           },
           language: "en",
           disableIdleTimeout: true,
-        });
+        };
+        
+        console.log('Starting avatar with config:', avatarConfig);
+        console.log('Using HeyGen avatar ID:', heygenAvatarId);
+        
+        const result = await actualAvatarRef.current.createStartAvatar(avatarConfig);
+        console.log('Avatar start result:', result);
   
         // Only start voice chat if voice is enabled
         if (voiceEnabled) {
@@ -144,6 +151,67 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         }
       } catch (avatarError: any) {
         console.error("Error starting avatar session:", avatarError);
+        
+        // Handle specific API errors
+        if (avatarError.message && avatarError.message.includes('400')) {
+          console.error("400 Error Details:", {
+            error: avatarError,
+            avatarId: heygenAvatarId,
+            token: tokenRef.current ? 'Present' : 'Missing',
+            config: {
+              quality: AvatarQuality.Low,
+              avatarName: heygenAvatarId,
+              voice: {
+                rate: 1.2,
+                emotion: VoiceEmotion.NEUTRAL,
+              },
+              language: "en",
+              disableIdleTimeout: true,
+            }
+          });
+          
+          // Try with a different avatar configuration
+          console.log("Attempting fallback avatar configuration...");
+          try {
+            const fallbackConfig = {
+              quality: AvatarQuality.Medium,
+              avatarName: heygenAvatarId,
+              language: "en",
+              disableIdleTimeout: false,
+            };
+            
+            console.log('Trying fallback config:', fallbackConfig);
+            const fallbackResult = await actualAvatarRef.current.createStartAvatar(fallbackConfig);
+            console.log('Fallback avatar start result:', fallbackResult);
+            
+            // If fallback succeeds, continue with voice chat
+            if (voiceEnabled) {
+              await actualAvatarRef.current?.startVoiceChat({
+                useSilencePrompt: false
+              });
+            }
+            
+            // Clear timeout on success
+            if (avatarTimeoutRef.current) {
+              clearTimeout(avatarTimeoutRef.current);
+              avatarTimeoutRef.current = null;
+            }
+            
+            setSessionActive(true);
+            currentSessionIdRef.current = sessionId;
+            currentAvatarIdRef.current = avatarId;
+            setIsLoadingSession(false);
+            
+            console.log("Fallback avatar configuration succeeded");
+            if (onAvatarReady) {
+              onAvatarReady();
+            }
+            return; // Exit successfully
+          } catch (fallbackError) {
+            console.error("Fallback configuration also failed:", fallbackError);
+          }
+        }
+        
         handleAvatarFailure(avatarError.message || "Failed to start avatar session");
       }
     } catch (error: any) {
