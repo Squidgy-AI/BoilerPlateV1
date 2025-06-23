@@ -189,60 +189,27 @@ export class AuthService {
         throw new Error('Please enter a valid email address');
       }
 
-      // Check if user exists
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('user_id, email')
-        .eq('email', data.email.toLowerCase())
-        .single();
-
-      if (profileError || !profile) {
-        // Don't reveal if email exists or not for security
-        return { message: 'If an account with this email exists, you will receive a password reset link' };
-      }
-
-      // Generate reset token
-      const resetToken = uuidv4();
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 1); // Token expires in 1 hour
-
-      // Store reset token in database
-      const { error: tokenError } = await supabase
-        .from('users_forgot_password')
-        .insert([{
-          user_id: profile.user_id,
-          email: data.email.toLowerCase(),
-          reset_token: resetToken,
-          token_expires_at: expiresAt.toISOString(),
-          is_used: false
-        }]);
-
-      if (tokenError) {
-        throw tokenError;
-      }
-
-      // Send reset email using Supabase Auth with custom SMTP
-      const redirectUrl = typeof window !== 'undefined' 
-        ? `${window.location.origin}/reset-password?token=${resetToken}`
-        : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-        
+      // Use Supabase Auth's built-in password reset
+      // This handles everything including email sending
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         data.email.toLowerCase(),
         {
-          redirectTo: redirectUrl,
-          captchaToken: undefined // Skip captcha for now
+          redirectTo: `${window.location.origin}/auth/reset-password`,
         }
       );
 
       if (resetError) {
-        throw resetError;
+        console.error('Reset password error:', resetError);
+        // Don't expose the actual error to prevent email enumeration
+        return { message: 'If an account with this email exists, you will receive a password reset link' };
       }
 
-      return { message: 'Password reset link sent to your email' };
+      return { message: 'If an account with this email exists, you will receive a password reset link' };
 
     } catch (error: any) {
       console.error('Password reset error:', error);
-      throw new Error('Failed to send password reset email');
+      // Always return the same message for security
+      return { message: 'If an account with this email exists, you will receive a password reset link' };
     }
   }
 
@@ -254,56 +221,15 @@ export class AuthService {
         throw new Error('Password must be at least 8 characters with uppercase, lowercase, and number');
       }
 
-      // Verify reset token
-      const { data: resetRecord, error: tokenError } = await supabase
-        .from('users_forgot_password')
-        .select('*')
-        .eq('reset_token', data.token)
-        .eq('is_used', false)
-        .single();
-
-      if (tokenError || !resetRecord) {
-        throw new Error('Invalid or expired reset token');
-      }
-
-      // Check if token is expired
-      const now = new Date();
-      const expiresAt = new Date(resetRecord.token_expires_at);
-      if (now > expiresAt) {
-        throw new Error('Reset token has expired');
-      }
-
-      // Get user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', resetRecord.user_id)
-        .single();
-
-      if (profileError || !profile) {
-        throw new Error('User not found');
-      }
-
-      // Update password using Supabase Auth
+      // When using Supabase's built-in password reset flow,
+      // the user should already be authenticated via the magic link
+      // Just update the password
       const { error: updateError } = await supabase.auth.updateUser({
         password: data.newPassword
       });
 
       if (updateError) {
         throw updateError;
-      }
-
-      // Mark token as used
-      const { error: markUsedError } = await supabase
-        .from('users_forgot_password')
-        .update({
-          is_used: true,
-          used_at: new Date().toISOString()
-        })
-        .eq('id', resetRecord.id);
-
-      if (markUsedError) {
-        console.error('Failed to mark token as used:', markUsedError);
       }
 
       return { message: 'Password reset successfully' };
