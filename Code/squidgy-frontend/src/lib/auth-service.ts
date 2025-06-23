@@ -216,8 +216,10 @@ export class AuthService {
         if (resetError.message.includes('Failed to fetch') || 
             resetError.message.includes('CORS') ||
             resetError.message.includes('502') ||
+            resetError.message.includes('504') ||
+            resetError.message.includes('Gateway Timeout') ||
             resetError.message.includes('Bad Gateway')) {
-          throw new Error('Service temporarily unavailable. Please check your internet connection and try again in a few minutes.');
+          throw new Error('Supabase authentication service is temporarily down (504 Gateway Timeout). Please try again in a few minutes or check https://status.supabase.com for service status.');
         }
         
         // Don't expose other errors to prevent email enumeration
