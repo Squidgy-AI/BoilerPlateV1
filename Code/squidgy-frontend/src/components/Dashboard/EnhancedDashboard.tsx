@@ -295,12 +295,41 @@ const agents = AGENT_CONFIG;
         setAgentThinking(`${data.agent} is thinking...`);
         break;
         
+      case 'agent_switch':
+        // Handle explicit agent switch message from backend
+        console.log('🔄 Agent switch message received:', data);
+        const fromAgent = data.from_agent;
+        const toAgent = data.to_agent;
+        const switchMessage = data.message;
+        
+        // Find the target agent
+        const newAgent = agents.find(agent => agent.agent_name === toAgent || agent.id === toAgent);
+        if (newAgent) {
+          console.log(`🔄 Switching from ${fromAgent} to ${toAgent}`);
+          await handleAgentSelect(newAgent);
+          
+          // Show the switch message
+          if (switchMessage) {
+            addMessage({
+              sender: 'agent',
+              text: switchMessage,
+              timestamp: new Date().toISOString()
+            });
+            
+            // Save to database
+            if (currentSessionId) {
+              saveMessageToDatabase(switchMessage, 'agent');
+            }
+          }
+        }
+        break;
+        
       case 'agent_response':
         if (data.final) {
           setAgentThinking(null);
           
           // Check for agent switching scenario
-          const responseAgentName = data.agent_name;
+          const responseAgentName = data.agent_name || data.agent; // Backend sends 'agent' field
           const outputAction = data.output_action;
           const agentResponse = data.agent_response || data.message;
           const currentAgentId = selectedAgent?.id;
@@ -342,11 +371,15 @@ const agents = AGENT_CONFIG;
               
               // Speak with avatar if enabled
               if (avatarRef.current && videoEnabled && voiceEnabled) {
-                avatarRef.current.speak({
-                  text: transitionMessage.text,
-                  taskType: "talk" as any,
-                  taskMode: 1 as any
-                });
+                try {
+                  avatarRef.current.speak({
+                    text: transitionMessage.text,
+                    taskType: "talk" as any,
+                    taskMode: 1 as any
+                  });
+                } catch (error) {
+                  console.error('Error speaking with avatar:', error);
+                }
               }
               
               return; // Exit early since we handled the switch
@@ -385,11 +418,15 @@ const agents = AGENT_CONFIG;
           
           // Speak with avatar if enabled
           if (avatarRef.current && videoEnabled && voiceEnabled) {
-            avatarRef.current.speak({
-              text: agentResponse,
-              taskType: "talk" as any,
-              taskMode: 1 as any
-            });
+            try {
+              avatarRef.current.speak({
+                text: agentResponse,
+                taskType: "talk" as any,
+                taskMode: 1 as any
+              });
+            } catch (error) {
+              console.error('Error speaking with avatar:', error);
+            }
           }
         }
         break;
