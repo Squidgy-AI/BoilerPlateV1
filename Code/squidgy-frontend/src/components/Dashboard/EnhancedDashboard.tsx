@@ -333,18 +333,22 @@ const agents = AGENT_CONFIG;
           const outputAction = data.output_action;
           const agentResponse = data.agent_response || data.message;
           const currentAgentId = selectedAgent?.id;
+          const currentAgentName = selectedAgent?.agent_name || selectedAgent?.id;
           
           console.log('🔄 Agent response processing:', {
             currentAgentId,
+            currentAgentName,
             responseAgentName,
             outputAction,
-            agentResponse
+            agentResponse,
+            fullData: data
           });
           
           // Handle agent switching when the response comes from a different agent
-          if (responseAgentName && responseAgentName !== selectedAgent?.agent_name) {
+          if (responseAgentName && responseAgentName !== currentAgentName) {
             console.log('🔄 Agent routing detected - checking for agent switch');
-            console.log(`Current agent: ${selectedAgent?.agent_name}, Response from: ${responseAgentName}`);
+            console.log(`Current agent: ${currentAgentName}, Response from: ${responseAgentName}`);
+            console.log('Available agents:', agents.map(a => ({ id: a.id, agent_name: a.agent_name, name: a.name })));
             
             // Find the target agent by agent_name
             const targetAgent = agents.find(agent => agent.agent_name === responseAgentName);
