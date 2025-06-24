@@ -335,10 +335,7 @@ const agents = AGENT_CONFIG;
               timestamp: new Date().toISOString()
             });
             
-            // Save agent switch message to database
-            if (currentSessionId) {
-              await saveMessageToDatabase(switchMessage, 'agent');
-            }
+            // Agent message will be saved by backend - no need to save here
           }
         }
         break;
@@ -399,10 +396,7 @@ const agents = AGENT_CONFIG;
               
               addMessage(transitionMessage);
               
-              // Save agent transition message to database
-              if (currentSessionId) {
-                await saveMessageToDatabase(transitionMessage.text, transitionMessage.sender);
-              }
+              // Agent message will be saved by backend - no need to save here
               
               // Speak with avatar if enabled
               if (avatarRef.current && videoEnabled && voiceEnabled) {
@@ -446,10 +440,7 @@ const agents = AGENT_CONFIG;
           
           addMessage(agentMessage);
           
-          // Save agent response to database
-          if (currentSessionId) {
-            await saveMessageToDatabase(agentMessage.text, agentMessage.sender);
-          }
+          // Agent message will be saved by backend - no need to save here
           
           // Speak with avatar if enabled
           if (avatarRef.current && videoEnabled && voiceEnabled) {
@@ -649,53 +640,8 @@ const agents = AGENT_CONFIG;
     }
   };
   
-  // Database save function for EnhancedDashboard (separate from ChatContext)
-  const saveMessageToDatabase = async (message: string, sender: string) => {
-    if (!currentSessionId || !profile) {
-      console.log('Cannot save message - missing session or profile:', { currentSessionId, profile: !!profile });
-      return;
-    }
-    
-    try {
-      console.log('📝 Dashboard saving message to database:', { message: message.substring(0, 50), sender, currentSessionId });
-      
-      const { error } = await supabase
-        .from('chat_history')
-        .insert({
-          user_id: profile.user_id,
-          session_id: currentSessionId,
-          sender: sender,
-          message: message,
-          timestamp: new Date().toISOString()
-        });
-        
-      if (error) {
-        // Handle duplicate message errors gracefully
-        if (error?.code === '23505' || error?.message?.includes('duplicate') || error?.message?.includes('already exists')) {
-          console.debug('✅ Message already exists in database (handled by duplicate prevention):', error.details || error.message);
-          return; // Silently ignore duplicates
-        }
-        
-        console.error('❌ Error saving message to database:', error);
-        setWebsocketLogs(prev => [...prev, {
-          timestamp: new Date(),
-          type: 'error',
-          message: `Database error: ${error.message}`,
-          data: error
-        }]);
-      } else {
-        console.log('✅ Message saved successfully to database');
-      }
-    } catch (error: any) {
-      // Handle duplicate message errors gracefully
-      if (error?.code === '23505' || error?.message?.includes('duplicate') || error?.message?.includes('already exists')) {
-        console.debug('✅ Message already exists in database (handled by duplicate prevention):', error.details || error.message);
-        return; // Silently ignore duplicates
-      }
-      
-      console.error('❌ Error in saveMessageToDatabase:', error);
-    }
-  };
+  // Database saves are handled by backend during WebSocket processing
+  // No need for frontend database saves to avoid duplicate 409 conflicts
   
   // Function to load chat history for a specific agent session from database
   const loadChatHistoryForAgent = async (agent: any, sessionId?: string) => {
@@ -793,10 +739,7 @@ const agents = AGENT_CONFIG;
     // Add user message to UI and cache
     addMessage({ sender: 'user', text: userMessage, timestamp: new Date().toISOString() });
     
-    // Save user message to database
-    if (currentSessionId) {
-      await saveMessageToDatabase(userMessage, 'user');
-    }
+    // User message will be saved by backend during WebSocket processing - no need to save here
     
     // Send via WebSocket
     console.log('WebSocket status:', websocket.getStatus(), 'Connection state:', connectionStatus);
