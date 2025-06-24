@@ -481,28 +481,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Save message to database
   const saveMessageToDatabase = async (message: ChatMessage) => {
-    if (!profile || !currentSessionId) return;
-    
-    try {
-      // Save to chat_history table (matches backend)
-      await supabase.from('chat_history').insert({
-        user_id: profile.user_id,
-        session_id: currentSessionId,
-        sender: message.sender === 'User' ? 'user' : 'agent',
-        message: message.message,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error('Error saving message to database:', error);
-    }
+    // Database saves are handled by backend during WebSocket processing
+    // Disabling frontend saves to prevent duplicate 409 conflicts
+    console.debug('ChatContext: Skipping database save - handled by backend', message);
+    return;
   };
   
   // Create a new session
   const createNewSession = async () => {
     if (!profile) throw new Error('User not authenticated');
     
-    // Generate a new session ID
-    const newSessionId = `${profile.user_id}_${Date.now()}`;
+    // Generate a new session ID with consistent format: userId_agentId_timestamp
+    // Use selectedAgent if available, otherwise default to presaleskb
+    const agentId = selectedAgent?.id || selectedAgent?.agent_name || 'presaleskb';
+    const newSessionId = `${profile.user_id}_${agentId}_${Date.now()}`;
     
     try {
       // Save session to database

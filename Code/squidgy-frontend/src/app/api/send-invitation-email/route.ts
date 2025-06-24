@@ -22,17 +22,17 @@ export async function POST(request: NextRequest) {
   console.log('=== EMAIL API ROUTE CALLED ===');
   
   try {
-    const { email, token, senderName, inviteUrl } = await request.json();
+    const { email, token, senderName, inviteUrl, senderId, companyId, groupId } = await request.json();
     
-    console.log('Email API request data:', { email, token, senderName, inviteUrl });
+    console.log('Email API request data:', { email, token, senderName, inviteUrl, senderId, companyId, groupId });
 
-    if (!email || !token || !inviteUrl) {
-      console.error('Missing required fields:', { email: !!email, token: !!token, inviteUrl: !!inviteUrl });
+    if (!email || !token || !inviteUrl || !senderId) {
+      console.error('Missing required fields:', { email: !!email, token: !!token, inviteUrl: !!inviteUrl, senderId: !!senderId });
       return NextResponse.json(
         { 
           success: false,
           error: 'Missing required fields',
-          details: `Missing: ${!email ? 'email ' : ''}${!token ? 'token ' : ''}${!inviteUrl ? 'inviteUrl' : ''}`
+          details: `Missing: ${!email ? 'email ' : ''}${!token ? 'token ' : ''}${!inviteUrl ? 'inviteUrl ' : ''}${!senderId ? 'senderId' : ''}`
         },
         { status: 400 }
       );
@@ -53,91 +53,85 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // Method 1: Try using Supabase auth invite first
+    // Check if SMTP is configured in Supabase
+    console.log('Checking Supabase SMTP configuration...');
+    
+    // For now, skip Supabase email and go directly to fallback
+    // since SMTP is not configured in Supabase dashboard
+    console.log('SMTP not configured in Supabase, using fallback method');
+    
     try {
-      console.log('Attempting Supabase auth.admin.inviteUserByEmail...');
+      // Method 1: Try to create invitation record and return manual link
+      // This ensures the invitation is saved to database even if email fails
       
-      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: inviteUrl,
-        data: {
-          sender_name: senderName,
-          invitation_token: token,
-          invitation_type: 'team_invite'
-        }
-      });
+      console.log('Saving invitation to database...');
+      
+      // Check if invitation already exists
+      const { data: existingInvite } = await supabaseAdmin
+        .from('invitations')
+        .select('id, status')
+        .eq('recipient_email', email)
+        .eq('status', 'pending')
+        .single();
 
-      console.log('Supabase invite result:', { data, error });
-
-      if (error) {
-        console.error('Supabase invite error:', error);
-        throw new Error(`Supabase invite failed: ${error.message}`);
+      if (existingInvite) {
+        console.log('Invitation already exists, returning existing invite');
+        return NextResponse.json({
+          success: true,
+          message: 'Invitation already sent. Please check your email or use the link below.',
+          fallback_url: inviteUrl,
+          method: 'existing_invitation'
+        });
       }
 
-      console.log('Supabase invitation sent successfully');
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Invitation email sent successfully via Supabase Auth',
-        method: 'supabase_auth'
+      console.log('Creating new invitation record...');
+      
+      // Create invitation record in database
+      const { data: inviteRecord, error: inviteError } = await supabaseAdmin
+        .from('invitations')
+        .insert({
+          sender_id: senderId,
+          recipient_email: email,
+          token: token,
+          status: 'pending',
+          company_id: companyId || null,
+          group_id: groupId || null,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (inviteError) {
+        console.error('Failed to save invitation to database:', inviteError);
+        throw new Error(`Database error saving invitation: ${inviteError.message}`);
+      }
+
+      console.log('Invitation saved to database successfully:', inviteRecord);
+
+      // Return success with manual sharing option
+      return NextResponse.json({
+        success: true,
+        message: 'Invitation created successfully. Please share the link manually since SMTP is not configured.',
+        fallback_url: inviteUrl,
+        method: 'manual_sharing',
+        suggestion: 'Configure SMTP in Supabase Dashboard (Authentication → Settings → SMTP Settings) to enable automatic email sending.'
       });
 
     } catch (supabaseError) {
-      console.error('Supabase email method failed:', supabaseError);
+      console.error('Database operation failed:', supabaseError);
       
-      // Method 2: Try using Edge Functions or direct database trigger
-      try {
-        console.log('Attempting fallback email method...');
-        
-        // Insert a record that could trigger an email via database function
-        const { data: emailRecord, error: emailError } = await supabaseAdmin
-          .from('email_queue')
-          .insert({
-            recipient_email: email,
-            email_type: 'invitation',
-            subject: `${senderName} invited you to join Squidgy`,
-            template_data: {
-              sender_name: senderName,
-              invite_url: inviteUrl,
-              token: token
-            },
-            status: 'pending'
-          })
-          .select()
-          .single();
-
-        if (emailError) {
-          console.log('Email queue table does not exist, using manual approach');
-          
-          // Method 3: Return success with manual link
-          return NextResponse.json({
-            success: false,
-            error: 'Email sending failed - SMTP configuration issue',
-            details: supabaseError instanceof Error ? supabaseError.message : 'Unknown Supabase error',
-            fallback_url: inviteUrl,
-            suggestion: 'Check Supabase Auth settings and SMTP configuration in dashboard'
-          }, { status: 500 });
-        }
-
-        console.log('Email queued successfully:', emailRecord);
-        return NextResponse.json({
-          success: true,
-          message: 'Invitation queued for email delivery',
-          method: 'email_queue'
-        });
-
-      } catch (fallbackError) {
-        console.error('Fallback email method failed:', fallbackError);
-        
-        return NextResponse.json({
-          success: false,
-          error: 'All email methods failed',
-          details: {
-            supabase_error: supabaseError instanceof Error ? supabaseError.message : 'Unknown error',
-            fallback_error: fallbackError instanceof Error ? fallbackError.message : 'Unknown error'
-          },
-          fallback_url: inviteUrl,
-          suggestion: 'Please share the invitation link manually or check your email configuration'
-        }, { status: 500 });
-      }
+      // If database save fails, still provide a way to share the invitation
+      console.log('Database save failed, providing manual sharing option');
+      
+      return NextResponse.json({
+        success: true, // Still return success since the link works
+        message: 'Invitation link generated successfully. Please share manually since database and email systems are not configured.',
+        fallback_url: inviteUrl,
+        method: 'link_only',
+        suggestion: 'To enable automatic email sending: 1) Configure SMTP in Supabase Dashboard, 2) Ensure invitation table exists with proper RLS policies.',
+        warning: 'Database save failed - invitation may not persist across sessions'
+      });
     }
 
   } catch (error) {

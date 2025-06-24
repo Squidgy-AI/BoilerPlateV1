@@ -335,10 +335,7 @@ const agents = AGENT_CONFIG;
               timestamp: new Date().toISOString()
             });
             
-            // Save to database
-            if (currentSessionId) {
-              saveMessageToDatabase(switchMessage, 'agent');
-            }
+            // Agent message will be saved by backend - no need to save here
           }
         }
         break;
@@ -399,10 +396,7 @@ const agents = AGENT_CONFIG;
               
               addMessage(transitionMessage);
               
-              // Save agent message to database
-              if (currentSessionId) {
-                saveMessageToDatabase(transitionMessage.text, transitionMessage.sender);
-              }
+              // Agent message will be saved by backend - no need to save here
               
               // Speak with avatar if enabled
               if (avatarRef.current && videoEnabled && voiceEnabled) {
@@ -446,10 +440,7 @@ const agents = AGENT_CONFIG;
           
           addMessage(agentMessage);
           
-          // Save agent message to database
-          if (currentSessionId) {
-            saveMessageToDatabase(agentMessage.text, agentMessage.sender);
-          }
+          // Agent message will be saved by backend - no need to save here
           
           // Speak with avatar if enabled
           if (avatarRef.current && videoEnabled && voiceEnabled) {
@@ -649,38 +640,8 @@ const agents = AGENT_CONFIG;
     }
   };
   
-  const saveMessageToDatabase = async (message: string, sender: string) => {
-    if (!currentSessionId || !profile) {
-      console.log('Cannot save message - missing session or profile:', { currentSessionId, profile: !!profile });
-      return;
-    }
-    
-    try {
-      console.log('Saving message to database:', { message: message.substring(0, 50), sender, currentSessionId });
-      
-      const { error } = await supabase
-        .from('chat_history')
-        .insert({
-          user_id: profile.user_id,
-          session_id: currentSessionId,
-          sender: sender,
-          message: message,
-          timestamp: new Date().toISOString()
-        });
-        
-      if (error) {
-        console.error('Error saving message to database:', error);
-        setWebsocketLogs(prev => [...prev, {
-          timestamp: new Date(),
-          type: 'error',
-          message: `Database error: ${error.message}`,
-          data: error
-        }]);
-      }
-    } catch (error) {
-      console.error('Error in saveMessageToDatabase:', error);
-    }
-  };
+  // Database saves are handled by backend during WebSocket processing
+  // No need for frontend database saves to avoid duplicate 409 conflicts
   
   // Function to load chat history for a specific agent session from database
   const loadChatHistoryForAgent = async (agent: any, sessionId?: string) => {
@@ -778,8 +739,7 @@ const agents = AGENT_CONFIG;
     // Add user message to UI and cache
     addMessage({ sender: 'user', text: userMessage, timestamp: new Date().toISOString() });
     
-    // Save user message to database (chat_history should work)
-    await saveMessageToDatabase(userMessage, 'user');
+    // User message will be saved by backend during WebSocket processing - no need to save here
     
     // Send via WebSocket
     console.log('WebSocket status:', websocket.getStatus(), 'Connection state:', connectionStatus);

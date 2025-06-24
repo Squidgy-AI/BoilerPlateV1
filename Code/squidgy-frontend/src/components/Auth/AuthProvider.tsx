@@ -339,7 +339,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email,
             token,
             senderName: profile?.full_name || user?.email,
-            inviteUrl
+            inviteUrl,
+            senderId: profile?.user_id || user?.id,
+            companyId: profile?.company_id,
+            groupId: groupId
           })
         });
         
@@ -392,7 +395,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email,
               token,
               senderName: profile?.full_name || user?.email,
-              inviteUrl
+              inviteUrl,
+              senderId: profile?.user_id || user?.id,
+              companyId: profile?.company_id,
+              groupId: groupId
             })
           });
           
