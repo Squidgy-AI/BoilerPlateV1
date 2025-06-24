@@ -501,8 +501,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const createNewSession = async () => {
     if (!profile) throw new Error('User not authenticated');
     
-    // Generate a new session ID
-    const newSessionId = `${profile.user_id}_${Date.now()}`;
+    // Generate a new session ID with consistent format: userId_agentId_timestamp
+    // Use selectedAgent if available, otherwise default to presaleskb
+    const agentId = selectedAgent?.id || selectedAgent?.agent_name || 'presaleskb';
+    const newSessionId = `${profile.user_id}_${agentId}_${Date.now()}`;
     
     try {
       // Save session to database
