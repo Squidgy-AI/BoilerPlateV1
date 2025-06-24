@@ -481,27 +481,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Save message to database
   const saveMessageToDatabase = async (message: ChatMessage) => {
-    if (!profile || !currentSessionId) return;
-    
-    try {
-      // Save to chat_history table (matches backend)
-      await supabase.from('chat_history').insert({
-        user_id: profile.user_id,
-        session_id: currentSessionId,
-        sender: message.sender === 'User' ? 'user' : 'agent',
-        message: message.message,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error: any) {
-      // Handle duplicate message errors gracefully
-      if (error?.code === '23505' || error?.message?.includes('duplicate') || error?.message?.includes('already exists')) {
-        console.debug('Message already exists in database, skipping save:', error.details || error.message);
-        return; // Silently ignore duplicates
-      }
-      
-      // Log other database errors
-      console.error('Error saving message to database:', error);
-    }
+    // Database saves are handled by backend during WebSocket processing
+    // Disabling frontend saves to prevent duplicate 409 conflicts
+    console.debug('ChatContext: Skipping database save - handled by backend', message);
+    return;
   };
   
   // Create a new session
