@@ -335,9 +335,9 @@ const agents = AGENT_CONFIG;
               timestamp: new Date().toISOString()
             });
             
-            // Save to database
+            // Save agent switch message to database
             if (currentSessionId) {
-              saveMessageToDatabase(switchMessage, 'agent');
+              await saveMessageToDatabase(switchMessage, 'agent');
             }
           }
         }
@@ -399,9 +399,9 @@ const agents = AGENT_CONFIG;
               
               addMessage(transitionMessage);
               
-              // Save agent message to database
+              // Save agent transition message to database
               if (currentSessionId) {
-                saveMessageToDatabase(transitionMessage.text, transitionMessage.sender);
+                await saveMessageToDatabase(transitionMessage.text, transitionMessage.sender);
               }
               
               // Speak with avatar if enabled
@@ -446,9 +446,9 @@ const agents = AGENT_CONFIG;
           
           addMessage(agentMessage);
           
-          // Save agent message to database
+          // Save agent response to database
           if (currentSessionId) {
-            saveMessageToDatabase(agentMessage.text, agentMessage.sender);
+            await saveMessageToDatabase(agentMessage.text, agentMessage.sender);
           }
           
           // Speak with avatar if enabled
@@ -649,6 +649,7 @@ const agents = AGENT_CONFIG;
     }
   };
   
+  // Database save function for EnhancedDashboard (separate from ChatContext)
   const saveMessageToDatabase = async (message: string, sender: string) => {
     if (!currentSessionId || !profile) {
       console.log('Cannot save message - missing session or profile:', { currentSessionId, profile: !!profile });
@@ -656,7 +657,7 @@ const agents = AGENT_CONFIG;
     }
     
     try {
-      console.log('Saving message to database:', { message: message.substring(0, 50), sender, currentSessionId });
+      console.log('📝 Dashboard saving message to database:', { message: message.substring(0, 50), sender, currentSessionId });
       
       const { error } = await supabase
         .from('chat_history')
@@ -671,26 +672,28 @@ const agents = AGENT_CONFIG;
       if (error) {
         // Handle duplicate message errors gracefully
         if (error?.code === '23505' || error?.message?.includes('duplicate') || error?.message?.includes('already exists')) {
-          console.debug('Message already exists in database, skipping save:', error.details || error.message);
+          console.debug('✅ Message already exists in database (handled by duplicate prevention):', error.details || error.message);
           return; // Silently ignore duplicates
         }
         
-        console.error('Error saving message to database:', error);
+        console.error('❌ Error saving message to database:', error);
         setWebsocketLogs(prev => [...prev, {
           timestamp: new Date(),
           type: 'error',
           message: `Database error: ${error.message}`,
           data: error
         }]);
+      } else {
+        console.log('✅ Message saved successfully to database');
       }
     } catch (error: any) {
       // Handle duplicate message errors gracefully
       if (error?.code === '23505' || error?.message?.includes('duplicate') || error?.message?.includes('already exists')) {
-        console.debug('Message already exists in database, skipping save:', error.details || error.message);
+        console.debug('✅ Message already exists in database (handled by duplicate prevention):', error.details || error.message);
         return; // Silently ignore duplicates
       }
       
-      console.error('Error in saveMessageToDatabase:', error);
+      console.error('❌ Error in saveMessageToDatabase:', error);
     }
   };
   
@@ -790,8 +793,10 @@ const agents = AGENT_CONFIG;
     // Add user message to UI and cache
     addMessage({ sender: 'user', text: userMessage, timestamp: new Date().toISOString() });
     
-    // Save user message to database (chat_history should work)
-    await saveMessageToDatabase(userMessage, 'user');
+    // Save user message to database
+    if (currentSessionId) {
+      await saveMessageToDatabase(userMessage, 'user');
+    }
     
     // Send via WebSocket
     console.log('WebSocket status:', websocket.getStatus(), 'Connection state:', connectionStatus);
