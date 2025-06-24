@@ -669,6 +669,12 @@ const agents = AGENT_CONFIG;
         });
         
       if (error) {
+        // Handle duplicate message errors gracefully
+        if (error?.code === '23505' || error?.message?.includes('duplicate') || error?.message?.includes('already exists')) {
+          console.debug('Message already exists in database, skipping save:', error.details || error.message);
+          return; // Silently ignore duplicates
+        }
+        
         console.error('Error saving message to database:', error);
         setWebsocketLogs(prev => [...prev, {
           timestamp: new Date(),
@@ -677,7 +683,13 @@ const agents = AGENT_CONFIG;
           data: error
         }]);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Handle duplicate message errors gracefully
+      if (error?.code === '23505' || error?.message?.includes('duplicate') || error?.message?.includes('already exists')) {
+        console.debug('Message already exists in database, skipping save:', error.details || error.message);
+        return; // Silently ignore duplicates
+      }
+      
       console.error('Error in saveMessageToDatabase:', error);
     }
   };

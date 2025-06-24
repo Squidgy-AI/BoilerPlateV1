@@ -492,7 +492,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         message: message.message,
         timestamp: new Date().toISOString()
       });
-    } catch (error) {
+    } catch (error: any) {
+      // Handle duplicate message errors gracefully
+      if (error?.code === '23505' || error?.message?.includes('duplicate') || error?.message?.includes('already exists')) {
+        console.debug('Message already exists in database, skipping save:', error.details || error.message);
+        return; // Silently ignore duplicates
+      }
+      
+      // Log other database errors
       console.error('Error saving message to database:', error);
     }
   };
