@@ -23,8 +23,11 @@ export async function POST() {
     
     const data = await res.json();
 
-    return new Response(data.data.token, {
+    return new Response(JSON.stringify({ token: data.data.token }), {
       status: 200,
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
   } catch (error) {
     console.error("Error retrieving access token:", error);

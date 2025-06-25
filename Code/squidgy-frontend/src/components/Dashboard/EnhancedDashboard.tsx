@@ -38,7 +38,7 @@ const EnhancedDashboard: React.FC = () => {
     data?: any;
   };
   const [websocketLogs, setWebsocketLogs] = useState<WebSocketLog[]>([]);
-  const { profile, signOut, inviteUser } = useAuth();
+  const { profile, signOut, inviteUser, session, isLoading } = useAuth();
   const [activeSection, setActiveSection] = useState<'people' | 'agents' | 'groups'>('agents');
   const [currentSessionId, setCurrentSessionId] = useState<string>('');
   const [isGroupSession, setIsGroupSession] = useState(false);
@@ -66,6 +66,8 @@ const EnhancedDashboard: React.FC = () => {
   // const [isLoading, setIsLoading] = useState(false);
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('presaleskb');;
   const avatarRef = React.useRef<StreamingAvatar | null>(null);
+  const [avatarReady, setAvatarReady] = useState<boolean>(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   
   // Store session IDs for each agent to maintain continuity
   const [agentSessions, setAgentSessions] = useState<{[agentId: string]: string}>({});
@@ -763,8 +765,90 @@ const agents = AGENT_CONFIG;
     setAgentThinking('AI is thinking...');
   };
   
+  // Handle avatar ready callback
   const handleAvatarReady = () => {
-    console.log("Avatar is ready");
+    console.log("🎯 Avatar ready callback received - hiding loading indicator");
+    setAvatarReady(true);
+    setAvatarError(null);
+  };
+  
+  // Handle avatar error callback
+  const handleAvatarError = (error: string) => {
+    console.log("❌ Avatar error callback received:", error);
+    setAvatarReady(true); // Hide loading indicator
+    setAvatarError(error);
+  };
+  
+  // Reset avatar ready state when session changes
+  useEffect(() => {
+    setAvatarReady(false);
+    setAvatarError(null);
+  }, [currentSessionId, selectedAvatarId]);
+  
+  // Clean up avatar when user session ends
+  useEffect(() => {
+    if (!session && avatarRef.current) {
+      console.log("🚪 User session ended - cleaning up avatar");
+      // Clean up avatar session immediately when user logs out
+      (avatarRef.current as any).stopAvatar?.().catch(() => {
+        // Ignore errors during cleanup
+      });
+      avatarRef.current = null;
+      setAvatarReady(false);
+      setAvatarError(null);
+    }
+  }, [session]);
+  
+  // Cleanup function for logout
+  const handleLogout = async () => {
+    console.log("🚪 Logout initiated - cleaning up avatar session and microphone");
+    
+    // Clean up avatar session
+    if (avatarRef.current) {
+      try {
+        // Stop avatar session to save credits and clean up resources
+        await (avatarRef.current as any).stopAvatar?.();
+        console.log("✅ Avatar session cleaned up on logout");
+      } catch (error) {
+        console.log("⚠️ Avatar cleanup completed (errors expected)");
+      }
+      avatarRef.current = null;
+    }
+    
+    // Reset all avatar-related state
+    setAvatarReady(false);
+    setAvatarError(null);
+    setVideoEnabled(true);
+    setVoiceEnabled(true);
+    
+    // Clean up microphone permissions by stopping all media tracks
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log("🎤 Microphone track stopped on logout");
+      });
+    } catch (error) {
+      // Microphone might not be active, which is fine
+      console.log("🎤 No active microphone to clean up");
+    }
+    
+    // Clean up WebSocket connections
+    if (websocket) {
+      websocket.close();
+      setWebsocket(null);
+      console.log("🔌 WebSocket disconnected on logout");
+    }
+    
+    // Reset session state
+    setCurrentSessionId('');
+    setMessages([]);
+    setAgentThinking(null);
+    
+    console.log("🧹 Logout cleanup complete");
+    
+    // Now perform the actual logout
+    await signOut();
   };
   
   const handleInviteUser = async () => {
@@ -889,7 +973,7 @@ const agents = AGENT_CONFIG;
             <Settings size={20} />
           </button>
           <button 
-            onClick={() => signOut()} 
+            onClick={handleLogout} 
             className="p-2 hover:bg-gray-700 rounded"
           >
             <LogOut size={20} />
@@ -1119,10 +1203,11 @@ const agents = AGENT_CONFIG;
             {/* Animation/Avatar Area */}
             <div className="flex-1 bg-[#1B2431] p-6">
               <div className="h-full rounded-lg bg-[#2D3B4F] flex items-center justify-center relative">
-                {videoEnabled ? (
+                {videoEnabled && !isLoading && session ? (
                   <>
                     <InteractiveAvatar
                       onAvatarReady={handleAvatarReady}
+                      onAvatarError={handleAvatarError}
                       avatarRef={avatarRef}
                       enabled={videoEnabled}
                       sessionId={currentSessionId}
@@ -1132,13 +1217,46 @@ const agents = AGENT_CONFIG;
                     />
                     
                     {/* Fallback when avatar is loading */}
-                    {!avatarRef.current && (
+                    {!avatarReady && (
                       <div className="text-center">
                         <div className="w-64 h-64 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
                           <span className="text-8xl">🤖</span>
                         </div>
                         <div className="animate-pulse text-xl text-blue-400">
                           Loading avatar...
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Show avatar error message */}
+                    {avatarError && (
+                      <div className="text-center">
+                        <div className="w-64 h-64 bg-red-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                          <span className="text-8xl">⚠️</span>
+                        </div>
+                        <div className="text-lg text-red-400 mb-4">
+                          {avatarError.includes('Concurrent limit') ? (
+                            <>
+                              <div className="mb-2">HeyGen Concurrent Limit Reached</div>
+                              <div className="text-sm text-gray-400 mb-4">
+                                Multiple avatar sessions are active. Please wait 2-3 minutes for existing sessions to expire.
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setAvatarError(null);
+                                  setAvatarReady(false);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                              >
+                                Try Again
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <div className="mb-2">Avatar Error</div>
+                              <div className="text-sm text-gray-400">{avatarError}</div>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}

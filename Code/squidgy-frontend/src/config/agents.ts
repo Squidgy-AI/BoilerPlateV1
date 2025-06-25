@@ -32,8 +32,7 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/social-media-manager.jpg',
     type: 'SocialMediaManager',
     description: 'Creates and manages social media strategies',
-    // heygenAvatarId: 'Thaddeus_ProfessionalLook_public', // May not be working
-    heygenAvatarId: 'anna_public_3_20240108', // HeyGen's public avatar
+    heygenAvatarId: 'Wayne_20240711', // More reliable HeyGen public avatar
     fallbackAvatar: '/avatars/social-fallback.jpg',
     agent_name: 'socialmediakb',
     introMessage: "Hello! I'm your Social Media Manager. I specialize in digital presence strategies, content marketing, and social media automation across all major platforms."
@@ -44,8 +43,7 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/lead-gen-specialist.jpg',
     type: 'LeadGenSpecialist',
     description: 'Focuses on generating and qualifying leads',
-    // heygenAvatarId: 'Pedro_ProfessionalLook_public', // May not be working
-    heygenAvatarId: 'matt_public_2_20240108', // HeyGen's public avatar
+    heygenAvatarId: 'Wayne_20240711', // More reliable HeyGen public avatar
     fallbackAvatar: '/avatars/leadgen-fallback.jpg',
     agent_name: 'leadgenkb',
     introMessage: "Hi there! I'm your Lead Generation Specialist. I help schedule demos, coordinate follow-ups, and ensure all your business needs are properly addressed."

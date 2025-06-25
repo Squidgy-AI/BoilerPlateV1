@@ -56,6 +56,15 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   // All available agents
   const availableAgents = AGENT_CONFIG;
   
+  // Debug agentType changes
+  useEffect(() => {
+    console.log('🔍 AgentType changed:', {
+      agentType,
+      sessionId,
+      timestamp: new Date().toISOString()
+    });
+  }, [agentType, sessionId]);
+  
   // Connect WebSocket
   // DISABLED: Using centralized WebSocket from ChatContext instead
   // useEffect(() => {
@@ -217,19 +226,24 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
           setMessages(formattedMessages);
         } else {
           // Check if this is an agent session
-          const agent = availableAgents.find(a => a.id === sessionId);
+          const agent = AGENT_CONFIG.find(a => a.id === sessionId);
           
-          if (agent) {
-            setSessionDetails({
+          if (agent && !agentType) {
+            const agentDetails = {
               id: agent.id,
               name: agent.name,
               avatar: agent.avatar
-            });
+            };
             
+            setSessionDetails(agentDetails);
             setAgentType(agent.type); 
-            setSelectedAvatarId(agent.id); // Just pass the agent ID
-            
-            // No need to fetch messages for a new agent chat
+            setSelectedAvatarId(agent.id); 
+            console.log('🎯 Agent detected and set:', {
+              agentId: agent.id,
+              agentType: agent.type,
+              agentName: agent.name,
+              sessionId: sessionId
+            });
             setMessages([]);
           } else {
             // Fetch regular chat with another user
@@ -299,7 +313,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   const getAgentName = (type: string | null): string => {
     if (!type) return 'AI';
     
-    const agent = availableAgents.find(a => a.type === type);
+    const agent = AGENT_CONFIG.find(a => a.type === type);
     return agent ? agent.name : 'AI';
   };
   
@@ -457,7 +471,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       // Find the agent and use its fallback
-                      const agent = availableAgents.find(a => 
+                      const agent = AGENT_CONFIG.find(a => 
                         a.id === sessionId || a.type === sessionDetails.agent_type
                       );
                       target.src = agent?.fallbackAvatar || '/avatars/default-agent.jpg';
@@ -519,6 +533,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
       {agentType && (
         <div className="relative h-[430px] mb-4">
           <InteractiveAvatar
+            key={`avatar-${sessionId}-${agentType}`}
             onAvatarReady={handleAvatarReady}
             avatarRef={avatarRef}
             enabled={videoEnabled}
