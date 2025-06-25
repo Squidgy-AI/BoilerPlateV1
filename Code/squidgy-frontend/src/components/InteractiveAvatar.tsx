@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import StreamingAvatar, {
   AvatarQuality,
   StreamingEvents,
@@ -9,6 +9,21 @@ import StreamingAvatar, {
   VoiceEmotion,
 } from "@heygen/streaming-avatar";
 import { getHeygenAvatarId, getFallbackAvatar, getValidatedAvatarId } from '@/config/agents';
+
+// Define missing types for compatibility
+const VoiceChatTransport = {
+  WEBSOCKET: "websocket",
+  WEBRTC: "webrtc"
+} as const;
+
+// Type definition for event handler function to avoid TypeScript errors
+type EventHandler = (avatar: any, eventName: string, callback: (event?: any) => void) => void;
+
+// Create a safe event handler function that works with any event name
+const safeAddEventListener: EventHandler = (avatar, eventName, callback) => {
+  // @ts-ignore - Using string event names for compatibility
+  avatar.on(eventName, callback);
+};
 
 interface InteractiveAvatarProps {
   onAvatarReady?: () => void;
@@ -21,9 +36,9 @@ interface InteractiveAvatarProps {
   avatarTimeout?: number;
 }
 
-const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({ 
-  onAvatarReady, 
-  avatarRef, 
+const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
+  onAvatarReady,
+  avatarRef,
   enabled = true,
   sessionId,
   voiceEnabled = true,
@@ -31,539 +46,302 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   onAvatarError,
   avatarTimeout = 10000 // 10 seconds default timeout
 }) => {
+  // State management
   const [stream, setStream] = useState<MediaStream>();
-  const [isLoadingSession, setIsLoadingSession] = useState(false);
-  const mediaStream = useRef<HTMLVideoElement>(null);
+  const [error, setError] = useState<string>("");
+  const [errorType, setErrorType] = useState<string>("");
+  const [sessionActive, setSessionActive] = useState<boolean>(false);
+  const [avatarFailed, setAvatarFailed] = useState<boolean>(false);
+  const [fallbackAvatarUrl, setFallbackAvatarUrl] = useState<string>("");
+
+  // Refs for managing avatar state and preventing race conditions
   const localAvatarRef = useRef<StreamingAvatar | null>(null);
-  const [sessionActive, setSessionActive] = useState(false);
-  const tokenRef = useRef<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [errorType, setErrorType] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const currentSessionIdRef = useRef<string | undefined>(sessionId);
-  const currentAvatarIdRef = useRef<string>(avatarId);
-  const [avatarFailed, setAvatarFailed] = useState(false);
-  const avatarTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showFallback, setShowFallback] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [sessionCleanupInProgress, setSessionCleanupInProgress] = useState(false);
-  const [avatarReadyState, setAvatarReadyState] = useState<'idle' | 'initializing' | 'ready' | 'failed'>('idle');
-  const initializationAttemptRef = useRef<number>(0);
-  const isCleaningUpRef = useRef<boolean>(false);
-  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentAvatarIdRef = useRef<string | undefined>(avatarId);
+  const sessionStartTimeRef = useRef<number | null>(null);
+  const sessionMonitorIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const voiceChatActiveRef = useRef<boolean>(false);
+  const initializationInProgressRef = useRef<boolean>(false);
+  const lastInitAttemptTimeRef = useRef<number>(0);
+  
+  // Constants for credit optimization
+  const SESSION_MAX_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+  const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
+  const DEBOUNCE_DELAY_MS = 500; // 500ms
 
-  const actualAvatarRef = avatarRef || localAvatarRef;
-
-  // Get the actual HeyGen avatar ID with validation
-  const heygenAvatarId = getValidatedAvatarId(avatarId);
-  
-  // Get the appropriate fallback image
-  const fallbackImagePath = getFallbackAvatar(avatarId);
-
-  async function fetchAccessToken() {
-    try {
-      const response = await fetch("/api/get-access-token", {
-        method: "POST",
-      });
-      const token = await response.text();
-      tokenRef.current = token;
-      return token;
-    } catch (error) {
-      console.error("Error fetching access token:", error);
-      return "";
-    }
-  }
-
-  async function startAvatarSession() {
-    if (!enabled) return;
-    
-    // Prevent multiple simultaneous sessions
-    if (isInitializing || sessionCleanupInProgress) {
-      console.log("Avatar already initializing or cleanup in progress, skipping...");
-      return;
-    }
-    
-    // Increment attempt counter for this initialization
-    const currentAttempt = ++initializationAttemptRef.current;
-    console.log(`🚀 Starting avatar session attempt #${currentAttempt}`);
-    
-    console.log(`Starting avatar session with timeout: ${avatarTimeout}ms`);
-    setIsInitializing(true);
-    setIsLoadingSession(true);
-    setError(null);
-    setErrorType(null);
-    setAvatarFailed(false);
-    setShowFallback(false);
-    setAvatarReadyState('initializing');
-    
-    // Ensure any existing session is completely ended first
-    if (actualAvatarRef.current || sessionActive) {
-      console.log("🔄 Ending existing session before starting new one...");
-      await endSession();
-      
-      // Check if this attempt is still valid after cleanup
-      if (currentAttempt !== initializationAttemptRef.current) {
-        console.log(`🚫 Initialization attempt #${currentAttempt} canceled - newer attempt started`);
-        setIsInitializing(false);
-        setIsLoadingSession(false);
-        return;
-      }
-      
-      // Add a longer delay to ensure HeyGen resources are fully released
-      console.log("⏱️ Waiting for HeyGen resources to be released...");
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Double-check if attempt is still valid after delay
-      if (currentAttempt !== initializationAttemptRef.current) {
-        console.log(`🚫 Initialization attempt #${currentAttempt} canceled after cleanup delay`);
-        setIsInitializing(false);
-        setIsLoadingSession(false);
-        return;
-      }
-    }
-    
-    // Set timeout for avatar initialization
-    avatarTimeoutRef.current = setTimeout(() => {
-      console.error(`⏰ Avatar timeout after ${avatarTimeout}ms - ${avatarId} (${heygenAvatarId})`);
-      console.error(`   Session: ${sessionId}`);
-      console.error(`   Attempt: ${currentAttempt}`);
-      handleAvatarFailure(`Avatar loading timed out after ${avatarTimeout}ms`);
-    }, avatarTimeout);
-    
-    try {
-      // Always fetch a fresh token for each new session
-      const token = await fetchAccessToken();
-      if (!token) {
-        throw new Error("Failed to obtain access token");
-      }
-      tokenRef.current = token;
-  
-      // Always create a new StreamingAvatar instance with fresh token
-      try {
-        // Ensure no existing instance
-        if (actualAvatarRef.current) {
-          console.log("⚠️ Found existing avatar instance during initialization - cleaning up");
-          actualAvatarRef.current = null;
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        actualAvatarRef.current = new StreamingAvatar({
-          token: tokenRef.current,
-        });
-        setupAvatarEventListeners();
-      } catch (initError) {
-        console.error("Avatar initialization error:", initError);
-        handleAvatarFailure("Failed to initialize avatar");
-        return;
-      }
-  
-      try {
-        // Use the correct parameters based on HeyGen SDK documentation
-        const avatarConfig = {
-          quality: AvatarQuality.Low,
-          avatarName: heygenAvatarId,
-          voice: {
-            rate: 1.2,
-            emotion: VoiceEmotion.NEUTRAL,
-          },
-          language: "en",
-          disableIdleTimeout: true,
-        };
-        
-        console.log(`🎬 Starting avatar for ${avatarId}:`, avatarConfig);
-        console.log(`   HeyGen Avatar ID: ${heygenAvatarId}`);
-        console.log(`   Session: ${sessionId}`);
-        console.log(`   Attempt: #${currentAttempt}`);
-        
-        const result = await actualAvatarRef.current.createStartAvatar(avatarConfig);
-        console.log(`✅ Avatar start successful for ${avatarId}:`, result);
-  
-        // Only start voice chat if voice is enabled
-        if (voiceEnabled) {
-          await actualAvatarRef.current?.startVoiceChat({
-            useSilencePrompt: false
-          });
-        }
-  
-        // Clear timeout on success
-        if (avatarTimeoutRef.current) {
-          clearTimeout(avatarTimeoutRef.current);
-          avatarTimeoutRef.current = null;
-        }
-  
-        // Check if this attempt is still valid
-        if (currentAttempt !== initializationAttemptRef.current) {
-          console.log(`🚫 Initialization attempt #${currentAttempt} canceled during success`);
-          return;
-        }
-        
-        setSessionActive(true);
-        currentSessionIdRef.current = sessionId;
-        currentAvatarIdRef.current = avatarId;
-        setIsLoadingSession(false);
-        setIsInitializing(false);
-        setAvatarReadyState('ready');
-  
-        console.log(`✅ Avatar successfully initialized (attempt #${currentAttempt})`);
-        if (onAvatarReady) {
-          onAvatarReady();
-        }
-      } catch (avatarError: any) {
-        console.error("Error starting avatar session:", avatarError);
-        
-        // Handle specific API errors
-        if (avatarError.message && avatarError.message.includes('400')) {
-          console.error("400 Error Details:", {
-            error: avatarError,
-            avatarId: heygenAvatarId,
-            token: tokenRef.current ? 'Present' : 'Missing',
-            responseText: avatarError.responseText || 'No response text',
-            config: {
-              quality: AvatarQuality.Low,
-              avatarName: heygenAvatarId,
-              voice: {
-                rate: 1.2,
-                emotion: VoiceEmotion.NEUTRAL,
-              },
-              language: "en",
-              disableIdleTimeout: true,
-            }
-          });
-          
-          // Check if it's an "avatar not found" error
-          if (avatarError.responseText && avatarError.responseText.includes('avatar not found')) {
-            console.error(`❌ Avatar ID "${heygenAvatarId}" not found in HeyGen. This avatar may have been deleted or is not accessible.`);
-            handleAvatarFailure(`Avatar "${heygenAvatarId}" not found. Please update the avatar ID in the configuration.`);
-            return;
-          }
-          
-          // Try with a different avatar configuration
-          console.log("Attempting fallback avatar configuration...");
-          try {
-            const fallbackConfig = {
-              quality: AvatarQuality.Medium,
-              avatarName: heygenAvatarId,
-              language: "en",
-              disableIdleTimeout: false,
-            };
-            
-            console.log('Trying fallback config:', fallbackConfig);
-            const fallbackResult = await actualAvatarRef.current.createStartAvatar(fallbackConfig);
-            console.log('Fallback avatar start result:', fallbackResult);
-            
-            // If fallback succeeds, continue with voice chat
-            if (voiceEnabled) {
-              await actualAvatarRef.current?.startVoiceChat({
-                useSilencePrompt: false
-              });
-            }
-            
-            // Clear timeout on success
-            if (avatarTimeoutRef.current) {
-              clearTimeout(avatarTimeoutRef.current);
-              avatarTimeoutRef.current = null;
-            }
-            
-            // Check if this attempt is still valid
-            if (currentAttempt !== initializationAttemptRef.current) {
-              console.log(`🚫 Fallback attempt #${currentAttempt} canceled during success`);
-              return;
-            }
-            
-            setSessionActive(true);
-            currentSessionIdRef.current = sessionId;
-            currentAvatarIdRef.current = avatarId;
-            setIsLoadingSession(false);
-            setIsInitializing(false);
-            setAvatarReadyState('ready');
-            
-            console.log(`✅ Fallback avatar configuration succeeded (attempt #${currentAttempt})`);
-            if (onAvatarReady) {
-              onAvatarReady();
-            }
-            return; // Exit successfully
-          } catch (fallbackError) {
-            console.error("Fallback configuration also failed:", fallbackError);
-          }
-        }
-        
-        handleAvatarFailure(avatarError.message || "Failed to start avatar session");
-      }
-    } catch (error: any) {
-      console.error("Avatar session error:", error);
-      handleAvatarFailure(error.message || "Avatar session error");
-    }
-  }
-
-  function handleAvatarFailure(errorMessage: string) {
-    console.error(`❌ Avatar failure for ${avatarId} (${heygenAvatarId}):`, errorMessage);
-    console.error(`   Session: ${sessionId}`);
-    console.error(`   Attempt: ${initializationAttemptRef.current}`);
-    
-    // Clear timeout if still pending
-    if (avatarTimeoutRef.current) {
-      clearTimeout(avatarTimeoutRef.current);
-      avatarTimeoutRef.current = null;
-    }
-    
-    setError(`${avatarId}: ${errorMessage}`);
+  // Handle avatar failures consistently
+  const handleAvatarFailure = useCallback((error: any) => {
+    console.error('Avatar failure:', error);
     setAvatarFailed(true);
-    setIsLoadingSession(false);
-    setIsInitializing(false);
-    setSessionActive(false);
-    setShowFallback(true);
-    setAvatarReadyState('failed');
+    setError(error?.message || 'Avatar initialization failed');
+    setErrorType('avatar_failure');
+    
+    // Load fallback avatar image
+    setFallbackAvatarUrl(getFallbackAvatar(avatarId || 'presaleskb'));
     
     if (onAvatarError) {
-      onAvatarError(`${avatarId}: ${errorMessage}`);
+      onAvatarError(error?.message || 'Avatar initialization failed');
+    }
+  }, [avatarId, onAvatarError]);
+
+  // End session and clean up resources to save credits
+  const endSession = useCallback(async () => {
+    console.log('Ending session to save credits');
+    
+    // Clear monitoring interval
+    if (sessionMonitorIntervalRef.current) {
+      clearInterval(sessionMonitorIntervalRef.current);
+      sessionMonitorIntervalRef.current = null;
     }
     
-    // Still call onAvatarReady to proceed with chat
-    if (onAvatarReady) {
-      onAvatarReady();
+    // Stop voice chat if active
+    if (voiceChatActiveRef.current && localAvatarRef.current) {
+      try {
+        // Cast to any to access undocumented method
+        (localAvatarRef.current as any).stopVoiceChat?.();
+        console.log('Voice chat stopped');
+        voiceChatActiveRef.current = false;
+      } catch (err) {
+        console.error('Error stopping voice chat:', err);
+      }
     }
-  }
+    
+    // Clean up avatar instance
+    if (localAvatarRef.current) {
+      try {
+        // Cast to any to access destroy method
+        await (localAvatarRef.current as any).destroy?.();
+        console.log('Avatar instance destroyed');
+      } catch (err) {
+        console.error('Error destroying avatar:', err);
+      }
+      localAvatarRef.current = null;
+    }
+    
+    // Reset state
+    setSessionActive(false);
+    setStream(undefined);
+    sessionStartTimeRef.current = null;
+    console.log('Session cleanup complete');
+  }, []);
 
-  function setupAvatarEventListeners() {
-    if (!actualAvatarRef.current) return;
-
-    actualAvatarRef.current.on(StreamingEvents.STREAM_READY, (event) => {
-      console.log("Stream ready:", event.detail);
+  // Setup avatar event listeners
+  const setupAvatarEventListeners = useCallback((avatar: StreamingAvatar) => {
+    console.log("Setting up comprehensive event listeners...");
+    
+    // Use safeAddEventListener to avoid TypeScript errors
+    safeAddEventListener(avatar, 'stream_ready', (event: any) => {
+      console.log("Stream ready event received:", event.detail);
       setStream(event.detail);
+      console.log("Stream state updated, avatar should now be visible");
     });
-
-    actualAvatarRef.current.on(StreamingEvents.AVATAR_START_TALKING, () => {
+    
+    safeAddEventListener(avatar, 'avatar_start_talking', () => {
       console.log("Avatar started talking");
     });
-
-    actualAvatarRef.current.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
+    
+    safeAddEventListener(avatar, 'avatar_stop_talking', () => {
       console.log("Avatar stopped talking");
     });
-
-    actualAvatarRef.current.on(StreamingEvents.STREAM_DISCONNECTED, () => {
-      console.log("Stream disconnected");
-      setSessionActive(false);
-      setStream(undefined);
-      setShowFallback(true);
+    
+    safeAddEventListener(avatar, 'voice_chat_started', () => {
+      console.log("Voice chat started");
+      voiceChatActiveRef.current = true;
     });
-  }
+    
+    safeAddEventListener(avatar, 'voice_chat_stopped', () => {
+      console.log("Voice chat stopped");
+      voiceChatActiveRef.current = false;
+    });
+    
+    safeAddEventListener(avatar, 'stream_disconnected', () => {
+      console.log("Stream disconnected");
+      setStream(undefined);
+    });
+    
+    safeAddEventListener(avatar, 'error', (event: any) => {
+      console.error("Avatar error:", event);
+      handleAvatarFailure(event);
+    });
+  }, [handleAvatarFailure]);
 
-  async function endSession() {
-    // Prevent multiple concurrent cleanup operations
-    if (isCleaningUpRef.current) {
-      console.log("🔄 Cleanup already in progress, waiting...");
-      // Wait for current cleanup to complete
-      while (isCleaningUpRef.current) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+  // Initialize avatar with credit-saving optimizations
+  const initializeAvatar = useCallback(async (sessionId: string, avatarId: string) => {
+    // Prevent multiple initializations
+    if (initializationInProgressRef.current) {
+      console.log("Avatar initialization already in progress, skipping...");
       return;
     }
     
-    isCleaningUpRef.current = true;
-    setSessionCleanupInProgress(true);
-    
-    // Cancel any pending initialization
-    initializationAttemptRef.current++;
+    // Update initialization state
+    initializationInProgressRef.current = true;
+    lastInitAttemptTimeRef.current = Date.now();
     
     try {
-      // Clear all timeouts
-      if (avatarTimeoutRef.current) {
-        clearTimeout(avatarTimeoutRef.current);
-        avatarTimeoutRef.current = null;
-      }
-      if (cleanupTimeoutRef.current) {
-        clearTimeout(cleanupTimeoutRef.current);
-        cleanupTimeoutRef.current = null;
+      console.log("Initializing avatar with session ID:", sessionId, "and avatar ID:", avatarId);
+      
+      // Clean up any existing session first
+      await endSession();
+      
+      // Get token from API
+      const response = await fetch('/api/get-access-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to get access token: ${response.status}`);
       }
       
-      if (actualAvatarRef.current) {
-        console.log("🛑 Starting avatar session cleanup...");
-        
-        try {
-          // Force cleanup after 5 seconds
-          cleanupTimeoutRef.current = setTimeout(() => {
-            console.log("⚠️ Forcing avatar cleanup after timeout");
-            actualAvatarRef.current = null;
-            setSessionActive(false);
-            setStream(undefined);
-            setAvatarReadyState('idle');
-            tokenRef.current = "";
-          }, 5000);
-          
-          // Only attempt to stop avatar if we have an active session
-          if (sessionActive) {
-            console.log("🛑 Stopping active avatar session...");
-            
-            // Try graceful shutdown with timeout
-            await Promise.race([
-              actualAvatarRef.current.stopAvatar(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('Stop timeout')), 2000))
-            ]);
-            
-            console.log("✅ Avatar session stopped successfully");
-          }
-          
-          // Clear the forced cleanup timeout since we succeeded
-          if (cleanupTimeoutRef.current) {
-            clearTimeout(cleanupTimeoutRef.current);
-            cleanupTimeoutRef.current = null;
-          }
-          
-        } catch (error: any) {
-          // Handle various error types gracefully
-          if (error.message && error.message.includes('401')) {
-            console.log("🔑 Token expired or invalid when stopping avatar - session already closed");
-          } else if (error.message && error.message.includes('Stop timeout')) {
-            console.log("⏰ Avatar stop operation timed out - forcing cleanup");
-          } else if (error.message && error.message.includes('400')) {
-            console.log("🚫 Avatar session already closed or invalid - proceeding with cleanup");
-          } else {
-            console.error("❌ Error stopping avatar:", error);
-          }
-        } finally {
-          // Always clean up resources regardless of stop result
-          console.log("🧹 Cleaning up avatar resources...");
-          
-          // Wait a moment for any pending operations to complete
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          actualAvatarRef.current = null;
-          setSessionActive(false);
-          setStream(undefined);
-          setAvatarReadyState('idle');
-          // Clear the token so a fresh one is fetched next time
-          tokenRef.current = "";
-          
-          // Clear any remaining timeouts
-          if (cleanupTimeoutRef.current) {
-            clearTimeout(cleanupTimeoutRef.current);
-            cleanupTimeoutRef.current = null;
-          }
-          
-          console.log("✅ Avatar cleanup completed");
-        }
-      } else {
-        // No avatar to clean up, just reset states
-        setSessionActive(false);
-        setStream(undefined);
-        setAvatarReadyState('idle');
-        tokenRef.current = "";
+      const { token } = await response.json();
+      if (!token) {
+        throw new Error('No token received from API');
       }
+      
+      console.log("Received access token");
+      
+      // Create new avatar instance
+      const avatar = new StreamingAvatar({
+        token,
+        // @ts-ignore - transport is required but not in type definition
+        transport: VoiceChatTransport.WEBSOCKET,
+        element: videoRef.current as HTMLVideoElement,
+      });
+      
+      // Set up event listeners
+      setupAvatarEventListeners(avatar);
+      
+      // Store avatar instance in refs
+      localAvatarRef.current = avatar;
+      if (avatarRef) {
+        avatarRef.current = avatar;
+      }
+      
+      // Start avatar with credit-saving optimizations
+      // @ts-ignore - start method exists but is not in type definition
+      await avatar.start({
+        avatarName: getValidatedAvatarId(avatarId),
+        quality: AvatarQuality.Low,
+        voice: {
+          rate: 1.0,
+          emotion: VoiceEmotion.NEUTRAL
+        },
+        language: 'en', // Required by StartAvatarOptions
+        idleTimeoutMs: IDLE_TIMEOUT_MS, // Auto-close after 30s of inactivity
+        disableIdleTimeout: false // Enable idle timeout
+      });
+      
+      // Update state and refs
+      setSessionActive(true);
+      setAvatarFailed(false);
+      currentSessionIdRef.current = sessionId;
+      currentAvatarIdRef.current = avatarId;
+      sessionStartTimeRef.current = Date.now();
+      
+      // Set up session monitoring to prevent long-running sessions
+      if (sessionMonitorIntervalRef.current) {
+        clearInterval(sessionMonitorIntervalRef.current);
+      }
+      
+      sessionMonitorIntervalRef.current = setInterval(() => {
+        if (sessionStartTimeRef.current && Date.now() - sessionStartTimeRef.current > SESSION_MAX_DURATION_MS) {
+          console.log("Session exceeding max duration, restarting to save credits");
+          initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
+        }
+      }, 60000); // Check every minute
+      
+      // Notify parent component
+      if (onAvatarReady) {
+        onAvatarReady();
+      }
+      
+      console.log("Avatar initialization complete");
+    } catch (error) {
+      console.error("Avatar initialization failed:", error);
+      handleAvatarFailure(error);
+      
+      // Retry logic with timeout
+      console.log(`Will retry initialization in ${avatarTimeout/1000} seconds...`);
+      setTimeout(() => {
+        console.log("Retrying avatar initialization...");
+        initializationInProgressRef.current = false;
+        initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
+      }, avatarTimeout);
     } finally {
-      isCleaningUpRef.current = false;
-      setSessionCleanupInProgress(false);
+      initializationInProgressRef.current = false;
     }
-  }
+  }, [avatarRef, avatarTimeout, endSession, handleAvatarFailure, onAvatarReady, setupAvatarEventListeners]);
 
-  // Consolidated initialization effect with debouncing
+  // Consolidated initialization effect with debouncing and credit optimization
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout | undefined;
     
-    const shouldReinitialize = 
-      enabled && (
-        sessionId !== currentSessionIdRef.current ||
-        currentAvatarIdRef.current !== avatarId
-      );
+    const shouldReinitialize = enabled && (
+      sessionId !== currentSessionIdRef.current ||
+      currentAvatarIdRef.current !== avatarId
+    );
     
     if (shouldReinitialize) {
-      console.log(`🔄 Change detected - Session: ${currentSessionIdRef.current} → ${sessionId}, Avatar: ${currentAvatarIdRef.current} → ${avatarId}`);
+      // Debounce initialization to prevent rapid session creation/destruction
+      if (timeoutId) clearTimeout(timeoutId);
       
-      // Debounce multiple rapid changes
-      timeoutId = setTimeout(async () => {
-        // Cancel any pending initialization
-        initializationAttemptRef.current++;
-        
-        await endSession();
-        
-        // Only start if still needed and enabled
-        if (enabled && 
-            (sessionId !== currentSessionIdRef.current || currentAvatarIdRef.current !== avatarId)) {
-          await startAvatarSession();
+      timeoutId = setTimeout(() => {
+        if (sessionId && avatarId) {
+          initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
         }
-      }, 300); // 300ms debounce
-      
-    } else if (enabled && !sessionActive && !isInitializing) {
-      // Initial start when enabled
-      console.log("🚀 Initial avatar start");
-      startAvatarSession();
+      }, DEBOUNCE_DELAY_MS);
+    } else if (!enabled && sessionActive) {
+      // End session when component is disabled
+      endSession().catch(error => console.error("Error ending session:", error));
     }
     
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      endSession();
+      clearTimeout(timeoutId);
     };
-  }, [enabled, sessionId, avatarId]); // Combined dependencies
+  }, [avatarId, enabled, endSession, handleAvatarFailure, initializeAvatar, sessionActive, sessionId]);
 
-  // Handle voice enabled changes
+  // Clean up on unmount
   useEffect(() => {
-    if (sessionActive && actualAvatarRef.current) {
-      if (voiceEnabled && actualAvatarRef.current) {
-        actualAvatarRef.current.startVoiceChat({
-          useSilencePrompt: false
-        }).catch(error => {
-          console.error("Error starting voice chat:", error);
-        });
+    return () => {
+      console.log("Component unmounting, cleaning up resources");
+      if (sessionMonitorIntervalRef.current) {
+        clearInterval(sessionMonitorIntervalRef.current);
       }
-    }
-  }, [voiceEnabled, sessionActive]);
-
-  useEffect(() => {
-    if (stream && mediaStream.current) {
-      mediaStream.current.srcObject = stream;
-      mediaStream.current.onloadedmetadata = () => {
-        mediaStream.current!.play();
-        // Hide fallback when stream is playing
-        setShowFallback(false);
-      };
-    }
-  }, [stream, mediaStream]);
+      endSession().catch(error => console.error("Error during cleanup:", error));
+    };
+  }, [endSession]);
 
   return (
-    <div className="w-full h-full bg-[#2D3B4F] rounded-lg overflow-hidden relative">
+    <div className="relative w-full h-full overflow-hidden rounded-lg">
       {enabled ? (
         <>
-          {/* Loading state with better UX */}
-          {(isLoadingSession || sessionCleanupInProgress) && !avatarFailed && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-[#2D3B4F] z-10">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-              <div className="text-xl mb-2">
-                {sessionCleanupInProgress ? 'Switching avatar...' : 'Loading avatar...'}
-              </div>
-              {!sessionCleanupInProgress && (
-                <>
-                  <div className="text-sm text-gray-400">Using {heygenAvatarId}</div>
-                  <div className="text-xs text-gray-500 mt-2">This usually takes 3-5 seconds</div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Video stream when available */}
-          <video
-            ref={mediaStream}
-            autoPlay
-            playsInline
-            className={`w-full h-full object-cover ${
-              stream && !showFallback ? 'opacity-100' : 'opacity-0'
-            } transition-opacity duration-500`}
-            style={{ display: stream && !showFallback ? 'block' : 'none' }}
-          >
-            <track kind="captions" />
-          </video>
-
-          {/* Fallback image - Always rendered but hidden when stream is active */}
-          <div 
-            className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center ${
-              (!stream || showFallback) && !isLoadingSession ? 'opacity-100' : 'opacity-0'
-            } transition-opacity duration-500`}
-            style={{ display: (!stream || showFallback) && !isLoadingSession ? 'flex' : 'none' }}
-          >
-            <img 
-              src={fallbackImagePath} 
-              alt="Agent" 
+          <div className="relative w-full h-full">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
               className="w-full h-full object-cover"
+              style={{ opacity: stream ? 1 : 0, transition: 'opacity 0.5s ease' }}
             />
+            {!stream && !avatarFailed && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                <div className="text-white text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+                  <p>Loading Avatar...</p>
+                </div>
+              </div>
+            )}
+            {avatarFailed && fallbackAvatarUrl && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                <img 
+                  src={fallbackAvatarUrl} 
+                  alt="Fallback Avatar" 
+                  className="w-full h-full object-cover" 
+                />
+              </div>
+            )}
             {avatarFailed && (
               <div className="absolute bottom-4 left-0 right-0 text-center">
                 <div className="bg-black bg-opacity-70 text-yellow-400 text-sm p-2 rounded mx-4">

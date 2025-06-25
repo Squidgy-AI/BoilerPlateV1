@@ -1,0 +1,5 @@
+// This file contains the fix for the duplicate endSession function
+// Replace lines 523-621 with the following:
+
+  // The endSession function is already defined above
+  /* Removed duplicate endSession function to fix TypeScript error */
