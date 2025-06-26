@@ -28,7 +28,7 @@ const safeAddEventListener: EventHandler = (avatar, eventName, callback) => {
 
 // Constants for session management and credit optimization
 const SESSION_MAX_DURATION_MS = 5 * 60 * 1000; // 5 minutes
-const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
+const IDLE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 const DEBOUNCE_DELAY_MS = 500; // 500ms debounce for initialization
 
 interface InteractiveAvatarProps {
@@ -74,7 +74,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
 
   // Constants for credit optimization
   const SESSION_MAX_DURATION_MS = 5 * 60 * 1000; // 5 minutes
-  const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds
+  const IDLE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
   const DEBOUNCE_DELAY_MS = 500; // 500ms
 
   // Handle avatar failures consistently
@@ -128,7 +128,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     }
     
     // Clean up avatar instance only if session is active
-    if (localAvatarRef.current && sessionActive) {
+    if (localAvatarRef.current) {
       try {
         // Use stopAvatar method instead of destroy for proper cleanup
         await (localAvatarRef.current as any).stopAvatar?.();
@@ -147,7 +147,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     setStream(undefined);
     sessionStartTimeRef.current = null;
     console.log('✅ Session cleanup complete');
-  }, [sessionActive]);
+  }, []);
 
   // Force cleanup function for concurrent limit issues
   const forceCleanupAllSessions = useCallback(async () => {
@@ -201,6 +201,12 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         });
         setStream(event.detail);
         console.log("📺 Stream state updated, video should now be visible");
+        
+        // Notify parent component that avatar is ready and video is visible
+        if (onAvatarReady) {
+          console.log("🎯 Calling onAvatarReady - video stream is now visible");
+          onAvatarReady();
+        }
       } else {
         console.warn("⚠️ Invalid stream received:", event.detail);
       }
@@ -226,6 +232,22 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       voiceChatActiveRef.current = false;
     });
     
+    // Add user speaking detection to prevent idle timeout during conversation
+    safeAddEventListener(avatar, 'user_start_talking', () => {
+      console.log("🎤 User started talking");
+      updateActivity(); // Track activity when user speaks
+    });
+    
+    safeAddEventListener(avatar, 'user_stop_talking', () => {
+      console.log("🤐 User stopped talking");
+      updateActivity(); // Track activity when user finishes speaking
+    });
+    
+    // Also track any audio input activity
+    safeAddEventListener(avatar, 'audio_input', () => {
+      updateActivity(); // Track activity on any audio input
+    });
+    
     safeAddEventListener(avatar, 'stream_disconnected', () => {
       console.log("Stream disconnected");
       setStream(undefined);
@@ -235,7 +257,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       console.error("Avatar error:", event);
       handleAvatarFailure(event);
     });
-  }, [handleAvatarFailure, updateActivity]);
+  }, [handleAvatarFailure, updateActivity, onAvatarReady]);
 
   // Initialize avatar with credit-saving optimizations using LiveKit
   const initializeAvatar = useCallback(async (sessionId: string, avatarId: string) => {
@@ -390,6 +412,12 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         const idleDuration = currentTime - lastActivityTimeRef.current;
         console.log(`⏱️ Session Monitor - Duration: ${Math.round(sessionDuration / 1000)}s / ${SESSION_MAX_DURATION_MS / 1000}s max, Idle: ${Math.round(idleDuration / 1000)}s / ${IDLE_TIMEOUT_MS / 1000}s max`);
         
+        // If voice chat is active, consider it as activity to prevent timeout
+        if (voiceChatActiveRef.current) {
+          console.log("🎙️ Voice chat active - preventing idle timeout");
+          updateActivity();
+        }
+        
         if (sessionStartTimeRef.current && sessionDuration > SESSION_MAX_DURATION_MS) {
           console.log("⚠️ Session exceeding max duration, restarting to save credits");
           initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
@@ -399,13 +427,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         }
       }, 60000); // Check every minute
       
-      // Notify parent component
-      if (onAvatarReady) {
-        onAvatarReady();
-      }
-      
       console.log("✅ Avatar initialization complete with LiveKit transport");
-      console.log("💰 Credit optimization active - Max session: 5min, Idle timeout: 30s");
+      console.log("💰 Credit optimization active - Max session: 5min, Idle timeout: 2min");
     } catch (error) {
       console.error("Avatar initialization failed:", error);
       handleAvatarFailure(error);
@@ -420,7 +443,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     } finally {
       initializationInProgressRef.current = false;
     }
-  }, [avatarRef, avatarTimeout, endSession, handleAvatarFailure, onAvatarReady, setupAvatarEventListeners, forceCleanupAllSessions]);
+  }, [avatarRef, avatarTimeout, endSession, handleAvatarFailure, setupAvatarEventListeners, forceCleanupAllSessions]);
 
   // Consolidated initialization effect with debouncing and credit optimization
   useEffect(() => {
@@ -471,7 +494,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
         }
       }, DEBOUNCE_DELAY_MS);
-    } else if (!enabled && sessionActive) {
+    } else if (!enabled) {
       // End session when component is disabled
       endSession().catch(error => console.error("Error ending session:", error));
     }
@@ -479,7 +502,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [avatarId, enabled, endSession, handleAvatarFailure, initializeAvatar, sessionActive, sessionId]);
+  }, [avatarId, enabled, endSession, handleAvatarFailure, initializeAvatar, sessionId]);
 
   // Assign stream to video element when stream changes
   useEffect(() => {
@@ -502,13 +525,16 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   useEffect(() => {
     return () => {
       console.log("Component unmounting, cleaning up resources");
-      console.log("Unmount cause:", "Component was unmounted");
       if (sessionMonitorIntervalRef.current) {
         clearInterval(sessionMonitorIntervalRef.current);
       }
-      endSession().catch(error => console.error("Error during cleanup:", error));
+      // Direct cleanup without calling endSession to avoid dependency issues
+      if (localAvatarRef.current) {
+        (localAvatarRef.current as any).stopAvatar?.().catch(() => {});
+        localAvatarRef.current = null;
+      }
     };
-  }, [endSession]);
+  }, []);
 
   return (
     <div className="relative w-full h-full overflow-hidden rounded-lg" onMouseMove={updateActivity} onTouchMove={updateActivity}>

@@ -1,7 +1,7 @@
 // src/components/Dashboard/EnhancedDashboard.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
 import { AGENT_CONFIG } from '@/config/agents';
 import { 
@@ -183,7 +183,7 @@ const agents = AGENT_CONFIG;
   
   // Connect WebSocket when session changes
   useEffect(() => {
-    if (!profile || !currentSessionId) {
+    if (!profile || !currentSessionId || !session) {
       // Clean up existing connection if no session
       if (websocket) {
         websocket.close();
@@ -194,6 +194,12 @@ const agents = AGENT_CONFIG;
     
     // Add a small delay to prevent rapid connection creation/destruction
     const connectTimer = setTimeout(() => {
+      // Double-check session is still valid before creating connection
+      if (!profile || !currentSessionId || !session) {
+        console.log("🚫 Skipping WebSocket creation - session ended during timeout");
+        return;
+      }
+      
       // Disconnect existing WebSocket
       if (websocket) {
         websocket.close();
@@ -229,7 +235,7 @@ const agents = AGENT_CONFIG;
         websocket.close();
       }
     };
-  }, [profile, currentSessionId]);
+  }, [profile, currentSessionId, session]);
   
   // Debug messages changes
   useEffect(() => {
@@ -766,18 +772,18 @@ const agents = AGENT_CONFIG;
   };
   
   // Handle avatar ready callback
-  const handleAvatarReady = () => {
+  const handleAvatarReady = useCallback(() => {
     console.log("🎯 Avatar ready callback received - hiding loading indicator");
     setAvatarReady(true);
     setAvatarError(null);
-  };
+  }, []);
   
   // Handle avatar error callback
-  const handleAvatarError = (error: string) => {
+  const handleAvatarError = useCallback((error: string) => {
     console.log("❌ Avatar error callback received:", error);
-    setAvatarReady(true); // Hide loading indicator
+    setAvatarReady(false);
     setAvatarError(error);
-  };
+  }, []);
   
   // Reset avatar ready state when session changes
   useEffect(() => {
@@ -1203,9 +1209,10 @@ const agents = AGENT_CONFIG;
             {/* Animation/Avatar Area */}
             <div className="flex-1 bg-[#1B2431] p-6">
               <div className="h-full rounded-lg bg-[#2D3B4F] flex items-center justify-center relative">
-                {videoEnabled && !isLoading && session ? (
+                {videoEnabled ? (
                   <>
                     <InteractiveAvatar
+                      key={`dashboard-avatar`}
                       onAvatarReady={handleAvatarReady}
                       onAvatarError={handleAvatarError}
                       avatarRef={avatarRef}
