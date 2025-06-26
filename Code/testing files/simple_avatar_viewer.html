@@ -58,101 +58,25 @@
             background-color: rgba(244, 67, 54, 0.7);
         }
     </style>
-    <!-- Include the official Heygen SDK with proper loading mechanism -->
+    <!-- Include the official Heygen SDK using the same method as the demo project -->
+    <script src="https://cdn.jsdelivr.net/npm/@heygen/streaming-avatar@2.0.13/dist/index.umd.js"></script>
     <script>
-        // Global variable to track SDK loading status
-        let HeygenSDK = null;
-        let sdkLoadAttempts = 0;
-        const MAX_SDK_LOAD_ATTEMPTS = 3;
+        // Global variables for SDK and avatar instance
+        let avatarInstance = null;
         
-        // Function to load the official Heygen SDK
-        function loadOfficialSDK() {
-            if (HeygenSDK) {
-                console.log('SDK already loaded');
-                return Promise.resolve(HeygenSDK);
-            }
-            
-            return new Promise((resolve, reject) => {
-                sdkLoadAttempts++;
-                console.log(`Loading official Heygen SDK (attempt ${sdkLoadAttempts})...`);
-                
-                // Create script element for the SDK
-                const script = document.createElement('script');
-                // Use the latest official SDK URL
-                script.src = 'https://sdk.heygen.com/streaming/v1.0.0/streaming-sdk.js';
-                script.async = true;
-                
-                // Set up load and error handlers
-                script.onload = () => {
-                    console.log('SDK script loaded successfully');
-                    // Add a small delay to ensure SDK is fully initialized
-                    setTimeout(() => {
-                        // Check if the SDK is available in the global scope
-                        if (window.StreamingAvatar) {
-                            console.log('SDK found at window.StreamingAvatar');
-                            // Ensure we're not using the mock SDK
-                            if (window.StreamingAvatar.toString().includes('mock')) {
-                                console.error('Found mock SDK instead of official SDK');
-                                reject(new Error('Found mock SDK instead of official SDK'));
-                                return;
-                            }
-                            resolve('window.StreamingAvatar');
-                        } else if (window.HeygenStreaming && window.HeygenStreaming.StreamingAvatar) {
-                            console.log('SDK found at window.HeygenStreaming.StreamingAvatar');
-                            window.StreamingAvatar = window.HeygenStreaming.StreamingAvatar;
-                            resolve('window.HeygenStreaming.StreamingAvatar');
-                        } else if (window.HeygenSDK && window.HeygenSDK.StreamingAvatar) {
-                            console.log('SDK found at window.HeygenSDK.StreamingAvatar');
-                            window.StreamingAvatar = window.HeygenSDK.StreamingAvatar;
-                            resolve('window.HeygenSDK.StreamingAvatar');
-                        } else if (window.Heygen && window.Heygen.StreamingAvatar) {
-                            console.log('SDK found at window.Heygen.StreamingAvatar');
-                            window.StreamingAvatar = window.Heygen.StreamingAvatar;
-                            resolve('window.Heygen.StreamingAvatar');
-                        } else {
-                            console.error('SDK script loaded but StreamingAvatar class not found in global scope');
-                            reject(new Error('SDK not found in global scope'));
-                        }
-                    }, 1000); // Increased delay to ensure SDK is fully initialized
-                };
-                
-                script.onerror = () => {
-                    console.error('Failed to load SDK script');
-                    reject(new Error('Failed to load SDK script'));
-                };
-                
-                // Fallback to alternative URL if the first one fails
-                script.addEventListener('error', function() {
-                    console.log('Primary SDK URL failed, trying fallback URL');
-                    script.src = 'https://cdn.heygen.com/streaming-sdk/v1.0.0/streaming-sdk.js';
-                    
-                    if (sdkLoadAttempts < MAX_SDK_LOAD_ATTEMPTS) {
-                        console.log('Retrying with alternative SDK URL...');
-                        // Try alternative URL
-                        setTimeout(() => {
-                            const altScript = document.createElement('script');
-                            altScript.src = 'https://cdn.heygen.com/streaming-sdk/v1.0.0/streaming-sdk.js';
-                            altScript.async = true;
-                            altScript.onload = script.onload;
-                            altScript.onerror = function() {
-                                console.error('Failed with alternative URL too');
-                                if (altScript.parentNode) {
-                                    document.head.removeChild(altScript);
-                                }
-                                loadMockSDK().then(resolve).catch(reject);
-                            };
-                            document.head.appendChild(altScript);
-                        }, 1000);
-                    } else {
-                        console.error('Failed to load Heygen SDK after multiple attempts');
-                        // Fall back to mock SDK as last resort
-                        loadMockSDK().then(resolve).catch(reject);
-                    }
-                });
-                
-                // Add script to document
-                document.head.appendChild(script);
-            });
+        // Constants for events - exactly like the demo project
+        const StreamingEvents = {
+            STREAM_READY: 'stream-ready',
+            STREAM_DISCONNECTED: 'stream-disconnected',
+            TALKING_START: 'talking-start',
+            TALKING_END: 'talking-end',
+            AUDIO_DATA: 'audio-data',
+            ERROR: 'error'
+        };
+        
+        // Function to check if SDK is loaded
+        function isSDKLoaded() {
+            return window.HeygenStreaming && window.HeygenStreaming.StreamingAvatar;
         }
         
         // Function to load a mock SDK as fallback
@@ -486,7 +410,7 @@
     
             <div class="form-group">
                 <label for="avatar-id">Avatar ID:</label>
-                <input type="text" id="avatar-id" placeholder="Enter avatar ID" value="4743944d7cbf40d0b6e5c3baf935ceff">
+                <input type="text" id="avatar-id" placeholder="Enter avatar ID" value="Katya_CasualLook_public">
             </div>
     
             <div class="form-group">
@@ -571,7 +495,7 @@
         let avatarId = null;
         let voiceName = null;
         let apiKey = null;
-        let avatarInstance = null;
+        // avatarInstance is already declared in the SDK script section
         let micStream = null; // For storing microphone stream
         let originalAudioTracks = [];
         let audioContext = null;
@@ -653,62 +577,61 @@
             });
         });
 
-        // Function to manually load the SDK
+        // Function to manually load the SDK (simplified to match demo project)
         function loadSDKManually() {
-            log('Manually loading Heygen SDK...');
+            log('Manually loading Heygen SDK using demo project method...');
             updateStatus('Attempting to load SDK...', false);
             
-            // Try loading from a different version
-            const alternativeSources = [
-                'https://cdn.jsdelivr.net/npm/@heygen/streaming-avatar@0.8.0/dist/index.umd.js',
-                'https://unpkg.com/@heygen/streaming-avatar@0.8.0/dist/index.umd.js'
-            ];
+            // Try to load the SDK directly from CDN
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/@heygen/streaming-avatar@2.0.13/dist/index.umd.js';
+            document.head.appendChild(script);
             
-            // Try each source in sequence
-            let loaded = false;
+            log('Loading SDK from https://cdn.jsdelivr.net/npm/@heygen/streaming-avatar@2.0.13/dist/index.umd.js');
             
-            (async function tryLoadSources() {
-                for (const src of alternativeSources) {
-                    if (loaded) break;
-                    
-                    try {
-                        log(`Trying to load SDK from ${src}...`);
-                        const script = document.createElement('script');
-                        script.src = src;
-                        
-                        // Create a promise to track loading
-                        await new Promise((resolve, reject) => {
-                            script.onload = () => {
-                                log(`Script loaded from ${src}, checking if SDK is available...`);
-                                setTimeout(() => {
-                                    if (window.HeygenStreaming && window.HeygenStreaming.StreamingAvatar) {
-                                        HeygenSDK = window.HeygenStreaming;
-                                        log('✅ Heygen SDK loaded successfully!');
-                                        updateStatus('SDK loaded successfully. You can now create a session.', false);
-                                        loaded = true;
-                                        document.dispatchEvent(new Event('heygen_sdk_loaded'));
-                                    }
-                                    resolve();
-                                }, 1000);
-                            };
-                            
-                            script.onerror = () => {
-                                log(`❌ Failed to load script from ${src}`, true);
-                                reject();
-                            };
-                            
-                            document.head.appendChild(script);
-                        }).catch(() => {});
-                    } catch (error) {
-                        log(`Error loading SDK: ${error.message}`, true);
-                    }
-                }
+            // Check for SDK after script loads
+            script.onload = () => {
+                log('Script loaded, checking if SDK is available...');
                 
-                if (!loaded) {
-                    log('❌ Failed to load SDK from any source. Please check console for errors.', true);
-                    updateStatus('SDK loading failed. Please check console.', true);
-                }
-            })();
+                // Check for SDK in global scope
+                setTimeout(() => {
+                    if (window.HeygenStreaming && window.HeygenStreaming.StreamingAvatar) {
+                        log('✅ SDK found at window.HeygenStreaming.StreamingAvatar');
+                        window.StreamingAvatar = window.HeygenStreaming.StreamingAvatar;
+                        HeygenSDK = window.HeygenStreaming;
+                        updateStatus('SDK loaded successfully. You can now create a session.', false);
+                        document.dispatchEvent(new Event('heygen_sdk_loaded'));
+                    } else {
+                        log('❌ SDK not found in global scope after loading', true);
+                        updateStatus('SDK loading failed. Trying mock SDK...', true);
+                        
+                        // Load mock SDK as fallback
+                        loadMockSDK().then(() => {
+                            log('✅ Mock SDK loaded as fallback');
+                            updateStatus('Using mock SDK (limited functionality)', true);
+                            document.dispatchEvent(new Event('heygen_sdk_loaded'));
+                        }).catch(error => {
+                            log(`❌ Failed to load mock SDK: ${error.message}`, true);
+                            updateStatus('All SDK loading attempts failed. Please refresh and try again.', true);
+                        });
+                    }
+                }, 1000);
+            };
+            
+            script.onerror = () => {
+                log('❌ Failed to load SDK script', true);
+                updateStatus('SDK loading failed. Trying mock SDK...', true);
+                
+                // Load mock SDK as fallback
+                loadMockSDK().then(() => {
+                    log('✅ Mock SDK loaded as fallback');
+                    updateStatus('Using mock SDK (limited functionality)', true);
+                    document.dispatchEvent(new Event('heygen_sdk_loaded'));
+                }).catch(error => {
+                    log(`❌ Failed to load mock SDK: ${error.message}`, true);
+                    updateStatus('All SDK loading attempts failed. Please refresh and try again.', true);
+                });
+            };
         }
         
         loadSDKBtn.addEventListener('click', loadSDKManually);
@@ -946,67 +869,27 @@
             }
         }
         
-        // Initialize the session with the Heygen SDK
+        // Function to initialize a session with the Heygen SDK
         async function initializeSession(sessionId, apiKey, avatarId, voiceName) {
             log(`Starting session initialization process for ${sessionId}...`);
             updateStatus('Initializing session...', false);
             
-            // Check if SDK is loaded using our global variable
-            if (!HeygenSDK) {
-                log('SDK not loaded yet, waiting for it to load...');
-                updateStatus('Waiting for SDK to load...', false);
-                
-                try {
-                    // Try to load the SDK
-                    await loadOfficialSDK();
-                    log('SDK loaded successfully via loadOfficialSDK');
-                } catch (error) {
-                    log(`Failed to load SDK: ${error.message}`, true);
-                    
-                    // Return a promise that resolves when the SDK is loaded
-                    return new Promise((resolve) => {
-                        // Listen for the SDK loaded event
-                        document.addEventListener('heygen_sdk_loaded', async () => {
-                            log('SDK loaded event received, continuing initialization...');
-                            // Continue initialization after SDK is loaded
-                            const result = await initializeSession(sessionId, apiKey, avatarId, voiceName);
-                            resolve(result);
-                        }, { once: true });
-                        
-                        // Set a timeout in case the SDK never loads
-                        setTimeout(() => {
-                            log('❌ SDK loading timeout. Please try the "Load SDK Manually" button.', true);
-                            updateStatus('SDK loading failed. Try manual loading.', true);
-                            resolve(false);
-                        }, 10000);
-                    });
-                }
+            // Check if SDK is loaded
+            if (!isSDKLoaded()) {
+                log('SDK not loaded yet, please refresh the page');
+                updateStatus('SDK not loaded', true);
+                return false;
             }
             
             try {
-                // Check if SDK is available in any of the possible locations
-                let StreamingAvatarClass = null;
-                
-                if (window.StreamingAvatar) {
-                    log('✅ SDK found at window.StreamingAvatar');
-                    StreamingAvatarClass = window.StreamingAvatar;
-                } else if (window.HeygenSDK && window.HeygenSDK.StreamingAvatar) {
-                    log('✅ SDK found at window.HeygenSDK.StreamingAvatar');
-                    StreamingAvatarClass = window.HeygenSDK.StreamingAvatar;
-                } else if (window.HeygenStreaming && window.HeygenStreaming.StreamingAvatar) {
-                    log('✅ SDK found at window.HeygenStreaming.StreamingAvatar');
-                    StreamingAvatarClass = window.HeygenStreaming.StreamingAvatar;
-                } else {
-                    throw new Error('StreamingAvatar class not found in any global namespace');
-                }
-                
-                log('✅ SDK found. Creating avatar instance...');
+                const StreamingAvatar = window.HeygenStreaming.StreamingAvatar;
+                log('✅ Using StreamingAvatar from window.HeygenStreaming.StreamingAvatar');
                 
                 // Stop any existing avatar instance
                 if (avatarInstance) {
                     log('Stopping previous avatar instance...');
                     try {
-                        await avatarInstance.stop();
+                        await avatarInstance.stopAvatar();
                     } catch (e) {
                         console.error('Error stopping avatar:', e);
                     }
@@ -1025,38 +908,39 @@
                     updateMicStatus(false);
                 }
                 
-                // Create new avatar instance
-                avatarInstance = new StreamingAvatarClass({
-                    apiKey: apiKey
-                });
-                
                 // Create audio element reference for SDK
                 const audioElement = document.getElementById('avatar-audio');
                 
+                // Create new avatar instance with token (exactly like demo project)
+                log('Creating avatar instance with token...');
+                avatarInstance = new StreamingAvatar({
+                    token: sessionId,
+                    basePath: 'https://api.heygen.com'
+                });
+                
+                // Start the avatar with the exact approach used in the demo project
+                log('Starting avatar with demo project configuration...');
+                log(`Using avatar ID: ${avatarId}`);
+                
                 try {
-                    // Start the avatar with the microphone stream and explicit audio configuration
-                    log('Starting avatar with explicit audio configuration...');
                     const startResult = await avatarInstance.startAvatar({
-                        sessionId: sessionId,
-                        avatarName: avatarId,
+                        avatarId: avatarId,
                         voice: {
                             name: voiceName || 'en-US-JennyNeural'
                         },
                         quality: 'medium',
-                        voiceChatTransport: 'websocket',
-                        micStream: micStream,
                         enableAudio: true,
-                        audioTransport: 'direct',
                         audioOutput: 'both',
-                        audioElement: audioElement
+                        audioElement: audioElement,
+                        micStream: micStream
                     });
                     
                     log(`Connecting to session with config: ${JSON.stringify({
-                        sessionId: sessionId,
-                        avatarName: avatarId,
-                        voice: {},
+                        avatarId: avatarId,
+                        voice: { name: voiceName || 'en-US-JennyNeural' },
                         quality: 'medium',
-                        voiceChatTransport: 'websocket',
+                        enableAudio: true,
+                        audioOutput: 'both',
                         micStream: {}
                     })}`);
                     
@@ -1071,295 +955,47 @@
                     return false;
                 }
                 
-                // Set up event listeners
-                avatarInstance.on(StreamingAvatarClass.Events.STREAM_READY, (event) => {
-                    log('✅ Stream ready! Connecting to video element...');
-                    const videoElement = document.getElementById('avatar-video');
-                    if (videoElement && event.detail) {
-                        // Make sure video container is visible and video status is hidden
-                        const videoContainer = document.getElementById('video-container');
-                        if (videoContainer) {
-                            videoContainer.style.display = 'block';
-                            videoContainer.style.width = '100%';
-                            videoContainer.style.height = '480px';
-                            videoContainer.style.backgroundColor = '#000';
-                        }
-                        
-                        // Hide the 'waiting for session' message
-                        const videoStatus = document.getElementById('video-status');
-                        if (videoStatus) {
-                            videoStatus.style.display = 'none';
-                        }
-                        
-                        // Ensure video element is properly styled
-                        videoElement.style.width = '100%';
-                        videoElement.style.height = '100%';
-                        videoElement.style.objectFit = 'contain';
-                        videoElement.style.backgroundColor = '#000';
-                        
-                        // Force hardware acceleration for better rendering
-                        videoElement.style.transform = 'translateZ(0)';
-                        videoElement.style.backfaceVisibility = 'hidden';
-                        videoElement.style.webkitTransform = 'translateZ(0)';
-                        videoElement.style.webkitBackfaceVisibility = 'hidden';
-                        
-                        // Set video properties for better playback
-                        videoElement.setAttribute('playsinline', '');
-                        videoElement.setAttribute('autoplay', '');
-                        videoElement.setAttribute('crossorigin', 'anonymous');
-                        
-                        // Connect the stream to the video element with detailed logging
-                        log(`Stream details: ${event.detail ? 'Stream available' : 'Stream missing'}`);
-                        if (event.detail) {
-                            const videoTracks = event.detail.getVideoTracks();
-                            const audioTracks = event.detail.getAudioTracks();
-                            log(`Stream has ${videoTracks.length} video tracks and ${audioTracks.length} audio tracks`);
-                            
-                            if (videoTracks.length > 0) {
-                                const settings = videoTracks[0].getSettings();
-                                log(`Video track settings: ${JSON.stringify(settings)}`);
-                            }
-                        }
-                        
-                        videoElement.srcObject = event.detail;
-                        videoElement.muted = false; // Ensure audio is on - we want to hear the avatar
-                        videoElement.volume = 1.0; // Set volume to maximum
-                        
-                        // Create an audio context to ensure audio is properly initialized
-                        try {
-                            // Check if the stream has audio tracks before creating audio context
-                            if (event.detail && event.detail.getAudioTracks && event.detail.getAudioTracks().length > 0) {
-                                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                                const source = audioContext.createMediaStreamSource(event.detail);
-                                const destination = audioContext.createMediaStreamDestination();
-                                source.connect(destination);
-                                log('✅ Audio context initialized successfully');
-                            } else {
-                                log('⚠️ Stream has no audio tracks. Using video element audio output only.');
-                                // Ensure audio output is enabled on the video element
-                                videoElement.muted = false;
-                                videoElement.volume = 1.0;
-                            }
-                        } catch (audioError) {
-                            log(`⚠️ Could not initialize audio context: ${audioError.message}`);
-                            // Ensure audio output is enabled on the video element as fallback
-                            videoElement.muted = false;
-                            videoElement.volume = 1.0;
-                        }
-                        
-                        // Add a small delay before playing to ensure stream is ready
-                        setTimeout(() => {
-                            videoElement.play().then(() => {
-                                log('✅ Video playing successfully');
-                                updateStatus('Connected to session', false);
-                                
-                                // Check if send-message-container exists before accessing its style
-                                const sendMessageContainer = document.getElementById('send-message-container');
-                                if (sendMessageContainer) {
-                                    sendMessageContainer.style.display = 'block';
-                                } else {
-                                    log('Note: send-message-container element not found');
-                                }
-                            }).catch(error => {
-                                log(`❌ Error playing video: ${error.message}`, true);
-                                // Try autoplay with muted as fallback
-                                videoElement.muted = true;
-                                videoElement.play().then(() => {
-                                    log('✅ Video playing (muted) - click to unmute');
-                                    updateStatus('Connected (audio muted - click video to unmute)', false);
-                                    
-                                    // Add click handler to unmute
-                                    videoElement.addEventListener('click', function() {
-                                        videoElement.muted = false;
-                                        log('Video unmuted via click');
-                                    });
-                                }).catch(e => {
-                                    log(`❌ Failed to play video even when muted: ${e.message}`, true);
-                                });
-                            });
-                        }, 500);
-                    } else {
-                        log('❌ Video element or stream not available', true);
-                    }
-                });
-                
+                // Set up event handlers exactly like the demo project
                 // Store original audio tracks to restore them later
                 let originalAudioTracks = [];
                 
-                // Add audio data event handler for all possible audio events
-                // Initialize audio context if needed
-                let audioContext = null;
+                // Handle stream ready event
+                avatarInstance.on(StreamingEvents.STREAM_READY, (event) => {
+                    log('✅ Stream ready! Connecting to video element...');
+                    const videoElement = document.getElementById('avatar-video');
+                    if (videoElement && event.detail) {
+                        // Make sure video container is visible
+                        const videoContainer = document.getElementById('video-container');
+                        if (videoContainer) {
+                            videoContainer.style.display = 'block';
+                        }
+                        
+                        // Connect the stream to the video element
+                        videoElement.srcObject = event.detail;
+                        videoElement.muted = true; // Mute video element as we'll use separate audio element
+                        videoElement.play().catch(e => console.warn('Video play error:', e));
+                        log('✅ Video connected successfully');
+                        updateStatus('Connected to session', false);
+                    }
+                });
                 
-                // Handle audio data event
-                avatarInstance.on(StreamingAvatarClass.Events.AUDIO_DATA, (event) => {
-                    log('🔊 Received AUDIO_DATA from avatar');
-                    // Show audio indicator
-                    const speakingIndicator = document.getElementById('speaking-indicator');
-                    if (speakingIndicator) speakingIndicator.style.display = 'block';
+                // Handle audio data event - simplified to match demo project
+                avatarInstance.on(StreamingEvents.AUDIO_DATA, (event) => {
+                    log('🔊 Received audio data from avatar');
                     
-                    if (event && event.detail) {
-                        try {
-                            const audioElement = document.getElementById('avatar-audio');
-                            
-                            // Handle different types of audio data
-                            if (event.detail instanceof ArrayBuffer) {
-                                log('Processing ArrayBuffer audio data');
-                                if (!audioContext) {
-                                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                                }
-                                
-                                audioContext.decodeAudioData(event.detail)
-                                    .then(buffer => {
-                                        const source = audioContext.createBufferSource();
-                                        source.buffer = buffer;
-                                        
-                                        // Create gain node for volume control
-                                        const gainNode = audioContext.createGain();
-                                        const volumeControl = document.getElementById('volume-control');
-                                        if (volumeControl) {
-                                            gainNode.gain.value = parseFloat(volumeControl.value);
-                                        }
-                                        
-                                        source.connect(gainNode);
-                                        gainNode.connect(audioContext.destination);
-                                        source.start(0);
-                                        log('✅ Audio playing through Web Audio API');
-                                    })
-                                    .catch(err => log(`❌ Error decoding audio: ${err.message}`));
-                            } else if (event.detail instanceof Blob) {
-                                log('Processing Blob audio data');
-                                if (audioElement) {
-                                    const audioUrl = URL.createObjectURL(event.detail);
-                                    audioElement.src = audioUrl;
-                                    audioElement.play()
-                                        .then(() => log('✅ Audio playing through audio element'))
-                                        .catch(err => log(`❌ Error playing audio: ${err.message}`));
-                                }
-                            } else if (event.detail.audioData) {
-                                log('Processing audioData array');
-                                // For array data format
-                                if (!audioContext) {
-                                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                                }
-                                
-                                const audioBuffer = audioContext.createBuffer(1, event.detail.audioData.length, 48000);
-                                const channelData = audioBuffer.getChannelData(0);
-                                
-                                // Copy the audio data to the channel data
-                                for (let i = 0; i < event.detail.audioData.length; i++) {
-                                    channelData[i] = event.detail.audioData[i];
-                                }
-                                
-                                const source = audioContext.createBufferSource();
-                                source.buffer = audioBuffer;
-                                
-                                // Create gain node for volume control
-                                const gainNode = audioContext.createGain();
-                                const volumeControl = document.getElementById('volume-control');
-                                if (volumeControl) {
-                                    gainNode.gain.value = parseFloat(volumeControl.value);
-                                }
-                                
-                                source.connect(gainNode);
-                                gainNode.connect(audioContext.destination);
-                                source.start(0);
-                                log('✅ Audio playing through Web Audio API');
-                            } else {
-                                log('❌ Unknown audio data format');
-                            }
-                        } catch (e) {
-                            log(`❌ Error processing audio data: ${e.message}`);
-                        }
-                    }
+                    // The demo project lets the SDK handle audio playback through the audioElement
+                    // We don't need to manually process the audio data as we're using audioOutput: 'both'
+                    // and providing an audioElement in the startAvatar config
                 });
                 
-                // Handle audio output event
-                avatarInstance.on(StreamingAvatarClass.Events.AUDIO_OUTPUT, (event) => {
-                    log('🔊 Received AUDIO_OUTPUT from avatar');
-                    if (event && event.detail) {
-                        try {
-                            const audioElement = document.getElementById('avatar-audio');
-                            if (audioElement && event.detail instanceof Blob) {
-                                const audioUrl = URL.createObjectURL(event.detail);
-                                audioElement.src = audioUrl;
-                                audioElement.play()
-                                    .then(() => log('✅ Audio output playing through audio element'))
-                                    .catch(e => log(`❌ Audio play error: ${e.message}`));
-                            } else {
-                                log('❌ Audio output is not a Blob or audio element not found');
-                            }
-                        } catch (e) {
-                            log(`❌ Error processing audio output: ${e.message}`);
-                        }
-                    }
-                });
-                
-                // Handle audio chunk event (specific to Heygen SDK)
-                avatarInstance.on(StreamingAvatarClass.Events.AUDIO_CHUNK, (event) => {
-                    log('🔊 Received AUDIO_CHUNK from avatar');
-                    if (event && event.detail) {
-                        try {
-                            if (!audioContext) {
-                                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                                log('✅ Audio context created');
-                            }
-                            
-                            if (event.detail instanceof ArrayBuffer) {
-                                audioContext.decodeAudioData(event.detail)
-                                    .then(buffer => {
-                                        const source = audioContext.createBufferSource();
-                                        source.buffer = buffer;
-                                        
-                                        // Create gain node for volume control
-                                        const gainNode = audioContext.createGain();
-                                        const volumeControl = document.getElementById('volume-control');
-                                        if (volumeControl) {
-                                            gainNode.gain.value = parseFloat(volumeControl.value);
-                                        }
-                                        
-                                        source.connect(gainNode);
-                                        gainNode.connect(audioContext.destination);
-                                        source.start(0);
-                                        log('✅ Audio chunk playing through Web Audio API');
-                                    })
-                                    .catch(err => log(`❌ Error decoding audio: ${err.message}`));
-                            } else {
-                                log('❌ Audio chunk is not an ArrayBuffer');
-                            }
-                        } catch (e) {
-                            log(`❌ Error processing audio chunk: ${e.message}`);
-                        }
-                    }
-                });
-                
-                // Add talking start event handler
-                avatarInstance.on(StreamingAvatarClass.Events.TALKING_START, () => {
+                // Handle talking start event
+                avatarInstance.on(StreamingEvents.TALKING_START, () => {
                     log('Avatar started talking');
                     
                     // Add visual indicator that avatar is talking
                     const audioIndicator = document.getElementById('audio-indicator');
                     if (audioIndicator) {
                         audioIndicator.style.display = 'block';
-                    }
-                    
-                    // Play a test sound to ensure audio is working
-                    try {
-                        const testAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        const oscillator = testAudioContext.createOscillator();
-                        const gainNode = testAudioContext.createGain();
-                        
-                        oscillator.type = 'sine';
-                        oscillator.frequency.setValueAtTime(440, testAudioContext.currentTime); // 440 Hz = A4 note
-                        gainNode.gain.setValueAtTime(0.1, testAudioContext.currentTime); // Low volume
-                        
-                        oscillator.connect(gainNode);
-                        gainNode.connect(testAudioContext.destination);
-                        
-                        oscillator.start();
-                        setTimeout(() => oscillator.stop(), 300); // Play for 300ms
-                        log('🔊 Test sound played');
-                    } catch (e) {
-                        log(`❌ Error playing test sound: ${e.message}`);
                     }
                     
                     // Mute microphone while avatar is talking to prevent echo
@@ -1380,7 +1016,9 @@
                         }
                     }
                 });
-                avatarInstance.on(StreamingAvatarClass.Events.TALKING_END, () => {
+                
+                // Handle talking end event
+                avatarInstance.on(window.HeygenStreaming.StreamingAvatar.Events.TALKING_END, () => {
                     log('Avatar finished talking');
                     
                     // Hide audio indicator
@@ -1409,13 +1047,16 @@
                     }
                 });
                 
-                avatarInstance.on(StreamingAvatarClass.Events.CONNECTION_QUALITY, (event) => {
-                    log(`Connection quality: ${event.detail}`);
-                });
-                
-                avatarInstance.on(StreamingAvatarClass.Events.ERROR, (event) => {
+                // Handle error event
+                avatarInstance.on(StreamingEvents.ERROR, (event) => {
                     log(`❌ Avatar error: ${event.detail ? (event.detail.message || 'Unknown error') : 'Unknown error'}`, true);
                     updateStatus('Error in avatar session', true);
+                });
+                
+                // Handle stream disconnected event
+                avatarInstance.on(StreamingEvents.STREAM_DISCONNECTED, () => {
+                    log('Stream disconnected');
+                    updateStatus('Stream disconnected', true);
                 });
                     
                 log('Starting avatar session...');
@@ -1432,53 +1073,11 @@
                     return false;
                 }
                 
-                // Create the start configuration with the session ID and microphone stream
-                // The SDK expects different parameters than the API
-                const startConfig = {
-                    sessionId: sessionId,  // This is the only required parameter
-                    apiKey: apiKey,       // Add API key explicitly
-                    quality: 'medium',
-                    micStream: micStream,  // Pass the microphone stream to the SDK
-                    enableAudio: true,     // Explicitly enable audio
-                    audioTransport: 'websocket', // Use websocket for audio transport
-                    audioOutput: 'audioElement', // Use audio element for output
-                    audioElement: document.getElementById('avatar-audio') // Specify the audio element
-                };
-                
-                // Note: avatarId and voiceName are not needed here because they were already
-                // used when creating the session via the API
-                
-                log(`Starting avatar with config: ${JSON.stringify({
-                    sessionId: sessionId,
-                    apiKey: '***' + apiKey.substring(Math.max(0, apiKey.length - 4)),
-                    quality: 'medium'
-                })}`);
-                
                 try {
-                    log('Calling avatarInstance.startAvatar with config...');
-                    console.log('Avatar instance methods:', Object.getOwnPropertyNames(avatarInstance));
-                    console.log('Full startConfig:', JSON.stringify(startConfig, null, 2));
-                    
-                    // Check if startAvatar method exists
-                    if (typeof avatarInstance.startAvatar !== 'function') {
-                        log('❌ Error: startAvatar method not found on avatar instance', true);
-                        log('Available methods: ' + Object.getOwnPropertyNames(avatarInstance).join(', '));
-                        updateStatus('SDK initialization error', true);
-                        return false;
-                    }
-                    
-                    const startResult = await avatarInstance.startAvatar(startConfig);
-                    console.log('startAvatar result:', startResult);
-                    
-                    if (startResult && startResult.success) {
-                        log('✅ Avatar session started successfully!');
-                        updateStatus('Session started, waiting for stream...', false);
-                        return true;
-                    } else {
-                        log(`❌ Failed to start avatar session: ${JSON.stringify(startResult)}`, true);
-                        updateStatus('Failed to start session', true);
-                        return false;
-                    }
+                    // We don't need any additional avatar start calls since we already did it above
+                    log('✅ Avatar initialization completed with demo project approach');
+                    updateStatus('Avatar initialized, waiting for stream...', false);
+                    return true;
                 } catch (error) {
                     log(`❌ Error starting avatar session: ${error.message}`, true);
                     console.error('Full error:', error);
@@ -1819,9 +1418,17 @@
                 // First, create a session using the API
                 const payload = {
                     version: "v2",
-                    talking_photo_id: avatarId,
                     voice: { voice_name: voiceName }
                 };
+                
+                // Add the correct ID field based on ID format
+                // If it contains underscores or is a short ID, use talking_photo_id
+                // Otherwise use avatar_id for longer hex IDs
+                if (avatarId.includes('_') || avatarId.length < 32) {
+                    payload.talking_photo_id = avatarId;
+                } else {
+                    payload.avatar_id = avatarId;
+                }
                 
                 // Debug log
                 console.log('Creating session with payload:', payload);

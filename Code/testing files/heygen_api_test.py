@@ -5,7 +5,8 @@ from datetime import datetime
 import sys
 
 # Set your HeyGen API key here or via environment variable
-# Squidgy YzQ0MWM0OWQzMzU5NDQ4NzlhN2MxZGUxZjc5ZDMxOWQtMTc0MzUyNTQwMQ==
+# Squidgy NzQ5MTY5M2Q4YTJkNGZlMTgyNDlhNWY1NzcwMDBkMjAtMTczNDg5ODg2OQ==
+# Squidgy everyone YzQ0MWM0OWQzMzU5NDQ4NzlhN2MxZGUxZjc5ZDMxOWQtMTc0MzUyNTQwMQ==
 # Farzin ZTUzNTAwZmMwYmZhNGRkZDlhYjE2OTZjMTFiODAwZjItMTc1MDE3ODM0Nw==
 API_KEY = os.getenv("HEYGEN_API_KEY", "YzQ0MWM0OWQzMzU5NDQ4NzlhN2MxZGUxZjc5ZDMxOWQtMTc0MzUyNTQwMQ==")
 BASE_URL = "https://api.heygen.com/v1"

@@ -162,3 +162,4 @@ cython_debug/
 Code/squidgy-backend_host/app/~$conversation_templates.xlsx
 Code/testing files/node_modules
 Code/testing files/InteractiveAvatarNextJSDemo
+node_modules/
