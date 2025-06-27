@@ -40,6 +40,8 @@ interface InteractiveAvatarProps {
   avatarId?: string;
   onAvatarError?: (error: string) => void;
   avatarTimeout?: number;
+  retryTrigger?: number; // Increment this to trigger a manual retry
+  cleanupTrigger?: number; // Increment this to trigger immediate cleanup
 }
 
 const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
@@ -50,7 +52,9 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   voiceEnabled = true,
   avatarId = 'presaleskb',
   onAvatarError,
-  avatarTimeout = 10000 // 10 seconds default timeout
+  avatarTimeout = 10000, // 10 seconds default timeout
+  retryTrigger = 0,
+  cleanupTrigger = 0
 }) => {
   // State management
   const [stream, setStream] = useState<MediaStream>();
@@ -72,6 +76,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const initializationInProgressRef = useRef<boolean>(false);
   const lastInitAttemptTimeRef = useRef<number>(0);
   const lastActivityTimeRef = useRef<number>(Date.now()); // Track last user activity
+  const lastRetryTriggerRef = useRef<number>(0); // Track last processed retry trigger
 
   // Constants for credit optimization
   const SESSION_MAX_DURATION_MS = 5 * 60 * 1000; // 5 minutes
@@ -80,26 +85,52 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
 
   // Handle avatar failures consistently
   const handleAvatarFailure = useCallback((error: any) => {
-    console.error('Avatar failure:', error);
+    console.log("Avatar failure:", error);
+    
+    // Clear initialization progress flag
+    initializationInProgressRef.current = false;
+    
+    // Set avatar failed state
+    setAvatarFailed(true);
+    setSessionActive(false);
+    
+    // Determine error type and message
+    let errorMessage = 'Avatar initialization failed';
+    let errorType = 'general';
     
     // Check if it's a concurrent limit error
     if (error?.responseText && error.responseText.includes('Concurrent limit reached')) {
       console.warn('🚫 HeyGen concurrent limit reached - this is an API limitation, not a code issue');
       console.log('💡 Solution: Wait a few minutes for existing sessions to expire, or upgrade HeyGen plan');
-      setError('HeyGen concurrent limit reached. Please wait a few minutes or upgrade your plan.');
-      setErrorType('concurrent_limit');
-    } else {
-      setError(error?.message || 'Avatar initialization failed');
-      setErrorType('avatar_failure');
+      errorMessage = 'HeyGen concurrent limit reached. Please wait a few minutes or upgrade your plan.';
+      errorType = 'concurrent_limit';
+    } 
+    // Check if it's a credit exhaustion error (400 status or specific message)
+    else if (error?.message && error.message.includes('credits exhausted')) {
+      console.error('💳 HeyGen credits exhausted');
+      errorMessage = error.message;
+      errorType = 'credit_exhaustion';
+    }
+    // Check for other 400 errors that might indicate credit issues
+    else if (error?.message && (error.message.includes('400') || error.message.includes('Bad Request'))) {
+      console.error('💳 Possible HeyGen credit or API issue - 400 status');
+      errorMessage = 'HeyGen API error (400). This may indicate insufficient credits or account issues.';
+      errorType = 'api_400_error';
+    }
+    else {
+      errorMessage = error?.message || 'Avatar initialization failed';
     }
     
+    setError(errorMessage);
+    setErrorType(errorType);
     setAvatarFailed(true);
     
     // Load fallback avatar image
     setFallbackAvatarUrl(getFallbackAvatar(avatarId || 'presaleskb'));
     
+    // Notify parent component
     if (onAvatarError) {
-      onAvatarError(error?.message || 'Avatar initialization failed');
+      onAvatarError(errorMessage);
     }
   }, [avatarId, onAvatarError]);
 
@@ -402,6 +433,54 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       } catch (error) {
         console.error("Avatar initialization failed:", error);
         
+        // Enhanced error logging for 400 status errors
+        let errorMessage = '';
+        let is400Error = false;
+        
+        if (error && typeof error === 'object') {
+          // Check for different error formats
+          if ('status' in error && error.status === 400) {
+            is400Error = true;
+            const message = 'message' in error && typeof error.message === 'string' ? error.message : 'Bad Request';
+            errorMessage = `API request failed with status 400: ${message}`;
+          } else if ('responseText' in error && typeof error.responseText === 'string') {
+            const responseText = error.responseText as string;
+            if (responseText.includes('400') || responseText.includes('Bad Request')) {
+              is400Error = true;
+              errorMessage = `API request failed with status 400: ${responseText}`;
+            } else {
+              errorMessage = responseText;
+            }
+          } else if ('message' in error && typeof error.message === 'string') {
+            const message = error.message as string;
+            errorMessage = message;
+            if (message.includes('400') || message.includes('Bad Request')) {
+              is400Error = true;
+            }
+          } else {
+            errorMessage = String(error);
+          }
+        } else {
+          errorMessage = String(error);
+        }
+        
+        // Log detailed error information
+        console.error("🔍 Detailed error analysis:", {
+          originalError: error,
+          errorMessage,
+          is400Error,
+          errorType: typeof error,
+          errorKeys: error && typeof error === 'object' ? Object.keys(error) : 'N/A'
+        });
+        
+        // If it's a 400 error, likely credit exhaustion
+        if (is400Error) {
+          console.error("💳 Likely HeyGen credit exhaustion - 400 status detected");
+          handleAvatarFailure(new Error('HeyGen credits exhausted. Please check your account balance and try again later.'));
+        } else {
+          handleAvatarFailure(error);
+        }
+        
         // If it's a concurrent limit error, trigger force cleanup
         if (error && typeof error === 'object' && 'responseText' in error && 
             typeof error.responseText === 'string' && error.responseText.includes('Concurrent limit reached')) {
@@ -409,9 +488,9 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           await forceCleanupAllSessions();
         }
         
-        handleAvatarFailure(error);
-        
-        // Don't set up duplicate retry here since handleAvatarFailure already handles it
+        // No automatic retry - user must manually retry via button
+        console.log("⚠️ Avatar initialization failed - no automatic retry, user must click retry button");
+        initializationInProgressRef.current = false;
         return;
       }
       
@@ -464,18 +543,18 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       
       handleAvatarFailure(error);
       
-        // Retry logic with longer timeout for concurrent limit errors
-        const isConurrentLimit = error && typeof error === 'object' && 'responseText' in error && 
-                                typeof error.responseText === 'string' && error.responseText.includes('Concurrent limit reached');
-        const retryDelay = isConurrentLimit ? 120000 : avatarTimeout; // 2 minutes for concurrent limit, normal timeout otherwise
-        
-        console.log(`Will retry initialization in ${retryDelay/1000} seconds...`);
-        setTimeout(() => {
-          console.log("Retrying avatar initialization...");
-          initializationInProgressRef.current = false;
-          initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
-        }, retryDelay);
-        return;
+      // Retry logic with longer timeout for concurrent limit errors
+      const isConurrentLimit = error && typeof error === 'object' && 'responseText' in error && 
+                              typeof error.responseText === 'string' && error.responseText.includes('Concurrent limit reached');
+      const retryDelay = isConurrentLimit ? 120000 : avatarTimeout; // 2 minutes for concurrent limit, normal timeout otherwise
+      
+      console.log(`Will retry initialization in ${retryDelay/1000} seconds...`);
+      setTimeout(() => {
+        console.log("Retrying avatar initialization...");
+        initializationInProgressRef.current = false;
+        initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
+      }, retryDelay);
+      return;
     } finally {
       initializationInProgressRef.current = false;
     }
@@ -523,7 +602,10 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       setIsTransitioning(true);
     }
     
-    if (shouldReinitialize) {
+    if (shouldReinitialize && !avatarFailed) {
+      // Only auto-initialize if avatar hasn't failed - prevent automatic retries on errors
+      console.log("🚀 Auto-initializing avatar (no previous failure)");
+      
       // Debounce initialization to prevent rapid session creation/destruction
       if (timeoutId) clearTimeout(timeoutId);
       
@@ -543,6 +625,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           }
         }
       }, DEBOUNCE_DELAY_MS);
+    } else if (shouldReinitialize && avatarFailed) {
+      console.log("⚠️ Skipping auto-initialization due to previous avatar failure - user must manually retry");
     } else if (!enabled) {
       // End session when component is disabled
       endSession().catch(error => console.error("Error ending session:", error));
@@ -552,6 +636,106 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [avatarId, enabled, endSession, handleAvatarFailure, initializeAvatar, sessionId]);
+
+  // Handle manual retry when retryTrigger changes
+  // Manual retry effect - only triggers on explicit user retry button clicks
+  useEffect(() => {
+    // Only proceed if retry was explicitly triggered, avatar has failed, and we haven't processed this retry yet
+    if (retryTrigger > 0 && 
+        avatarFailed && 
+        !initializationInProgressRef.current && 
+        retryTrigger > lastRetryTriggerRef.current) {
+      
+      console.log(`🔄 Manual retry triggered (#${retryTrigger}) - resetting avatar failed state`);
+      
+      // Track this retry attempt to prevent duplicates
+      lastRetryTriggerRef.current = retryTrigger;
+      
+      // Reset failed state and errors
+      setAvatarFailed(false);
+      setError('');
+      setErrorType('');
+      setFallbackAvatarUrl('');
+      
+      // Trigger reinitialization if we have session and avatar ID
+      if (sessionId && avatarId && enabled) {
+        console.log("🚀 Starting manual retry initialization");
+        setIsTransitioning(true);
+        
+        // Use a longer delay to prevent rapid retries
+        setTimeout(async () => {
+          try {
+            console.log("🔄 Executing retry attempt...");
+            // Let initializeAvatar manage its own initialization flag
+            await initializeAvatar(sessionId, avatarId);
+            setIsTransitioning(false);
+            console.log("✅ Retry attempt completed successfully");
+          } catch (error) {
+            console.log("❌ Retry attempt failed:", error);
+            handleAvatarFailure(error);
+            setIsTransitioning(false);
+          }
+        }, 1500); // Increased delay to prevent rapid retries
+      }
+    }
+  }, [retryTrigger, avatarFailed, sessionId, avatarId, enabled]); // Note: initializeAvatar and handleAvatarFailure not included to prevent infinite loops
+
+  // Handle immediate cleanup when cleanupTrigger changes (e.g., on logout)
+  useEffect(() => {
+    // Only run cleanup if cleanupTrigger is actually greater than 0
+    if (cleanupTrigger > 0) {
+      console.log(`🧹 Cleanup trigger activated (#${cleanupTrigger}) - performing immediate cleanup`);
+      
+      // Prevent any ongoing initialization attempts
+      initializationInProgressRef.current = false;
+      
+      // Reset retry trigger tracking to prevent stale retry attempts
+      lastRetryTriggerRef.current = 0;
+      console.log("🔍 Current state before cleanup:", {
+        avatarExists: !!avatarRef?.current,
+        streamExists: !!stream,
+        avatarFailed,
+        error
+      });
+      
+      // Stop avatar session immediately
+      if (avatarRef?.current) {
+        console.log("🛑 Stopping avatar session...");
+        (avatarRef.current as any).stopAvatar?.().catch((error: any) => {
+          console.error("Error stopping avatar:", error);
+        });
+        avatarRef.current = null;
+        console.log("✅ Avatar reference cleared");
+      } else {
+        console.log("ℹ️ No avatar to stop");
+      }
+      
+      // Clear stream and video
+      console.log("📺 Clearing video stream...");
+      setStream(undefined);
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current.pause();
+        console.log("✅ Video element cleared and paused");
+      }
+      
+      // Reset all state
+      console.log("🔄 Resetting component state...");
+      setAvatarFailed(false);
+      setError('');
+      setErrorType('');
+      setFallbackAvatarUrl('');
+      setIsTransitioning(false);
+      setSessionActive(false);
+      
+      // Clear refs
+      currentSessionIdRef.current = '';
+      currentAvatarIdRef.current = '';
+      initializationInProgressRef.current = false;
+      
+      console.log("✅ Cleanup trigger completed - all processes should be stopped");
+    }
+  }, [cleanupTrigger, stream, avatarFailed, error]);
 
   // Assign stream to video element when stream changes
   useEffect(() => {
@@ -589,23 +773,42 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     <div className="relative w-full h-full overflow-hidden rounded-lg" onMouseMove={updateActivity} onTouchMove={updateActivity}>
       {enabled ? (
         <>
-          <div className="relative w-full h-full">
+          <div className="relative w-full h-full bg-gray-800">
+            {/* Debug info */}
+            <div className="absolute top-2 left-2 text-white text-xs bg-black bg-opacity-50 p-1 rounded z-20">
+              Stream: {stream ? 'Connected' : 'None'} | Session: {sessionActive ? 'Active' : 'Inactive'} | Failed: {avatarFailed ? 'Yes' : 'No'}
+            </div>
+            
             <video
               ref={videoRef}
               autoPlay
               playsInline
+              muted={false}
               className="w-full h-full object-cover"
-              style={{ opacity: stream ? 1 : 0, transition: 'opacity 0.5s ease' }}
+              style={{ 
+                opacity: stream ? 1 : 0.3,
+                display: 'block',
+                backgroundColor: '#1f2937'
+              }}
+              onLoadedData={() => console.log('📺 Video loaded data')}
+              onCanPlay={() => console.log('📺 Video can play')}
+              onPlay={() => console.log('📺 Video started playing')}
+              onError={(e) => console.error('📺 Video error:', e)}
+              onLoadStart={() => console.log('📺 Video load start')}
+              onLoadedMetadata={() => console.log('📺 Video metadata loaded')}
             />
-            {(!stream || isTransitioning) && !avatarFailed && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-                <div className="text-white text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
-                  <p>{isTransitioning ? 'Switching Avatar...' : 'Loading Avatar...'}</p>
-                  <p className="text-sm text-gray-400 mt-2">Using LiveKit transport</p>
+            
+            {/* Show placeholder when no stream and no error */}
+            {!stream && !avatarFailed && (
+              <div className="absolute inset-0 flex items-center justify-center text-white">
+                <div className="text-center">
+                  <div className="text-6xl mb-4">📹</div>
+                  <div className="text-lg">Initializing Avatar...</div>
+                  <div className="text-sm text-gray-400 mt-2">Connecting to HeyGen</div>
                 </div>
               </div>
             )}
+
             {avatarFailed && fallbackAvatarUrl && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
                 <img 
