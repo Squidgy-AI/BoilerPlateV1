@@ -19,8 +19,6 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/presales-consultant.jpg',
     type: 'PreSalesConsultant',
     description: 'Provides technical expertise and solution demonstrations',
-    // heygenAvatarId: '413a244b053949f39e8ab50099a895ea', // Original avatar ID - NOT FOUND ERROR
-    // heygenAvatarId: 'Wayne_20240711', // May not be available
     heygenAvatarId: 'josh_lite3_20230714', // HeyGen's default public avatar
     fallbackAvatar: '/avatars/presales-fallback.jpg',
     agent_name: 'presaleskb',
@@ -32,7 +30,7 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/social-media-manager.jpg',
     type: 'SocialMediaManager',
     description: 'Creates and manages social media strategies',
-    heygenAvatarId: 'Wayne_20240711', // More reliable HeyGen public avatar
+    heygenAvatarId: 'Thaddeus_ProfessionalLook_public', // HeyGen public avatar with professional look
     fallbackAvatar: '/avatars/social-fallback.jpg',
     agent_name: 'socialmediakb',
     introMessage: "Hello! I'm your Social Media Manager. I specialize in digital presence strategies, content marketing, and social media automation across all major platforms."
@@ -43,7 +41,7 @@ export const AGENT_CONFIG: Agent[] = [
     avatar: '/avatars/lead-gen-specialist.jpg',
     type: 'LeadGenSpecialist',
     description: 'Focuses on generating and qualifying leads',
-    heygenAvatarId: 'Wayne_20240711', // More reliable HeyGen public avatar
+    heygenAvatarId: 'Wayne_20240711', // HeyGen public avatar
     fallbackAvatar: '/avatars/leadgen-fallback.jpg',
     agent_name: 'leadgenkb',
     introMessage: "Hi there! I'm your Lead Generation Specialist. I help schedule demos, coordinate follow-ups, and ensure all your business needs are properly addressed."
@@ -121,7 +119,7 @@ export const getValidatedAvatarId = (agentId: string): string => {
   
   // Check if it's a valid avatar ID format
   if (isValidAvatarId(avatarId)) {
-    console.log(`Using validated avatar ID for agent ${agentId}: ${avatarId}`);
+    console.log(`✅ Using avatar ID for agent ${agentId}: ${avatarId}`);
     return avatarId;
   }
   

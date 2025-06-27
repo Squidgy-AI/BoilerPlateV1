@@ -1212,7 +1212,7 @@ const agents = AGENT_CONFIG;
                 {videoEnabled ? (
                   <>
                     <InteractiveAvatar
-                      key={`dashboard-avatar`}
+                      key={`avatar-${selectedAvatarId}`}
                       onAvatarReady={handleAvatarReady}
                       onAvatarError={handleAvatarError}
                       avatarRef={avatarRef}

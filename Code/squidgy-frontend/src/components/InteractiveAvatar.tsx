@@ -59,6 +59,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const [sessionActive, setSessionActive] = useState<boolean>(false);
   const [avatarFailed, setAvatarFailed] = useState<boolean>(false);
   const [fallbackAvatarUrl, setFallbackAvatarUrl] = useState<string>("");
+  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
   // Refs for managing avatar state and preventing race conditions
   const localAvatarRef = useRef<StreamingAvatar | null>(null);
@@ -143,9 +144,18 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     
     // Reset refs and state
     localAvatarRef.current = null;
+    if (avatarRef) {
+      avatarRef.current = null;
+    }
     setSessionActive(false);
     setStream(undefined);
+    setAvatarFailed(false);
+    setError('');
+    setErrorType('');
+    setIsTransitioning(false);
     sessionStartTimeRef.current = null;
+    currentSessionIdRef.current = undefined;
+    currentAvatarIdRef.current = undefined;
     console.log('✅ Session cleanup complete');
   }, []);
 
@@ -271,12 +281,26 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     initializationInProgressRef.current = true;
     lastInitAttemptTimeRef.current = Date.now();
     
+    // Set up a timeout to prevent forever loading
+    const initTimeout = setTimeout(() => {
+      if (initializationInProgressRef.current) {
+        console.log("⏱️ Avatar initialization timeout - forcing failure");
+        handleAvatarFailure(new Error("Avatar initialization timeout"));
+        initializationInProgressRef.current = false;
+      }
+    }, 15000); // 15 second timeout
+    
     try {
       console.log("🚀 Initializing avatar with session ID:", sessionId, "and avatar ID:", avatarId);
       console.log("📊 Session State - Active:", sessionActive, "Failed:", avatarFailed);
       
-      // Clean up any existing session first
-      await endSession();
+      // IMPORTANT: Force cleanup of any existing session when avatar changes
+      if (sessionActive || localAvatarRef.current) {
+        console.log("🧹 Force cleaning up existing avatar session before creating new one");
+        await endSession();
+        // Add a small delay to ensure cleanup completes
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       
       // Get token from API
       const response = await fetch('/api/get-access-token', {
@@ -331,9 +355,16 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       
       // Start avatar with credit-saving optimizations using LiveKit
       try {
+        const validatedAvatarId = getValidatedAvatarId(avatarId);
+        console.log("🎭 Starting avatar with:", {
+          agentId: avatarId,
+          validatedAvatarId: validatedAvatarId,
+          heygenId: getHeygenAvatarId(avatarId)
+        });
+        
         // @ts-ignore - createStartAvatar method exists but may not be in type definition
         const startResponse = await avatar.createStartAvatar({
-          avatarName: getValidatedAvatarId(avatarId),
+          avatarName: validatedAvatarId,
           quality: AvatarQuality.Low,
           voice: {
             rate: 1.0,
@@ -380,23 +411,15 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         
         handleAvatarFailure(error);
         
-        // Retry logic with longer timeout for concurrent limit errors
-        const isConurrentLimit = error && typeof error === 'object' && 'responseText' in error && 
-                                typeof error.responseText === 'string' && error.responseText.includes('Concurrent limit reached');
-        const retryDelay = isConurrentLimit ? 120000 : avatarTimeout; // 2 minutes for concurrent limit, normal timeout otherwise
-        
-        console.log(`Will retry initialization in ${retryDelay/1000} seconds...`);
-        setTimeout(() => {
-          console.log("Retrying avatar initialization...");
-          initializationInProgressRef.current = false;
-          initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
-        }, retryDelay);
+        // Don't set up duplicate retry here since handleAvatarFailure already handles it
         return;
       }
       
       // Update state and refs
       setSessionActive(true);
       setAvatarFailed(false);
+      setError('');
+      setIsTransitioning(false);
       currentSessionIdRef.current = sessionId;
       currentAvatarIdRef.current = avatarId;
       sessionStartTimeRef.current = Date.now();
@@ -429,21 +452,34 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       
       console.log("✅ Avatar initialization complete with LiveKit transport");
       console.log("💰 Credit optimization active - Max session: 5min, Idle timeout: 2min");
+      
+      // Clear the timeout since initialization succeeded
+      clearTimeout(initTimeout);
+      
     } catch (error) {
       console.error("Avatar initialization failed:", error);
+      
+      // Clear the timeout on error
+      clearTimeout(initTimeout);
+      
       handleAvatarFailure(error);
       
-      // Retry logic with timeout
-      console.log(`Will retry initialization in ${avatarTimeout/1000} seconds...`);
-      setTimeout(() => {
-        console.log("Retrying avatar initialization...");
-        initializationInProgressRef.current = false;
-        initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
-      }, avatarTimeout);
+        // Retry logic with longer timeout for concurrent limit errors
+        const isConurrentLimit = error && typeof error === 'object' && 'responseText' in error && 
+                                typeof error.responseText === 'string' && error.responseText.includes('Concurrent limit reached');
+        const retryDelay = isConurrentLimit ? 120000 : avatarTimeout; // 2 minutes for concurrent limit, normal timeout otherwise
+        
+        console.log(`Will retry initialization in ${retryDelay/1000} seconds...`);
+        setTimeout(() => {
+          console.log("Retrying avatar initialization...");
+          initializationInProgressRef.current = false;
+          initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
+        }, retryDelay);
+        return;
     } finally {
       initializationInProgressRef.current = false;
     }
-  }, [avatarRef, avatarTimeout, endSession, handleAvatarFailure, setupAvatarEventListeners, forceCleanupAllSessions]);
+  }, [avatarRef, avatarTimeout, endSession, handleAvatarFailure, setupAvatarEventListeners, forceCleanupAllSessions, voiceEnabled]);
 
   // Consolidated initialization effect with debouncing and credit optimization
   useEffect(() => {
@@ -483,15 +519,28 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         sessionActive: sessionActive,
         willReinitialize: shouldReinitialize
       });
+      // Set transitioning state for smooth UI
+      setIsTransitioning(true);
     }
     
     if (shouldReinitialize) {
       // Debounce initialization to prevent rapid session creation/destruction
       if (timeoutId) clearTimeout(timeoutId);
       
-      timeoutId = setTimeout(() => {
+      timeoutId = setTimeout(async () => {
         if (sessionId && avatarId) {
-          initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
+          // Clear errors and set transitioning state
+          setError('');
+          setErrorType('');
+          setIsTransitioning(true);
+          
+          try {
+            await initializeAvatar(sessionId, avatarId);
+            setIsTransitioning(false);
+          } catch (error) {
+            handleAvatarFailure(error);
+            setIsTransitioning(false);
+          }
         }
       }, DEBOUNCE_DELAY_MS);
     } else if (!enabled) {
@@ -548,11 +597,11 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
               className="w-full h-full object-cover"
               style={{ opacity: stream ? 1 : 0, transition: 'opacity 0.5s ease' }}
             />
-            {!stream && !avatarFailed && (
+            {(!stream || isTransitioning) && !avatarFailed && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
                 <div className="text-white text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
-                  <p>Loading Avatar...</p>
+                  <p>{isTransitioning ? 'Switching Avatar...' : 'Loading Avatar...'}</p>
                   <p className="text-sm text-gray-400 mt-2">Using LiveKit transport</p>
                 </div>
               </div>
@@ -564,13 +613,6 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
                   alt="Fallback Avatar" 
                   className="w-full h-full object-cover" 
                 />
-              </div>
-            )}
-            {avatarFailed && (
-              <div className="absolute bottom-4 left-0 right-0 text-center">
-                <div className="bg-black bg-opacity-70 text-yellow-400 text-sm p-2 rounded mx-4">
-                  Using fallback image (Avatar temporarily unavailable)
-                </div>
               </div>
             )}
           </div>
