@@ -128,7 +128,7 @@ const agents = AGENT_CONFIG;
     // This ensures the app works even without the sessions table
     try {
       if (agents.length > 0 && !selectedAgent) { // Only initialize if no agent is selected
-        const firstAgent = agents[0]; // Default to first agent (Pre-Sales Consultant)
+        const firstAgent = agents[0]; // Default to first agent (Personal Assistant Bot)
         setSelectedAgent(firstAgent);
         setSelectedAvatarId(firstAgent.id);
         console.log(`Auto-selected default agent: ${firstAgent.name}`);

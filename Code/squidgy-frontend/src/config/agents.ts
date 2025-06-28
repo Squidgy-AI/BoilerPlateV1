@@ -15,17 +15,19 @@ export interface Agent {
 export const AGENT_CONFIG: Agent[] = [
   {
     id: 'presaleskb',
-    name: 'Pre-Sales Consultant',
+    name: 'Personal Assistant Bot',
     avatar: '/avatars/presales-consultant.jpg',
     type: 'PreSalesConsultant',
-    description: 'Provides technical expertise and solution demonstrations',
+    description: 'Your intelligent personal assistant for all needs',
     // heygenAvatarId: '413a244b053949f39e8ab50099a895ea', // Original avatar ID - NOT FOUND ERROR
     // heygenAvatarId: 'Wayne_20240711', // May not be available
     heygenAvatarId: 'josh_lite3_20230714', // HeyGen's default public avatar
     fallbackAvatar: '/avatars/presales-fallback.jpg',
     agent_name: 'presaleskb',
-    introMessage: "Hi! I'm your Pre-Sales Consultant. I help analyze businesses and provide tailored solutions including ROI analysis and technical implementation details."
+    introMessage: "Hi! I'm your Personal Assistant Bot. I help with various tasks, answer questions, and provide assistance with anything you need."
   },
+  // Commenting out Social Media Manager and Lead Generation Specialist as requested
+  /*
   {
     id: 'socialmediakb',
     name: 'Social Media Manager',
@@ -50,6 +52,7 @@ export const AGENT_CONFIG: Agent[] = [
     agent_name: 'leadgenkb',
     introMessage: "Hi there! I'm your Lead Generation Specialist. I help schedule demos, coordinate follow-ups, and ensure all your business needs are properly addressed."
   }
+  */
 ];
 
 // Helper functions (keep existing ones)

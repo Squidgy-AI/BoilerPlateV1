@@ -30,12 +30,14 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
   const [agents, setAgents] = useState([
     { 
       id: 'presaleskb', 
-      name: 'Pre-Sales Consultant', 
+      name: 'Personal Assistant Bot', 
       avatar: '/avatars/presales-consultant.jpg', 
       type: 'PreSalesConsultant',
-      description: 'Provides technical expertise and demonstrations',
+      description: 'Your intelligent personal assistant for all needs',
       fallbackAvatar: '/avatars/presales-fallback.jpg'
     },
+    // Commenting out Social Media Manager and Lead Generation Specialist as requested
+    /*
     { 
       id: 'socialmediakb', 
       name: 'Social Media Manager', 
@@ -52,6 +54,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
       description: 'Focuses on generating leads and follow-ups',
       fallbackAvatar: '/avatars/leadgen-fallback.jpg'
     }
+    */
   ]);
   
   // States for modals
