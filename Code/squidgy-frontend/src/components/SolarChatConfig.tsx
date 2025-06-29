@@ -9,6 +9,7 @@ import {
   SolarBusinessParameter,
   getSolarConfig,
   saveSolarConfig,
+  saveSolarConfigAsync,
   formatParameterValue
 } from '@/config/solarBusinessConfig';
 
@@ -36,10 +37,20 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
     }));
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isLastQuestion) {
-      // Save configuration and complete
+      // Save configuration to localStorage immediately
       saveSolarConfig(config);
+      
+      // Save to database asynchronously
+      saveSolarConfigAsync(config).then(success => {
+        if (success) {
+          console.log('✅ Solar config saved to database');
+        } else {
+          console.warn('⚠️ Failed to save to database, but localStorage saved');
+        }
+      });
+      
       setIsCompleted(true);
       setTimeout(() => {
         onComplete(config);
@@ -97,7 +108,7 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
             min={currentParameter.min}
             max={currentParameter.max}
             step={currentParameter.step}
-            className="flex-1 px-4 py-3 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg"
+            className="flex-1 px-4 py-3 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg font-bold text-black"
             placeholder={`Default: ${currentParameter.defaultValue}`}
           />
           <span className="text-gray-600 font-medium">

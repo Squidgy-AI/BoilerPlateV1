@@ -1,10 +1,10 @@
 // src/components/SolarAgentSetup.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, Zap, ArrowRight } from 'lucide-react';
 import SolarChatConfig from './SolarChatConfig';
-import { SolarBusinessConfig, getSolarConfig } from '@/config/solarBusinessConfig';
+import { SolarBusinessConfig, getSolarConfig, getSolarConfigAsync } from '@/config/solarBusinessConfig';
 
 interface SolarAgentSetupProps {
   onConfigurationComplete: (config: SolarBusinessConfig) => void;
@@ -16,10 +16,33 @@ const SolarAgentSetup: React.FC<SolarAgentSetupProps> = ({
   onSkip
 }) => {
   const [showChatConfig, setShowChatConfig] = useState(false);
-  const [hasExistingConfig, setHasExistingConfig] = useState(() => {
-    const savedConfig = localStorage.getItem('solarBusinessConfig');
-    return !!savedConfig;
-  });
+  const [hasExistingConfig, setHasExistingConfig] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Check for existing configuration from database or localStorage
+  useEffect(() => {
+    const checkExistingConfig = async () => {
+      try {
+        // Check localStorage first for quick response
+        const savedLocalConfig = localStorage.getItem('solarBusinessConfig');
+        
+        // Try to get from database using the same pattern as chat history
+        const config = await getSolarConfigAsync();
+        
+        // User has existing config if we have saved data (not just defaults)
+        setHasExistingConfig(!!savedLocalConfig);
+      } catch (error) {
+        console.error('Error checking existing config:', error);
+        // Fallback to localStorage check only
+        const savedConfig = localStorage.getItem('solarBusinessConfig');
+        setHasExistingConfig(!!savedConfig);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkExistingConfig();
+  }, []);
 
   const handleStartConfiguration = () => {
     setShowChatConfig(true);
@@ -36,8 +59,8 @@ const SolarAgentSetup: React.FC<SolarAgentSetupProps> = ({
     onSkip();
   };
 
-  const handleUseExistingConfig = () => {
-    const config = getSolarConfig();
+  const handleUseExistingConfig = async () => {
+    const config = await getSolarConfigAsync();
     onConfigurationComplete(config);
   };
 

@@ -145,7 +145,7 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({ onAvatarChange, current
               }`}
               onClick={(e) => {
                 e.stopPropagation();
-                handleAvatarSelect('presaleskb'); // Use agent ID instead of HeyGen ID
+                handleAvatarSelect('PersonalAssistant'); // Use agent ID instead of HeyGen ID
               }}
             >
               <div className="relative mr-2">

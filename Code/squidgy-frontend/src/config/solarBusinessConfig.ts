@@ -236,7 +236,107 @@ export const getSolarConfig = (): SolarBusinessConfig => {
 
 export const saveSolarConfig = (config: SolarBusinessConfig): void => {
   localStorage.setItem('solarBusinessConfig', JSON.stringify(config));
-  console.log('Solar business config saved:', config);
+  console.log('Solar business config saved to localStorage:', config);
+};
+
+// Async helper to get config from DB or localStorage
+export const getSolarConfigAsync = async (): Promise<SolarBusinessConfig> => {
+  try {
+    // Import supabase client like chat history does
+    const { supabase } = await import('@/lib/supabase');
+    
+    // Get user to match the user_id
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.log('No authenticated user, falling back to localStorage');
+      return getSolarConfig();
+    }
+
+    // Try to get from database first - same pattern as chat history
+    const { data, error } = await supabase
+      .from('squidgy_agent_business_setup')
+      .select('setup_json')
+      .eq('firm_user_id', user.id)
+      .eq('agent_id', 'SOLAgent')
+      .single();
+    
+    if (data && data.setup_json) {
+      console.log('Solar config loaded from database');
+      // Also update localStorage for offline access
+      saveSolarConfig(data.setup_json);
+      return data.setup_json;
+    }
+  } catch (error) {
+    console.error('Error fetching config from database:', error);
+  }
+  
+  // Fallback to localStorage
+  return getSolarConfig();
+};
+
+// Async helper to save config to both DB and localStorage
+export const saveSolarConfigAsync = async (config: SolarBusinessConfig): Promise<boolean> => {
+  // Save to localStorage immediately
+  saveSolarConfig(config);
+  
+  try {
+    // Import supabase client like chat history does
+    const { supabase } = await import('@/lib/supabase');
+    
+    // Get user to match the user_id
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error('No authenticated user, cannot save to database');
+      return false;
+    }
+
+    // Save to database - simple approach using a profiles-like table structure
+    console.log('Attempting to save solar config to database for user:', user.id);
+    console.log('Config to save:', config);
+    
+    // Try to use a simple table structure or create one in localStorage for now
+    // First, let's test if the table exists
+    const { data: testData, error: testError } = await supabase
+      .from('squidgy_agent_business_setup')
+      .select('*')
+      .limit(1);
+      
+    console.log('Table existence test:', { testData, testError });
+    
+    if (testError && testError.code === '42P01') {
+      // Table doesn't exist, save only to localStorage for now
+      console.log('Table does not exist, saving only to localStorage');
+      return true;
+    }
+    
+    const { data, error } = await supabase
+      .from('squidgy_agent_business_setup')
+      .upsert({
+        firm_id: user.id, // Using user.id as firm_id
+        firm_user_id: user.id,
+        agent_id: 'SOLAgent', // String identifier, not UUID
+        agent_name: 'Solar Sales Specialist',
+        setup_json: config,
+        updated_at: new Date().toISOString()
+      })
+      .select();
+    
+    console.log('Database operation result:', { data, error });
+    
+    if (error) {
+      console.error('Failed to save to database:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      return false;
+    }
+
+    console.log('Solar config saved to database successfully');
+    return true;
+  } catch (error) {
+    console.error('Error saving config to database:', error);
+    return false;
+  }
 };
 
 export const getParametersByCategory = (category: string): SolarBusinessParameter[] => {

@@ -27,7 +27,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   enabled = true,
   sessionId,
   voiceEnabled = true,
-  avatarId = 'presaleskb',
+  avatarId = 'PersonalAssistant',
   onAvatarError,
   avatarTimeout = 10000 // 10 seconds default timeout
 }) => {

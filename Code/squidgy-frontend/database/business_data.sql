@@ -292,8 +292,8 @@ CREATE TABLE sq_business_data.squidgy_api_credentials (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     
     -- Add constraint for valid credential types
-    CONSTRAINT check_valid_cred_type 
-        CHECK (cred_type IN ('api_key', 'oauth', 'basic_auth', 'bearer_token', 'custom'))
+    -- CONSTRAINT check_valid_cred_type 
+    --     CHECK (cred_type IN ('api_key', 'oauth', 'basic_auth', 'bearer_token', 'custom'))
 );
 
 -- Create indexes
@@ -313,6 +313,11 @@ ALTER TABLE sq_business_data.squidgy_api_credentials ENABLE ROW LEVEL SECURITY;
 CREATE POLICY squidgy_api_credentials_admin_only ON sq_business_data.squidgy_api_credentials
     FOR ALL
     USING (auth.jwt()->>'role' = 'admin');
+
+
+
+
+
 
 -- Example inserts (DO NOT store real credentials unencrypted!)
 /*
@@ -456,3 +461,33 @@ INSERT INTO sq_business_data.squidgy_api_credentials (
 --   screenshot_url: 'https://...',
 --   favicon_url: 'https://...'
 -- });
+
+
+CREATE TABLE sq_business_data.squidgy_agent_business_setup (
+    firm_id UUID NOT NULL,
+    firm_user_id UUID NOT NULL,
+    agent_id UUID NOT NULL,
+    agent_name VARCHAR(255) NOT NULL,
+    setup_json JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Composite primary key (one setup per firm_user and agent)
+    PRIMARY KEY (firm_id, firm_user_id, agent_id),
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_agent_business_setup_user 
+        FOREIGN KEY (firm_user_id) 
+        REFERENCES sq_business_data.business_user_info(firm_user_id) 
+        ON DELETE CASCADE,
+        
+    CONSTRAINT fk_agent_business_setup_agent 
+        FOREIGN KEY (agent_id) 
+        REFERENCES sq_business_data.squidgy_agent(agent_id) 
+        ON DELETE CASCADE
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_agent_business_setup_firm ON sq_business_data.squidgy_agent_business_setup(firm_id);
+CREATE INDEX idx_agent_business_setup_agent ON sq_business_data.squidgy_agent_business_setup(agent_id);
+CREATE INDEX idx_agent_business_setup_json ON sq_business_data.squidgy_agent_business_setup USING GIN(setup_json);

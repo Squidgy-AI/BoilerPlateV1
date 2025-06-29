@@ -106,7 +106,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const avatarLoadingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Function to call n8n webhook endpoint with request_id support
-  const callN8nEndpoint = async (userInput: string, requestId: string, agentName: string = 'presaleskb') => {
+  const callN8nEndpoint = async (userInput: string, requestId: string, agentName: string = 'PersonalAssistant') => {
     try {
       // Skip empty messages or initial messages
       if (!userInput || userInput.trim() === "") {
@@ -916,7 +916,7 @@ const handleAgentResponse = (data: any) => {
         }
 
         // Get agent name with priority: prop -> session_id -> selected state -> default
-        let agentName = 'presaleskb'; // default fallback
+        let agentName = 'PersonalAssistant'; // default fallback
         
         // First try: Use agent from props if provided
         if (currentAgent?.agent_name) {

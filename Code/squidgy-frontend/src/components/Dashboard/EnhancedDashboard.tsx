@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { AGENT_CONFIG, updateAgentEnabledStatus, restoreAgentEnabledStatus, getEnabledAgents } from '@/config/agents';
+import { AGENT_CONFIG, updateAgentEnabledStatus, restoreAgentEnabledStatus, getEnabledAgents, forceDisableAgent } from '@/config/agents';
 import { 
   User, 
   Users, 
@@ -67,7 +67,7 @@ const EnhancedDashboard: React.FC = () => {
   const [people, setPeople] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   // const [isLoading, setIsLoading] = useState(false);
-  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('presaleskb');;
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('PersonalAssistant');;
   const avatarRef = React.useRef<StreamingAvatar | null>(null);
   
   // Store session IDs for each agent to maintain continuity
@@ -89,7 +89,7 @@ const EnhancedDashboard: React.FC = () => {
   const [solarConfigCompleted, setSolarConfigCompleted] = useState(false);
   
 // src/components/Dashboard/EnhancedDashboard.tsx
-const [agents, setAgents] = useState(AGENT_CONFIG);
+const [agents, setAgents] = useState(getEnabledAgents());
 const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   
   // Initialize with first agent on mount
@@ -101,21 +101,16 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     let agentToSelect;
     
     if (lastSelectedAgentId) {
-      // Search in FULL agent config (including disabled agents) for initialization
-      agentToSelect = AGENT_CONFIG.find(a => a.id === lastSelectedAgentId);
-      console.log(`🔄 Restoring agent from localStorage: ${lastSelectedAgentId}`, agentToSelect ? 'Found' : 'Not found');
-      
-      // If the stored agent is found but disabled, we still want to select it
-      // The setup flow will handle enabling it if needed
-      if (agentToSelect) {
-        console.log(`🔄 Restored agent enabled status: ${agentToSelect.is_enabled}`);
-      }
+      // Search only in ENABLED agents for initialization
+      agentToSelect = getEnabledAgents().find(a => a.id === lastSelectedAgentId);
+      console.log(`🔄 Restoring agent from localStorage: ${lastSelectedAgentId}`, agentToSelect ? 'Found and enabled' : 'Not found or disabled');
     }
     
-    // Fallback to presaleskb if no stored agent or agent not found
+    // Fallback to first enabled agent if no stored agent or agent not found/disabled
     if (!agentToSelect) {
-      agentToSelect = AGENT_CONFIG.find(a => a.id === 'presaleskb') || AGENT_CONFIG[0];
-      console.log(`🔄 Using fallback agent: ${agentToSelect?.id}`);
+      const enabledAgents = getEnabledAgents();
+      agentToSelect = enabledAgents.find(a => a.id === 'PersonalAssistant') || enabledAgents[0];
+      console.log(`🔄 Using fallback enabled agent: ${agentToSelect?.id}`);
     }
     
     setSelectedAgent(agentToSelect);
@@ -402,7 +397,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
           const currentAgentName = selectedAgent?.agent_name || selectedAgent?.id;
           
           // Check if the response contains agent enabling request
-          const solAgentEnablePattern = /Do you want to Enable the SOL Agent/i;
+          const solAgentEnablePattern = /(enable|activate).*(SOL Agent|Solar)/i;
           if (solAgentEnablePattern.test(agentResponse)) {
             console.log('🤖 SOL Agent enable request detected');
             setShowEnableAgentPrompt({
@@ -990,14 +985,18 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   // Initialize agent enabled status from localStorage on mount
   useEffect(() => {
     restoreAgentEnabledStatus();
-    setAgents(AGENT_CONFIG); // Update with restored status
+    
+    // Force disable SOL Agent (overrides any localStorage setting)
+    forceDisableAgent('SOLAgent');
+    
+    setAgents(getEnabledAgents()); // Update with restored status
   }, []);
   
   // Listen for agent updates and refresh agents list
   useEffect(() => {
     const handleAgentUpdate = () => {
       console.log('Agent update event received in Dashboard, refreshing agents list');
-      setAgents([...AGENT_CONFIG]); // Force re-render with updated config
+      setAgents(getEnabledAgents()); // Force re-render with updated config
     };
     
     window.addEventListener('agentUpdated', handleAgentUpdate);

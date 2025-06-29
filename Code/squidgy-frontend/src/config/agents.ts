@@ -15,16 +15,16 @@ export interface Agent {
 
 export const AGENT_CONFIG: Agent[] = [
   {
-    id: 'presaleskb',
+    id: 'PersonalAssistant',
     name: 'Personal Assistant Bot',
-    avatar: '/avatars/presales-consultant.jpg',
-    type: 'PreSalesConsultant',
+    avatar: '/avatars/personal-assistant.jpg',
+    type: 'PersonalAssistant',
     description: 'Your intelligent personal assistant for all needs',
     // heygenAvatarId: '413a244b053949f39e8ab50099a895ea', // Original avatar ID - NOT FOUND ERROR
     // heygenAvatarId: 'Wayne_20240711', // May not be available
     heygenAvatarId: 'josh_lite3_20230714', // HeyGen's default public avatar
-    fallbackAvatar: '/avatars/presales-fallback.jpg',
-    agent_name: 'presaleskb',
+    fallbackAvatar: '/avatars/personal-assistant-fallback.jpg',
+    agent_name: 'PersonalAssistant',
     introMessage: "Hi! I'm your Personal Assistant Bot. I help with various tasks, answer questions, and provide assistance with anything you need.",
     is_enabled: true
   },
@@ -90,7 +90,7 @@ export const getFallbackAvatar = (agentIdOrHeygenId: string): string => {
 // New helper function to get agent_name for n8n
 export const getAgentName = (agentId: string): string => {
   const agent = getAgentById(agentId);
-  return agent?.agent_name || 'presaleskb'; // Default
+  return agent?.agent_name || 'PersonalAssistant'; // Default
 };
 
 // Helper function to get agent greeting message
@@ -172,4 +172,25 @@ export const restoreAgentEnabledStatus = (): void => {
       console.log(`Restored agent ${agent.id} enabled status: ${agent.is_enabled}`);
     }
   });
+};
+
+// Helper function to force disable an agent and clear localStorage
+export const forceDisableAgent = (agentId: string): boolean => {
+  const agent = AGENT_CONFIG.find(a => a.id === agentId);
+  if (agent) {
+    agent.is_enabled = false;
+    // Clear localStorage for this agent
+    localStorage.removeItem(`agent_${agentId}_enabled`);
+    console.log(`Force disabled agent ${agentId} and cleared localStorage`);
+    
+    // Dispatch custom event to notify components
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agentUpdated', { 
+        detail: { agentId, enabled: false } 
+      }));
+    }
+    
+    return true;
+  }
+  return false;
 };

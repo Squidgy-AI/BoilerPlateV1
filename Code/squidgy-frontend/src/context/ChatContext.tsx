@@ -447,7 +447,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Extract agent name from session_id (format: userId_agentName_timestamp)
     const sessionParts = currentSessionId.split('_');
     // Agent name is the second-to-last part (before timestamp)
-    const agentName = sessionParts.length >= 3 ? sessionParts[sessionParts.length - 2] : 'presaleskb';
+    const agentName = sessionParts.length >= 3 ? sessionParts[sessionParts.length - 2] : 'PersonalAssistant';
     console.log(`📨 Sending message with agent: ${agentName} from session: ${currentSessionId}`);
     
     // Send message via WebSocket with agent name
@@ -493,7 +493,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Generate a new session ID with consistent format: userId_agentId_timestamp
     // Use selectedAgent if available, otherwise default to presaleskb
-    const agentId = selectedAgent?.id || selectedAgent?.agent_name || 'presaleskb';
+    const agentId = selectedAgent?.id || selectedAgent?.agent_name || 'PersonalAssistant';
     const newSessionId = `${profile.user_id}_${agentId}_${Date.now()}`;
     
     try {
