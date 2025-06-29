@@ -31,12 +31,12 @@ export const AGENT_CONFIG: Agent[] = [
   {
     id: 'SOLAgent',
     name: 'Solar Sales Specialist',
-    avatar: '/avatars/solar-sales-specialist.jpg',
+    avatar: '/avatars/lead-gen-specialist.jpg', // Using existing professional avatar temporarily
     type: 'SOLAgent',
     description: 'Expert in solar energy solutions and renewable energy sales',
     // heygenAvatarId: 'Thaddeus_ProfessionalLook_public', // May not be working
     heygenAvatarId: 'anna_public_3_20240108', // HeyGen's public avatar for solar specialist
-    fallbackAvatar: '/avatars/solar-sales-fallback.jpg',
+    fallbackAvatar: '/avatars/leadgen-fallback.jpg', // Using existing fallback
     agent_name: 'SOLAgent',
     introMessage: "Hello! I'm your Solar Sales Specialist. I help customers find the perfect solar energy solutions, calculate savings, and guide them through the transition to renewable energy. How can I help you go solar today?",
     is_enabled: false
