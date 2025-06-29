@@ -1,12 +1,9 @@
 // src/app/api/save-agent-setup/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
@@ -89,8 +86,6 @@ export async function POST(request: NextRequest) {
 // GET endpoint to retrieve saved configuration
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
