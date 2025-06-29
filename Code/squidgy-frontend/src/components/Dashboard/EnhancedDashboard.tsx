@@ -101,14 +101,20 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     let agentToSelect;
     
     if (lastSelectedAgentId) {
-      // Try to find the stored agent
-      agentToSelect = agents.find(a => a.id === lastSelectedAgentId);
+      // Search in FULL agent config (including disabled agents) for initialization
+      agentToSelect = AGENT_CONFIG.find(a => a.id === lastSelectedAgentId);
       console.log(`🔄 Restoring agent from localStorage: ${lastSelectedAgentId}`, agentToSelect ? 'Found' : 'Not found');
+      
+      // If the stored agent is found but disabled, we still want to select it
+      // The setup flow will handle enabling it if needed
+      if (agentToSelect) {
+        console.log(`🔄 Restored agent enabled status: ${agentToSelect.is_enabled}`);
+      }
     }
     
     // Fallback to presaleskb if no stored agent or agent not found
     if (!agentToSelect) {
-      agentToSelect = agents.find(a => a.id === 'presaleskb') || agents[0];
+      agentToSelect = AGENT_CONFIG.find(a => a.id === 'presaleskb') || AGENT_CONFIG[0];
       console.log(`🔄 Using fallback agent: ${agentToSelect?.id}`);
     }
     
@@ -126,6 +132,34 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       setSelectedAvatarId(selectedAgent.id);
     }
   }, [selectedAgent, selectedAvatarId]);
+  
+  // Check for Solar Agent setup whenever selected agent changes (including initial load)
+  useEffect(() => {
+    console.log('🔍 Solar setup effect triggered:', {
+      selectedAgentId: selectedAgent?.id,
+      selectedAgentName: selectedAgent?.name,
+      solarConfigCompleted,
+      showSolarSetup
+    });
+    
+    if (selectedAgent?.id === 'SOLAgent') {
+      console.log('🌞 Solar Sales Specialist detected on agent change, checking configuration...');
+      const hasSolarConfig = localStorage.getItem('solarBusinessConfig');
+      console.log('📁 localStorage solarBusinessConfig:', hasSolarConfig ? 'exists' : 'not found');
+      console.log('✅ solarConfigCompleted state:', solarConfigCompleted);
+      
+      if (!hasSolarConfig && !solarConfigCompleted) {
+        console.log('🔧 No solar configuration found on agent change, showing setup...');
+        setShowSolarSetup(true);
+      } else {
+        console.log('✅ Solar configuration exists or completed on agent change');
+        setShowSolarSetup(false);
+      }
+    } else {
+      console.log('🚫 Not Solar Agent, hiding setup');
+      setShowSolarSetup(false);
+    }
+  }, [selectedAgent, solarConfigCompleted]);
   
   // Fetch people and groups
   useEffect(() => {
