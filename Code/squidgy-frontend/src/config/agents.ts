@@ -10,6 +10,7 @@ export interface Agent {
   fallbackAvatar: string;
   agent_name: string;
   introMessage: string;  // New field for intro message
+  is_enabled: boolean;
 }
 
 export const AGENT_CONFIG: Agent[] = [
@@ -24,22 +25,24 @@ export const AGENT_CONFIG: Agent[] = [
     heygenAvatarId: 'josh_lite3_20230714', // HeyGen's default public avatar
     fallbackAvatar: '/avatars/presales-fallback.jpg',
     agent_name: 'presaleskb',
-    introMessage: "Hi! I'm your Personal Assistant Bot. I help with various tasks, answer questions, and provide assistance with anything you need."
+    introMessage: "Hi! I'm your Personal Assistant Bot. I help with various tasks, answer questions, and provide assistance with anything you need.",
+    is_enabled: true
   },
-  // Commenting out Social Media Manager and Lead Generation Specialist as requested
-  /*
   {
-    id: 'socialmediakb',
-    name: 'Social Media Manager',
+    id: 'SOLAgent',
+    name: 'SOL Agent',
     avatar: '/avatars/social-media-manager.jpg',
-    type: 'SocialMediaManager',
+    type: 'SOLAgent',
     description: 'Creates and manages social media strategies',
     // heygenAvatarId: 'Thaddeus_ProfessionalLook_public', // May not be working
     heygenAvatarId: 'anna_public_3_20240108', // HeyGen's public avatar
     fallbackAvatar: '/avatars/social-fallback.jpg',
-    agent_name: 'socialmediakb',
-    introMessage: "Hello! I'm your Social Media Manager. I specialize in digital presence strategies, content marketing, and social media automation across all major platforms."
-  },
+    agent_name: 'SOLAgent',
+    introMessage: "Hello! I'm your SOL. I specialize in Solar media Sales Bot.",
+    is_enabled: false
+  }
+  // Commenting out Social Media Manager and Lead Generation Specialist as requested
+  /*
   {
     id: 'leadgenkb',
     name: 'Lead Generation Specialist',
@@ -132,4 +135,41 @@ export const getValidatedAvatarId = (agentId: string): string => {
   
   console.warn(`Invalid avatar ID format for agent ${agentId}: ${avatarId}, using default`);
   return 'Thaddeus_ProfessionalLook_public';
+};
+
+// Helper function to get only enabled agents
+export const getEnabledAgents = (): Agent[] => {
+  return AGENT_CONFIG.filter(agent => agent.is_enabled);
+};
+
+// Helper function to update agent enabled status
+export const updateAgentEnabledStatus = (agentId: string, enabled: boolean): boolean => {
+  const agent = AGENT_CONFIG.find(a => a.id === agentId);
+  if (agent) {
+    agent.is_enabled = enabled;
+    // Store in localStorage for persistence
+    localStorage.setItem(`agent_${agentId}_enabled`, enabled.toString());
+    console.log(`Updated agent ${agentId} enabled status to: ${enabled}`);
+    
+    // Dispatch custom event to notify components
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('agentUpdated', { 
+        detail: { agentId, enabled } 
+      }));
+    }
+    
+    return true;
+  }
+  return false;
+};
+
+// Helper function to restore agent enabled status from localStorage
+export const restoreAgentEnabledStatus = (): void => {
+  AGENT_CONFIG.forEach(agent => {
+    const savedStatus = localStorage.getItem(`agent_${agent.id}_enabled`);
+    if (savedStatus !== null) {
+      agent.is_enabled = savedStatus === 'true';
+      console.log(`Restored agent ${agent.id} enabled status: ${agent.is_enabled}`);
+    }
+  });
 };

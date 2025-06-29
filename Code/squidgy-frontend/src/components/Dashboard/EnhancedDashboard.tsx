@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { AGENT_CONFIG } from '@/config/agents';
+import { AGENT_CONFIG, updateAgentEnabledStatus, restoreAgentEnabledStatus, getEnabledAgents } from '@/config/agents';
 import { 
   User, 
   Users, 
@@ -29,6 +29,7 @@ import WebSocketDebugger from '../WebSocketDebugger';
 import AgentGreeting from '../AgentGreeting';
 import SquidgyLogo from '../Auth/SquidgyLogo';
 import MessageContent from '../Chat/MessageContent';
+import EnableAgentPrompt from '../EnableAgentPrompt';
 
 const EnhancedDashboard: React.FC = () => {
   type WebSocketLog = {
@@ -73,8 +74,17 @@ const EnhancedDashboard: React.FC = () => {
   // Cache chat history for each agent for faster switching
   const [agentChatCache, setAgentChatCache] = useState<{[agentId: string]: any[]}>({});
   
+  // Agent enabling functionality
+  const [showEnableAgentPrompt, setShowEnableAgentPrompt] = useState<{show: boolean, agentId: string, agentName: string}>({
+    show: false,
+    agentId: '',
+    agentName: ''
+  });
+  const [chatDisabled, setChatDisabled] = useState(false);
+  
 // src/components/Dashboard/EnhancedDashboard.tsx
-const agents = AGENT_CONFIG;
+const [agents, setAgents] = useState(AGENT_CONFIG);
+const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   
   // Initialize with first agent on mount
   useEffect(() => {
@@ -350,6 +360,18 @@ const agents = AGENT_CONFIG;
           const agentResponse = data.agent_response || data.message;
           const currentAgentId = selectedAgent?.id;
           const currentAgentName = selectedAgent?.agent_name || selectedAgent?.id;
+          
+          // Check if the response contains agent enabling request
+          const solAgentEnablePattern = /Do you want to Enable the SOL Agent/i;
+          if (solAgentEnablePattern.test(agentResponse)) {
+            console.log('🤖 SOL Agent enable request detected');
+            setShowEnableAgentPrompt({
+              show: true,
+              agentId: 'SOLAgent',
+              agentName: 'SOL Agent'
+            });
+            setChatDisabled(true);
+          }
           
           console.log('🔄 Agent response processing:', {
             currentAgentId,
@@ -840,6 +862,69 @@ const agents = AGENT_CONFIG;
     }
   };
   
+  // Handle enabling agent
+  const handleEnableAgent = (agentId: string) => {
+    console.log(`🤖 Enabling agent: ${agentId}`);
+    
+    // Update agent enabled status
+    const success = updateAgentEnabledStatus(agentId, true);
+    
+    if (success) {
+      // Hide the prompt and re-enable chat
+      setShowEnableAgentPrompt({ show: false, agentId: '', agentName: '' });
+      setChatDisabled(false);
+      
+      // Force re-render by updating the agents list
+      // The sidebar will automatically show the newly enabled agent
+      console.log('✅ Agent enabled successfully');
+      
+      // Optional: Show a success message
+      addMessage({
+        sender: 'system',
+        text: `${showEnableAgentPrompt.agentName} has been enabled! You can now find it in the Agents tab.`,
+        timestamp: Date.now()
+      });
+    } else {
+      console.error('❌ Failed to enable agent');
+    }
+  };
+  
+  // Handle declining agent enablement
+  const handleDeclineAgent = () => {
+    console.log('🚫 Agent enabling declined');
+    
+    // Hide the prompt and re-enable chat
+    setShowEnableAgentPrompt({ show: false, agentId: '', agentName: '' });
+    setChatDisabled(false);
+    
+    // Optional: Show a message
+    addMessage({
+      sender: 'system',
+      text: 'No problem! You can always enable additional agents later if needed.',
+      timestamp: Date.now()
+    });
+  };
+  
+  // Initialize agent enabled status from localStorage on mount
+  useEffect(() => {
+    restoreAgentEnabledStatus();
+    setAgents(AGENT_CONFIG); // Update with restored status
+  }, []);
+  
+  // Listen for agent updates and refresh agents list
+  useEffect(() => {
+    const handleAgentUpdate = () => {
+      console.log('Agent update event received in Dashboard, refreshing agents list');
+      setAgents([...AGENT_CONFIG]); // Force re-render with updated config
+    };
+    
+    window.addEventListener('agentUpdated', handleAgentUpdate);
+    
+    return () => {
+      window.removeEventListener('agentUpdated', handleAgentUpdate);
+    };
+  }, []);
+  
   return (
     <div className="h-screen flex flex-col bg-[#1B2431] text-white">
       {/* Top Header Bar */}
@@ -1205,6 +1290,18 @@ const agents = AGENT_CONFIG;
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Show Enable Agent Prompt */}
+                    {showEnableAgentPrompt.show && (
+                      <div className="mb-4">
+                        <EnableAgentPrompt
+                          agentName={showEnableAgentPrompt.agentName}
+                          agentId={showEnableAgentPrompt.agentId}
+                          onEnable={handleEnableAgent}
+                          onDecline={handleDeclineAgent}
+                        />
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1221,9 +1318,9 @@ const agents = AGENT_CONFIG;
                         sendMessage();
                       }
                     }}
-                    placeholder="Type a message..."
+                    placeholder={chatDisabled ? "Please respond to the prompt above..." : "Type a message..."}
                     className="flex-1 bg-[#1B2431] text-white placeholder:text-gray-400 px-4 py-2 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[42px] max-h-[120px] overflow-y-auto border border-gray-600"
-                    disabled={!textEnabled}
+                    disabled={!textEnabled || chatDisabled}
                     rows={1}
                     style={{
                       height: 'auto',
@@ -1238,7 +1335,7 @@ const agents = AGENT_CONFIG;
                   />
                   <button
                     onClick={sendMessage}
-                    disabled={!textEnabled}
+                    disabled={!textEnabled || chatDisabled}
                     className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-r-lg transition-colors disabled:opacity-50 min-h-[42px] flex items-center border border-l-0 border-gray-600"
                   >
                     <Send size={16} />
