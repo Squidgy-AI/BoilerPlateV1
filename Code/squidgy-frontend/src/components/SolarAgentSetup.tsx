@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { Settings, Zap, ArrowRight } from 'lucide-react';
-import SolarBusinessConfigWizard from './SolarBusinessConfigWizard';
+import SolarChatConfig from './SolarChatConfig';
 import { SolarBusinessConfig, getSolarConfig } from '@/config/solarBusinessConfig';
 
 interface SolarAgentSetupProps {
@@ -15,24 +15,25 @@ const SolarAgentSetup: React.FC<SolarAgentSetupProps> = ({
   onConfigurationComplete,
   onSkip
 }) => {
-  const [showWizard, setShowWizard] = useState(false);
+  const [showChatConfig, setShowChatConfig] = useState(false);
   const [hasExistingConfig, setHasExistingConfig] = useState(() => {
     const savedConfig = localStorage.getItem('solarBusinessConfig');
     return !!savedConfig;
   });
 
   const handleStartConfiguration = () => {
-    setShowWizard(true);
+    setShowChatConfig(true);
   };
 
-  const handleWizardComplete = (config: SolarBusinessConfig) => {
-    setShowWizard(false);
+  const handleConfigComplete = (config: SolarBusinessConfig) => {
+    setShowChatConfig(false);
     setHasExistingConfig(true);
     onConfigurationComplete(config);
   };
 
-  const handleWizardCancel = () => {
-    setShowWizard(false);
+  const handleConfigSkip = () => {
+    setShowChatConfig(false);
+    onSkip();
   };
 
   const handleUseExistingConfig = () => {
@@ -40,11 +41,11 @@ const SolarAgentSetup: React.FC<SolarAgentSetupProps> = ({
     onConfigurationComplete(config);
   };
 
-  if (showWizard) {
+  if (showChatConfig) {
     return (
-      <SolarBusinessConfigWizard
-        onComplete={handleWizardComplete}
-        onCancel={handleWizardCancel}
+      <SolarChatConfig
+        onComplete={handleConfigComplete}
+        onSkip={handleConfigSkip}
       />
     );
   }
@@ -109,7 +110,7 @@ const SolarAgentSetup: React.FC<SolarAgentSetupProps> = ({
                 className="flex items-center justify-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
               >
                 <Settings size={18} />
-                <span>Start Business Setup (2-3 minutes)</span>
+                <span>Start Quick Setup (13 questions)</span>
               </button>
             )}
             
