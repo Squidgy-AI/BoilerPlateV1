@@ -89,6 +89,19 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
     favicon?: string;
     analysis?: string;
   }>({});
+
+  // State for website analysis loading indicators
+  const [websiteAnalysisLoading, setWebsiteAnalysisLoading] = useState<{
+    detecting: boolean;
+    screenshot: boolean;
+    favicon: boolean;
+    analysis: boolean;
+  }>({
+    detecting: false,
+    screenshot: false,
+    favicon: false,
+    analysis: false
+  });
   
   // Refs
   const avatarRef = useRef<StreamingAvatar | null>(null);
@@ -640,6 +653,42 @@ const lastSessionIdRef = useRef<string>('');
   const handleToolExecution = (data: any) => {
     console.log(`Tool execution started: ${data.tool} with ID ${data.executionId}`);
     
+    // Add specific loading messages for website analysis tools
+    if (data.tool === 'capture_website_screenshot') {
+      setChatHistory(prevHistory => [
+        ...prevHistory, 
+        { 
+          sender: "System", 
+          message: "📸 Working on screenshot capture...", 
+          requestId: `${data.executionId}_screenshot`, 
+          status: 'complete' 
+        }
+      ]);
+      setWebsiteAnalysisLoading(prev => ({ ...prev, screenshot: true }));
+    } else if (data.tool === 'get_website_favicon') {
+      setChatHistory(prevHistory => [
+        ...prevHistory, 
+        { 
+          sender: "System", 
+          message: "🎭 Working on favicon extraction...", 
+          requestId: `${data.executionId}_favicon`, 
+          status: 'complete' 
+        }
+      ]);
+      setWebsiteAnalysisLoading(prev => ({ ...prev, favicon: true }));
+    } else if (data.tool === 'analyze_with_perplexity') {
+      setChatHistory(prevHistory => [
+        ...prevHistory, 
+        { 
+          sender: "System", 
+          message: "🧠 Working on website analysis...", 
+          requestId: `${data.executionId}_analysis`, 
+          status: 'complete' 
+        }
+      ]);
+      setWebsiteAnalysisLoading(prev => ({ ...prev, analysis: true }));
+    }
+    
     if (data.tool === 'capture_website_screenshot' || 
         data.tool === 'get_website_favicon' || 
         data.tool === 'analyze_with_perplexity') {
@@ -686,6 +735,38 @@ const lastSessionIdRef = useRef<string>('');
             ...prev,
             screenshot: screenshotPath
           }));
+          
+          // Add completion message and reset loading state
+          setChatHistory(prevHistory => [
+            ...prevHistory, 
+            { 
+              sender: "System", 
+              message: "✅ Screenshot captured successfully!", 
+              requestId: `${data.executionId}_screenshot_complete`, 
+              status: 'complete' 
+            }
+          ]);
+          setWebsiteAnalysisLoading(prev => {
+            const newState = { ...prev, screenshot: false };
+            
+            // Check if all website analysis is complete
+            if (!newState.screenshot && !newState.favicon && !newState.analysis && !newState.detecting) {
+              // Add final completion message
+              setTimeout(() => {
+                setChatHistory(prevHistory => [
+                  ...prevHistory, 
+                  { 
+                    sender: "System", 
+                    message: "🎉 Complete website analysis finished! You can now ask questions about this website.", 
+                    requestId: `${data.executionId}_all_complete`, 
+                    status: 'complete' 
+                  }
+                ]);
+              }, 500);
+            }
+            
+            return newState;
+          });
         }
       }
       
@@ -714,6 +795,38 @@ const lastSessionIdRef = useRef<string>('');
           ...prev,
           favicon: faviconPath
         }));
+        
+        // Add completion message and reset loading state
+        setChatHistory(prevHistory => [
+          ...prevHistory, 
+          { 
+            sender: "System", 
+            message: "✅ Favicon extracted successfully!", 
+            requestId: `${data.executionId}_favicon_complete`, 
+            status: 'complete' 
+          }
+        ]);
+        setWebsiteAnalysisLoading(prev => {
+          const newState = { ...prev, favicon: false };
+          
+          // Check if all website analysis is complete
+          if (!newState.screenshot && !newState.favicon && !newState.analysis && !newState.detecting) {
+            // Add final completion message
+            setTimeout(() => {
+              setChatHistory(prevHistory => [
+                ...prevHistory, 
+                { 
+                  sender: "System", 
+                  message: "🎉 Complete website analysis finished! You can now ask questions about this website.", 
+                  requestId: `${data.executionId}_all_complete`, 
+                  status: 'complete' 
+                }
+              ]);
+            }, 500);
+          }
+          
+          return newState;
+        });
       }
       
       // Handle perplexity analysis result
@@ -730,6 +843,38 @@ const lastSessionIdRef = useRef<string>('');
             ...prev,
             analysis: analysis
           }));
+          
+          // Add completion message and reset loading state
+          setChatHistory(prevHistory => [
+            ...prevHistory, 
+            { 
+              sender: "System", 
+              message: "✅ Website analysis completed successfully!", 
+              requestId: `${data.executionId}_analysis_complete`, 
+              status: 'complete' 
+            }
+          ]);
+          setWebsiteAnalysisLoading(prev => {
+            const newState = { ...prev, analysis: false };
+            
+            // Check if all website analysis is complete
+            if (!newState.screenshot && !newState.favicon && !newState.analysis && !newState.detecting) {
+              // Add final completion message
+              setTimeout(() => {
+                setChatHistory(prevHistory => [
+                  ...prevHistory, 
+                  { 
+                    sender: "System", 
+                    message: "🎉 Complete website analysis finished! You can now ask questions about this website.", 
+                    requestId: `${data.executionId}_all_complete`, 
+                    status: 'complete' 
+                  }
+                ]);
+              }, 500);
+            }
+            
+            return newState;
+          });
         }
       }
     }
@@ -795,6 +940,25 @@ const handleAgentResponse = (data: any) => {
     
     const urlMatch = userInput.match(/(https?:\/\/[^\s]+)/g);
     if (urlMatch && urlMatch[0]) {
+      // Set website analysis loading indicators
+      setWebsiteAnalysisLoading({
+        detecting: true,
+        screenshot: true,
+        favicon: true,
+        analysis: true
+      });
+
+      // Add loading message to chat
+      setChatHistory(prevHistory => [
+        ...prevHistory, 
+        { 
+          sender: "System", 
+          message: "🔍 Starting website analysis...", 
+          requestId: `${requestId}_analysis_start`, 
+          status: 'complete' 
+        }
+      ]);
+
       setWebsiteData(prev => ({
         ...prev,
         url: urlMatch[0]
