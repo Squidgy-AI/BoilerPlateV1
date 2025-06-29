@@ -253,25 +253,12 @@ export const getSolarConfigAsync = async (): Promise<SolarBusinessConfig> => {
       return getSolarConfig();
     }
 
-    // Get SOL Agent UUID first
-    const { data: agentData } = await supabase
-      .from('squidgy_agent')
-      .select('agent_id')
-      .eq('agent_name', 'Solar Sales Specialist')
-      .single();
-    
-    if (!agentData) {
-      console.log('SOL Agent not found in database, using localStorage');
-      return getSolarConfig();
-    }
-
-    // Try to get from database first - same pattern as chat history
+    // Simple database read - get config by user_id and agent_id
     const { data, error } = await supabase
-      .schema('sq_business_data')
       .from('squidgy_agent_business_setup')
       .select('setup_json')
       .eq('firm_user_id', user.id)
-      .eq('agent_id', agentData.agent_id)
+      .eq('agent_id', 'SOLAgent')
       .single();
     
     if (data && data.setup_json) {
@@ -305,70 +292,40 @@ export const saveSolarConfigAsync = async (config: SolarBusinessConfig): Promise
       return false;
     }
 
-    // Save to database - simple approach using a profiles-like table structure
+    // Simple database insert - exactly what you asked for
     console.log('Attempting to save solar config to database for user:', user.id);
     console.log('Config to save:', config);
     
-    // First check if we need to get/create the SOL Agent UUID
-    let solAgentUuid = null;
-    
-    // Try to get existing SOL Agent from squidgy_agent table
-    const { data: agentData, error: agentError } = await supabase
-      .from('squidgy_agent')
-      .select('agent_id')
-      .eq('agent_name', 'Solar Sales Specialist')
-      .single();
-    
-    if (agentData) {
-      solAgentUuid = agentData.agent_id;
-      console.log('Found existing SOL Agent UUID:', solAgentUuid);
-    } else {
-      // Create SOL Agent entry if it doesn't exist
-      const { data: newAgent, error: createError } = await supabase
-        .from('squidgy_agent')
-        .insert({
-          agent_name: 'Solar Sales Specialist',
-          avatar_description: 'Expert in solar energy solutions and renewable energy sales',
-          heygenAvatarId: 'anna_public_3_20240108',
-          fallbackAvatarimage: '/avatars/lead-gen-specialist.jpg',
-          introMessage: "Hello! I'm your Solar Sales Specialist. I help customers find the perfect solar energy solutions, calculate savings, and guide them through the transition to renewable energy. How can I help you go solar today?"
-        })
-        .select('agent_id')
-        .single();
-      
-      if (newAgent) {
-        solAgentUuid = newAgent.agent_id;
-        console.log('Created new SOL Agent UUID:', solAgentUuid);
-      } else {
-        console.error('Failed to create SOL Agent:', createError);
-        console.log('Saving only to localStorage due to agent creation failure');
-        return true; // Still return success for localStorage save
-      }
-    }
-    
-    // Try to save to the business setup table with proper schema
+    // Simple INSERT with the 4 required fields
     const { data, error } = await supabase
-      .schema('sq_business_data')
       .from('squidgy_agent_business_setup')
-      .upsert({
-        firm_id: user.id,
-        firm_user_id: user.id,
-        agent_id: solAgentUuid, // Use the UUID
-        agent_name: 'Solar Sales Specialist',
-        setup_json: config,
-        updated_at: new Date().toISOString()
+      .insert({
+        firm_id: null, // Set as null as requested
+        firm_user_id: user.id, // user_id from auth
+        agent_id: 'SOLAgent', // String from agents.ts
+        agent_name: 'Solar Sales Specialist', // Name from agents.ts
+        setup_json: config // The 13 field responses as JSON
       })
       .select();
     
     console.log('Database operation result:', { data, error });
     
     if (error) {
-      console.error('Failed to save to database:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('❌ Failed to save to database:', error);
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Full error details:', JSON.stringify(error, null, 2));
+      
+      // Check if it's a table not found error
+      if (error.code === '42P01') {
+        console.error('❌ Table squidgy_agent_business_setup does not exist!');
+      }
+      
       return false;
     }
 
-    console.log('Solar config saved to database successfully');
+    console.log('✅ Solar config saved to database successfully!');
+    console.log('✅ Record inserted:', data);
     return true;
   } catch (error) {
     console.error('Error saving config to database:', error);
@@ -420,5 +377,56 @@ export const CATEGORY_INFO = {
     title: 'Incentives & Credits',
     description: 'Set available tax credits and incentives',
     icon: '🎯'
+  }
+};
+
+// Test function to verify database insert is working
+export const testDatabaseInsert = async (): Promise<boolean> => {
+  console.log('🧪 Testing simple database insert...');
+  
+  try {
+    const { supabase } = await import('@/lib/supabase');
+    
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error('❌ No authenticated user for testing');
+      return false;
+    }
+
+    // Test config
+    const testConfig = DEFAULT_SOLAR_CONFIG;
+
+    // Simple insert
+    const { data, error } = await supabase
+      .from('squidgy_agent_business_setup')
+      .insert({
+        firm_id: null,
+        firm_user_id: user.id,
+        agent_id: 'SOLAgent',
+        agent_name: 'Solar Sales Specialist',
+        setup_json: testConfig
+      })
+      .select();
+
+    if (error) {
+      console.error('❌ Database insert test failed:', error);
+      return false;
+    }
+
+    console.log('✅ Database insert test passed:', data);
+
+    // Check count
+    const { data: allRecords } = await supabase
+      .from('squidgy_agent_business_setup')
+      .select('*');
+    
+    console.log(`📊 Total records in table: ${allRecords?.length || 0}`);
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Test error:', error);
+    return false;
   }
 };
