@@ -253,12 +253,25 @@ export const getSolarConfigAsync = async (): Promise<SolarBusinessConfig> => {
       return getSolarConfig();
     }
 
+    // Get SOL Agent UUID first
+    const { data: agentData } = await supabase
+      .from('squidgy_agent')
+      .select('agent_id')
+      .eq('agent_name', 'Solar Sales Specialist')
+      .single();
+    
+    if (!agentData) {
+      console.log('SOL Agent not found in database, using localStorage');
+      return getSolarConfig();
+    }
+
     // Try to get from database first - same pattern as chat history
     const { data, error } = await supabase
+      .schema('sq_business_data')
       .from('squidgy_agent_business_setup')
       .select('setup_json')
       .eq('firm_user_id', user.id)
-      .eq('agent_id', 'SOLAgent')
+      .eq('agent_id', agentData.agent_id)
       .single();
     
     if (data && data.setup_json) {
@@ -296,27 +309,51 @@ export const saveSolarConfigAsync = async (config: SolarBusinessConfig): Promise
     console.log('Attempting to save solar config to database for user:', user.id);
     console.log('Config to save:', config);
     
-    // Try to use a simple table structure or create one in localStorage for now
-    // First, let's test if the table exists
-    const { data: testData, error: testError } = await supabase
-      .from('squidgy_agent_business_setup')
-      .select('*')
-      .limit(1);
-      
-    console.log('Table existence test:', { testData, testError });
+    // First check if we need to get/create the SOL Agent UUID
+    let solAgentUuid = null;
     
-    if (testError && testError.code === '42P01') {
-      // Table doesn't exist, save only to localStorage for now
-      console.log('Table does not exist, saving only to localStorage');
-      return true;
+    // Try to get existing SOL Agent from squidgy_agent table
+    const { data: agentData, error: agentError } = await supabase
+      .from('squidgy_agent')
+      .select('agent_id')
+      .eq('agent_name', 'Solar Sales Specialist')
+      .single();
+    
+    if (agentData) {
+      solAgentUuid = agentData.agent_id;
+      console.log('Found existing SOL Agent UUID:', solAgentUuid);
+    } else {
+      // Create SOL Agent entry if it doesn't exist
+      const { data: newAgent, error: createError } = await supabase
+        .from('squidgy_agent')
+        .insert({
+          agent_name: 'Solar Sales Specialist',
+          avatar_description: 'Expert in solar energy solutions and renewable energy sales',
+          heygenAvatarId: 'anna_public_3_20240108',
+          fallbackAvatarimage: '/avatars/lead-gen-specialist.jpg',
+          introMessage: "Hello! I'm your Solar Sales Specialist. I help customers find the perfect solar energy solutions, calculate savings, and guide them through the transition to renewable energy. How can I help you go solar today?"
+        })
+        .select('agent_id')
+        .single();
+      
+      if (newAgent) {
+        solAgentUuid = newAgent.agent_id;
+        console.log('Created new SOL Agent UUID:', solAgentUuid);
+      } else {
+        console.error('Failed to create SOL Agent:', createError);
+        console.log('Saving only to localStorage due to agent creation failure');
+        return true; // Still return success for localStorage save
+      }
     }
     
+    // Try to save to the business setup table with proper schema
     const { data, error } = await supabase
+      .schema('sq_business_data')
       .from('squidgy_agent_business_setup')
       .upsert({
-        firm_id: user.id, // Using user.id as firm_id
+        firm_id: user.id,
         firm_user_id: user.id,
-        agent_id: 'SOLAgent', // String identifier, not UUID
+        agent_id: solAgentUuid, // Use the UUID
         agent_name: 'Solar Sales Specialist',
         setup_json: config,
         updated_at: new Date().toISOString()
