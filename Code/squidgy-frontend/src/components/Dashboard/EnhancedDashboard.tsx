@@ -30,6 +30,8 @@ import AgentGreeting from '../AgentGreeting';
 import SquidgyLogo from '../Auth/SquidgyLogo';
 import MessageContent from '../Chat/MessageContent';
 import EnableAgentPrompt from '../EnableAgentPrompt';
+import SolarAgentSetup from '../SolarAgentSetup';
+import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 
 const EnhancedDashboard: React.FC = () => {
   type WebSocketLog = {
@@ -81,6 +83,10 @@ const EnhancedDashboard: React.FC = () => {
     agentName: ''
   });
   const [chatDisabled, setChatDisabled] = useState(false);
+  
+  // Solar Agent setup functionality
+  const [showSolarSetup, setShowSolarSetup] = useState(false);
+  const [solarConfigCompleted, setSolarConfigCompleted] = useState(false);
   
 // src/components/Dashboard/EnhancedDashboard.tsx
 const [agents, setAgents] = useState(AGENT_CONFIG);
@@ -602,6 +608,21 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       
       console.log(`✅ Selected agent: ${agent.name}, Session: ${sessionId}`);
       
+      // Check if this is the Solar Sales Specialist and show setup if needed
+      if (agent.id === 'SOLAgent') {
+        console.log('🌞 Solar Sales Specialist selected, checking configuration...');
+        const hasSolarConfig = localStorage.getItem('solarBusinessConfig');
+        if (!hasSolarConfig && !solarConfigCompleted) {
+          console.log('🔧 No solar configuration found, showing setup...');
+          setShowSolarSetup(true);
+        } else {
+          console.log('✅ Solar configuration exists or completed');
+          setShowSolarSetup(false);
+        }
+      } else {
+        setShowSolarSetup(false);
+      }
+      
       // TODO: Uncomment when sessions table is available
       /*
       // Find the latest session for this agent
@@ -905,6 +926,33 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     });
   };
   
+  // Handle solar configuration completion
+  const handleSolarConfigComplete = (config: SolarBusinessConfig) => {
+    console.log('🌞 Solar configuration completed:', config);
+    setShowSolarSetup(false);
+    setSolarConfigCompleted(true);
+    
+    // Add a welcome message from the Solar Sales Specialist
+    addMessage({
+      sender: 'agent',
+      text: `Perfect! Your solar business is now configured. I can now provide accurate pricing, financing options, and savings calculations based on your business parameters. Let's help you close more solar deals! 🌞⚡`,
+      timestamp: Date.now()
+    });
+  };
+
+  const handleSolarConfigSkip = () => {
+    console.log('🌞 Solar configuration skipped');
+    setShowSolarSetup(false);
+    setSolarConfigCompleted(true);
+    
+    // Add a message about using default values
+    addMessage({
+      sender: 'agent',
+      text: `No problem! I'll use default solar industry values for now. You can always set up your business configuration later by saying "configure solar business" in our chat. How can I help you with solar sales today? 🌞`,
+      timestamp: Date.now()
+    });
+  };
+
   // Initialize agent enabled status from localStorage on mount
   useEffect(() => {
     restoreAgentEnabledStatus();
@@ -1255,6 +1303,15 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                         className="mb-4"
                       />
                     )}
+                    
+                    {/* Show Solar Agent Setup if needed */}
+                    {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
+                      <SolarAgentSetup
+                        onConfigurationComplete={handleSolarConfigComplete}
+                        onSkip={handleSolarConfigSkip}
+                      />
+                    )}
+                    
                     <div className="text-center text-gray-400 mt-6">
                       Start a conversation...
                     </div>
@@ -1266,6 +1323,14 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       <AgentGreeting 
                         agentId={selectedAgent.id} 
                         className="mb-4"
+                      />
+                    )}
+                    
+                    {/* Show Solar Agent Setup if needed */}
+                    {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
+                      <SolarAgentSetup
+                        onConfigurationComplete={handleSolarConfigComplete}
+                        onSkip={handleSolarConfigSkip}
                       />
                     )}
                     {messages.map((msg, index) => (
