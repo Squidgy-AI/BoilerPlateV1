@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { AGENT_CONFIG, updateAgentEnabledStatus, restoreAgentEnabledStatus, getEnabledAgents, forceDisableAgent } from '@/config/agents';
+import { AGENT_CONFIG, updateAgentEnabledStatus, restoreAgentEnabledStatus, getEnabledAgents } from '@/config/agents';
 import { 
   User, 
   Users, 
@@ -931,9 +931,11 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       // Optional: Show a success message
       addMessage({
         sender: 'system',
-        text: `${showEnableAgentPrompt.agentName} has been enabled! You can now find it in the Agents tab.`,
+        text: `✅ ${showEnableAgentPrompt.agentName} has been enabled and will persist across sessions! You can now find it in the Agents tab.`,
         timestamp: Date.now()
       });
+      
+      console.log('✅ SOL Agent enabled permanently and will appear on next login!');
     } else {
       console.error('❌ Failed to enable agent');
     }
@@ -985,10 +987,6 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   // Initialize agent enabled status from localStorage on mount
   useEffect(() => {
     restoreAgentEnabledStatus();
-    
-    // Force disable SOL Agent (overrides any localStorage setting)
-    forceDisableAgent('SOLAgent');
-    
     setAgents(getEnabledAgents()); // Update with restored status
   }, []);
   

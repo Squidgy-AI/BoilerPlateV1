@@ -42,10 +42,18 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
       // Save configuration to localStorage immediately
       saveSolarConfig(config);
       
-      // Save to database asynchronously
+      // Save to database asynchronously and update agent enabled status
       saveSolarConfigAsync(config).then(success => {
         if (success) {
-          console.log('✅ Solar config saved to database');
+          console.log('✅ Solar config saved to database successfully!');
+          
+          // Enable the SOL Agent since setup is complete
+          import('@/config/agents').then(({ updateAgentEnabledStatus }) => {
+            const agentEnabled = updateAgentEnabledStatus('SOLAgent', true);
+            if (agentEnabled) {
+              console.log('✅ SOL Agent has been enabled and will appear in the agents tab!');
+            }
+          });
         } else {
           console.warn('⚠️ Failed to save to database, but localStorage saved');
         }
@@ -135,10 +143,12 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
           </h3>
           <p className="text-green-700 text-lg">
             Thanks for filling out your solar business configuration! 
-            SOL Agent has been set up successfully for your business.
+            SOL Agent has been set up successfully and saved to the database.
           </p>
           <div className="mt-4 text-green-600">
-            You can now get accurate pricing, financing options, and savings calculations! 🌞⚡
+            ✅ Configuration saved to database<br/>
+            ✅ SOL Agent enabled and added to your agents tab<br/>
+            🌞⚡ You can now get accurate pricing, financing options, and savings calculations!
           </div>
         </div>
       </div>
