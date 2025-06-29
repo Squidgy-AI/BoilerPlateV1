@@ -491,3 +491,26 @@ CREATE TABLE sq_business_data.squidgy_agent_business_setup (
 CREATE INDEX idx_agent_business_setup_firm ON sq_business_data.squidgy_agent_business_setup(firm_id);
 CREATE INDEX idx_agent_business_setup_agent ON sq_business_data.squidgy_agent_business_setup(agent_id);
 CREATE INDEX idx_agent_business_setup_json ON sq_business_data.squidgy_agent_business_setup USING GIN(setup_json);
+
+
+
+
+ -- Grant usage on the schema
+  GRANT USAGE ON SCHEMA sq_business_data TO anon, authenticated;
+
+  -- Grant select, insert, update, delete on all tables in the schema
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA sq_business_data TO
+  anon, authenticated;
+
+  -- Grant access to future tables (if any are created later)
+  ALTER DEFAULT PRIVILEGES IN SCHEMA sq_business_data GRANT SELECT, INSERT, UPDATE,
+  DELETE ON TABLES TO anon, authenticated;
+
+  -- Enable RLS on the specific table
+  ALTER TABLE sq_business_data.squidgy_agent_business_setup ENABLE ROW LEVEL
+  SECURITY;
+
+  -- Create a policy to allow authenticated users to access their own records
+  CREATE POLICY "Users can manage their own solar configs" ON
+  sq_business_data.squidgy_agent_business_setup
+    FOR ALL USING (auth.uid() = firm_user_id);

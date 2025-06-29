@@ -1,15 +1,16 @@
 // src/app/api/save-agent-setup/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getUserId } from '@/utils/getUserId';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get the correct user_id from profiles table
+    const userIdResult = await getUserId();
     
-    if (authError || !user) {
+    if (!userIdResult.success || !userIdResult.user_id) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized or failed to get user profile' },
         { status: 401 }
       );
     }
@@ -26,11 +27,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use user.id as firm_user_id
-    const firm_user_id = user.id;
+    // Use profile.user_id as firm_user_id (the correct foreign key)
+    const firm_user_id = userIdResult.user_id;
     
-    // Use provided firm_id or generate a default one
-    const actual_firm_id = firm_id || user.id; // Using user.id as default firm_id if not provided
+    // Use provided firm_id or null as default
+    const actual_firm_id = firm_id || null;
 
     // Insert or update the agent setup
     const { data, error } = await supabase
@@ -86,12 +87,12 @@ export async function POST(request: NextRequest) {
 // GET endpoint to retrieve saved configuration
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get the correct user_id from profiles table
+    const userIdResult = await getUserId();
     
-    if (authError || !user) {
+    if (!userIdResult.success || !userIdResult.user_id) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized or failed to get user profile' },
         { status: 401 }
       );
     }
@@ -107,14 +108,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const firm_user_id = user.id;
-    const firm_id = user.id; // Using user.id as default firm_id
+    const firm_user_id = userIdResult.user_id;
 
     // Retrieve the agent setup
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
       .select('*')
-      .eq('firm_id', firm_id)
       .eq('firm_user_id', firm_user_id)
       .eq('agent_id', agent_id)
       .single();

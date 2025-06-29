@@ -25,7 +25,7 @@ async function testDatabaseInsert() {
   };
 
   try {
-    // Get current user
+    // Get current auth user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -33,14 +33,26 @@ async function testDatabaseInsert() {
       return;
     }
 
-    console.log('✅ User authenticated:', user.id);
+    // Get the profile to get the correct user_id
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('id', user.id)
+      .single();
+    
+    if (profileError || !profile) {
+      console.error('❌ Failed to get user profile');
+      return;
+    }
 
-    // Try to insert the record
+    console.log('✅ User authenticated, profile user_id:', profile.user_id);
+
+    // Try to insert the record using profile.user_id
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
       .insert({
         firm_id: null, // Set as null
-        firm_user_id: user.id, // user_id from auth
+        firm_user_id: profile.user_id, // user_id from profiles table
         agent_id: 'SOLAgent', // String from agents.ts
         agent_name: 'Solar Sales Specialist', // Name from agents.ts
         setup_json: testConfig // The 13 field responses as JSON
@@ -69,7 +81,7 @@ async function testDatabaseInsert() {
     const { data: userRecords, error: userError } = await supabase
       .from('squidgy_agent_business_setup')
       .select('*')
-      .eq('firm_user_id', user.id);
+      .eq('firm_user_id', profile.user_id);
 
     if (userError) {
       console.error('❌ User records fetch failed:', userError);

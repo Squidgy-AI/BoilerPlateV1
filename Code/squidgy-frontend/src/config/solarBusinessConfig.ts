@@ -242,22 +242,23 @@ export const saveSolarConfig = (config: SolarBusinessConfig): void => {
 // Async helper to get config from DB or localStorage
 export const getSolarConfigAsync = async (): Promise<SolarBusinessConfig> => {
   try {
-    // Import supabase client like chat history does
+    // Import supabase client and getUserId utility
     const { supabase } = await import('@/lib/supabase');
+    const { getUserId } = await import('@/utils/getUserId');
     
-    // Get user to match the user_id
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get the correct user_id from profiles table
+    const userIdResult = await getUserId();
     
-    if (authError || !user) {
-      console.log('No authenticated user, falling back to localStorage');
+    if (!userIdResult.success || !userIdResult.user_id) {
+      console.log('No authenticated user or failed to get user_id, falling back to localStorage');
       return getSolarConfig();
     }
 
-    // Simple database read - get config by user_id and agent_id
-    const { data, error } = await supabase
+    // Simple database read - get config by profile user_id and agent_id
+    const { data } = await supabase
       .from('squidgy_agent_business_setup')
       .select('setup_json')
-      .eq('firm_user_id', user.id)
+      .eq('firm_user_id', userIdResult.user_id)
       .eq('agent_id', 'SOLAgent')
       .single();
     
@@ -281,30 +282,30 @@ export const saveSolarConfigAsync = async (config: SolarBusinessConfig): Promise
   saveSolarConfig(config);
   
   try {
-    // Import supabase client like chat history does
+    // Import supabase client and getUserId utility
     const { supabase } = await import('@/lib/supabase');
+    const { getUserId } = await import('@/utils/getUserId');
     
-    // Get user to match the user_id
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Get the correct user_id from profiles table
+    const userIdResult = await getUserId();
     
-    if (authError || !user) {
-      console.error('No authenticated user, cannot save to database');
+    if (!userIdResult.success || !userIdResult.user_id) {
+      console.error('No authenticated user or failed to get user_id, cannot save to database');
       return false;
     }
 
-    // Simple database insert - exactly what you asked for
-    console.log('Attempting to save solar config to database for user:', user.id);
+    console.log('Attempting to save solar config to database for profile user_id:', userIdResult.user_id);
     console.log('Config to save:', config);
     
-    // Simple INSERT with the 4 required fields
+    // Insert into public schema table using profile.user_id
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
       .insert({
-        firm_id: null, // Set as null as requested
-        firm_user_id: user.id, // user_id from auth
-        agent_id: 'SOLAgent', // String from agents.ts
-        agent_name: 'Solar Sales Specialist', // Name from agents.ts
-        setup_json: config // The 13 field responses as JSON
+        firm_id: null,
+        firm_user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        agent_name: 'Solar Sales Specialist',
+        setup_json: config
       })
       .select();
     
@@ -312,15 +313,6 @@ export const saveSolarConfigAsync = async (config: SolarBusinessConfig): Promise
     
     if (error) {
       console.error('❌ Failed to save to database:', error);
-      console.error('❌ Error code:', error.code);
-      console.error('❌ Error message:', error.message);
-      console.error('❌ Full error details:', JSON.stringify(error, null, 2));
-      
-      // Check if it's a table not found error
-      if (error.code === '42P01') {
-        console.error('❌ Table squidgy_agent_business_setup does not exist!');
-      }
-      
       return false;
     }
 
@@ -385,9 +377,10 @@ export const testDatabaseInsert = async (): Promise<boolean> => {
   console.log('🧪 Testing simple database insert...');
   
   try {
+    // Import supabase client (uses public schema by default)
     const { supabase } = await import('@/lib/supabase');
     
-    // Get current user
+    // Get auth user first
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -395,15 +388,29 @@ export const testDatabaseInsert = async (): Promise<boolean> => {
       return false;
     }
 
+    // Get the profile to get the correct user_id
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('id', user.id)
+      .single();
+    
+    if (profileError || !profile) {
+      console.error('❌ Failed to get user profile for testing');
+      return false;
+    }
+
+    console.log('✅ User authenticated, profile user_id:', profile.user_id);
+
     // Test config
     const testConfig = DEFAULT_SOLAR_CONFIG;
 
-    // Simple insert
+    // Insert into public schema table using profile.user_id
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
       .insert({
         firm_id: null,
-        firm_user_id: user.id,
+        firm_user_id: profile.user_id,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
         setup_json: testConfig
