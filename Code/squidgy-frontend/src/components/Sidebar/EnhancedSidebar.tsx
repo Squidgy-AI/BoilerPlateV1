@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/Auth/AuthProvider';
 import { useChat } from '@/context/ChatContext';
 import { supabase } from '@/lib/supabase';
+import { getEnabledAgents, restoreAgentEnabledStatus } from '@/config/agents';
 import { Users, User, Bot, UserPlus, FolderPlus, LogOut, Settings, MessageSquare, Search, X } from 'lucide-react';
 import InvitationList from '../Invitations/InvitationList';
 
@@ -27,32 +28,8 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
   const [activeSection, setActiveSection] = useState<'people' | 'agents' | 'groups'>('agents');
   const [people, setPeople] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
-  const [agents, setAgents] = useState([
-    { 
-      id: 'presaleskb', 
-      name: 'Pre-Sales Consultant', 
-      avatar: '/avatars/presales-consultant.jpg', 
-      type: 'PreSalesConsultant',
-      description: 'Provides technical expertise and demonstrations',
-      fallbackAvatar: '/avatars/presales-fallback.jpg'
-    },
-    { 
-      id: 'socialmediakb', 
-      name: 'Social Media Manager', 
-      avatar: '/avatars/social-media-manager.jpg', 
-      type: 'SocialMediaManager',
-      description: 'Creates and manages social media strategies',
-      fallbackAvatar: '/avatars/social-fallback.jpg'
-    },
-    { 
-      id: 'leadgenkb', 
-      name: 'Lead Generation Specialist', 
-      avatar: '/avatars/lead-gen-specialist.jpg', 
-      type: 'LeadGenSpecialist',
-      description: 'Focuses on generating leads and follow-ups',
-      fallbackAvatar: '/avatars/leadgen-fallback.jpg'
-    }
-  ]);
+  const [agents, setAgents] = useState<any[]>([]);
+  const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   
   // States for modals
   const [showAddPeopleModal, setShowAddPeopleModal] = useState(false);
@@ -71,6 +48,43 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
       fetchGroups();
     }
   }, [profile]);
+  
+  // Load enabled agents and restore from localStorage
+  useEffect(() => {
+    // Restore agent enabled status from localStorage
+    restoreAgentEnabledStatus();
+    
+    // Load enabled agents
+    const enabledAgents = getEnabledAgents();
+    setAgents(enabledAgents);
+    
+    console.log('Loaded enabled agents:', enabledAgents);
+  }, [agentUpdateTrigger]);
+  
+  // Listen for storage changes to update agents when they're enabled
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && e.key.startsWith('agent_') && e.key.endsWith('_enabled')) {
+        console.log('Agent enabled status changed, refreshing agents list');
+        setAgentUpdateTrigger(prev => prev + 1);
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also set up a custom event listener for same-window updates
+    const handleAgentUpdate = () => {
+      console.log('Agent update event received, refreshing agents list');
+      setAgentUpdateTrigger(prev => prev + 1);
+    };
+    
+    window.addEventListener('agentUpdated', handleAgentUpdate);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('agentUpdated', handleAgentUpdate);
+    };
+  }, []);
   
   // Filter people based on search term
   const filteredPeople = searchTerm 

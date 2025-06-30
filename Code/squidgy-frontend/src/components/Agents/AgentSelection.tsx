@@ -1,7 +1,7 @@
 // src/components/Agents/AgentSelection.tsx
 import React from 'react';
 import AgentCard from './AgentCard';
-import { AGENT_CONFIG } from '@/config/agents';
+import { AGENT_CONFIG, getEnabledAgents } from '@/config/agents';
 
 interface AgentSelectionProps {
   onSelectAgent: (agentId: string) => void;
@@ -9,7 +9,7 @@ interface AgentSelectionProps {
 
 const AgentSelection: React.FC<AgentSelectionProps> = ({ onSelectAgent }) => {
   // src/components/Agents/AgentSelection.tsx
-  const availableAgents = AGENT_CONFIG;
+  const availableAgents = getEnabledAgents();
   
   return (
     <div className="p-6">

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Solar Config Database Insert</title>
+</head>
+<body>
+    <h1>Solar Config Database Insert Test</h1>
+    <button onclick="testInsert()">Test Database Insert</button>
+    <button onclick="runSolarTest()">Run Solar Test Function</button>
+    <div id="results"></div>
+
+    <script type="module">
+        async function testInsert() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing database insert...</p>';
+            
+            try {
+                // Import the test function
+                const { testDatabaseInsert } = await import('./src/config/solarBusinessConfig.ts');
+                
+                const success = await testDatabaseInsert();
+                
+                if (success) {
+                    results.innerHTML += '<p style="color: green;">✅ Database insert test PASSED!</p>';
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Database insert test FAILED!</p>';
+                }
+            } catch (error) {
+                results.innerHTML += `<p style="color: red;">❌ Error: ${error.message}</p>`;
+                console.error('Test error:', error);
+            }
+        }
+
+        async function runSolarTest() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing solar config save...</p>';
+            
+            try {
+                const { saveSolarConfigAsync, DEFAULT_SOLAR_CONFIG } = await import('./src/config/solarBusinessConfig.ts');
+                
+                const success = await saveSolarConfigAsync(DEFAULT_SOLAR_CONFIG);
+                
+                if (success) {
+                    results.innerHTML += '<p style="color: green;">✅ Solar config save PASSED!</p>';
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Solar config save FAILED!</p>';
+                }
+            } catch (error) {
+                results.innerHTML += `<p style="color: red;">❌ Error: ${error.message}</p>`;
+                console.error('Solar test error:', error);
+            }
+        }
+
+        // Make functions global for button onclick
+        window.testInsert = testInsert;
+        window.runSolarTest = runSolarTest;
+    </script>
+</body>
+</html>

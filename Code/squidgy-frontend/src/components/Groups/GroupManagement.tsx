@@ -37,7 +37,7 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ groupId, onClose }) =
   const [isAddingMembers, setIsAddingMembers] = useState(false);
   const [availableAgents, setAvailableAgents] = useState<any[]>([
     { id: 'agent1', name: 'Product Manager', avatar: '/seth.JPG', type: 'ProductManager' },
-    { id: 'agent2', name: 'Pre-Sales Consultant', avatar: '/sol.jpg', type: 'PreSalesConsultant' },
+    { id: 'agent2', name: 'Personal Assistant Bot', avatar: '/sol.jpg', type: 'PreSalesConsultant' },
     { id: 'agent3', name: 'Social Media Manager', avatar: '/sarah.jpg', type: 'SocialMediaManager' },
     { id: 'agent4', name: 'Lead Gen Specialist', avatar: '/james.jpg', type: 'LeadGenSpecialist' }
   ]);

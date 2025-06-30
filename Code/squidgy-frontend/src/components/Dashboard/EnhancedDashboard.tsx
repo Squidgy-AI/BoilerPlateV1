@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { AGENT_CONFIG } from '@/config/agents';
+import { AGENT_CONFIG, updateAgentEnabledStatus, restoreAgentEnabledStatus, getEnabledAgents } from '@/config/agents';
 import { 
   User, 
   Users, 
@@ -29,6 +29,9 @@ import WebSocketDebugger from '../WebSocketDebugger';
 import AgentGreeting from '../AgentGreeting';
 import SquidgyLogo from '../Auth/SquidgyLogo';
 import MessageContent from '../Chat/MessageContent';
+import EnableAgentPrompt from '../EnableAgentPrompt';
+import SolarAgentSetup from '../SolarAgentSetup';
+import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 
 const EnhancedDashboard: React.FC = () => {
   type WebSocketLog = {
@@ -64,7 +67,7 @@ const EnhancedDashboard: React.FC = () => {
   const [people, setPeople] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   // const [isLoading, setIsLoading] = useState(false);
-  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('presaleskb');;
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('PersonalAssistant');;
   const avatarRef = React.useRef<StreamingAvatar | null>(null);
   const [avatarReady, setAvatarReady] = useState<boolean>(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -77,8 +80,21 @@ const EnhancedDashboard: React.FC = () => {
   // Cache chat history for each agent for faster switching
   const [agentChatCache, setAgentChatCache] = useState<{[agentId: string]: any[]}>({});
   
+  // Agent enabling functionality
+  const [showEnableAgentPrompt, setShowEnableAgentPrompt] = useState<{show: boolean, agentId: string, agentName: string}>({
+    show: false,
+    agentId: '',
+    agentName: ''
+  });
+  const [chatDisabled, setChatDisabled] = useState(false);
+  
+  // Solar Agent setup functionality
+  const [showSolarSetup, setShowSolarSetup] = useState(false);
+  const [solarConfigCompleted, setSolarConfigCompleted] = useState(false);
+  
 // src/components/Dashboard/EnhancedDashboard.tsx
-const agents = AGENT_CONFIG;
+const [agents, setAgents] = useState(getEnabledAgents());
+const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   
   // Initialize with first agent on mount
   useEffect(() => {
@@ -89,15 +105,16 @@ const agents = AGENT_CONFIG;
     let agentToSelect;
     
     if (lastSelectedAgentId) {
-      // Try to find the stored agent
-      agentToSelect = agents.find(a => a.id === lastSelectedAgentId);
-      console.log(`🔄 Restoring agent from localStorage: ${lastSelectedAgentId}`, agentToSelect ? 'Found' : 'Not found');
+      // Search only in ENABLED agents for initialization
+      agentToSelect = getEnabledAgents().find(a => a.id === lastSelectedAgentId);
+      console.log(`🔄 Restoring agent from localStorage: ${lastSelectedAgentId}`, agentToSelect ? 'Found and enabled' : 'Not found or disabled');
     }
     
-    // Fallback to presaleskb if no stored agent or agent not found
+    // Fallback to first enabled agent if no stored agent or agent not found/disabled
     if (!agentToSelect) {
-      agentToSelect = agents.find(a => a.id === 'presaleskb') || agents[0];
-      console.log(`🔄 Using fallback agent: ${agentToSelect?.id}`);
+      const enabledAgents = getEnabledAgents();
+      agentToSelect = enabledAgents.find(a => a.id === 'PersonalAssistant') || enabledAgents[0];
+      console.log(`🔄 Using fallback enabled agent: ${agentToSelect?.id}`);
     }
     
     setSelectedAgent(agentToSelect);
@@ -114,6 +131,34 @@ const agents = AGENT_CONFIG;
       setSelectedAvatarId(selectedAgent.id);
     }
   }, [selectedAgent, selectedAvatarId]);
+  
+  // Check for Solar Agent setup whenever selected agent changes (including initial load)
+  useEffect(() => {
+    console.log('🔍 Solar setup effect triggered:', {
+      selectedAgentId: selectedAgent?.id,
+      selectedAgentName: selectedAgent?.name,
+      solarConfigCompleted,
+      showSolarSetup
+    });
+    
+    if (selectedAgent?.id === 'SOLAgent') {
+      console.log('🌞 Solar Sales Specialist detected on agent change, checking configuration...');
+      const hasSolarConfig = localStorage.getItem('solarBusinessConfig');
+      console.log('📁 localStorage solarBusinessConfig:', hasSolarConfig ? 'exists' : 'not found');
+      console.log('✅ solarConfigCompleted state:', solarConfigCompleted);
+      
+      if (!hasSolarConfig && !solarConfigCompleted) {
+        console.log('🔧 No solar configuration found on agent change, showing setup...');
+        setShowSolarSetup(true);
+      } else {
+        console.log('✅ Solar configuration exists or completed on agent change');
+        setShowSolarSetup(false);
+      }
+    } else {
+      console.log('🚫 Not Solar Agent, hiding setup');
+      setShowSolarSetup(false);
+    }
+  }, [selectedAgent, solarConfigCompleted]);
   
   // Fetch people and groups
   useEffect(() => {
@@ -132,7 +177,7 @@ const agents = AGENT_CONFIG;
     // This ensures the app works even without the sessions table
     try {
       if (agents.length > 0 && !selectedAgent) { // Only initialize if no agent is selected
-        const firstAgent = agents[0]; // Default to first agent (Pre-Sales Consultant)
+        const firstAgent = agents[0]; // Default to first agent (Personal Assistant Bot)
         setSelectedAgent(firstAgent);
         setSelectedAvatarId(firstAgent.id);
         console.log(`Auto-selected default agent: ${firstAgent.name}`);
@@ -360,6 +405,18 @@ const agents = AGENT_CONFIG;
           const agentResponse = data.agent_response || data.message;
           const currentAgentId = selectedAgent?.id;
           const currentAgentName = selectedAgent?.agent_name || selectedAgent?.id;
+          
+          // Check if the response contains agent enabling request
+          const solAgentEnablePattern = /(enable|activate).*(SOL Agent|Solar)/i;
+          if (solAgentEnablePattern.test(agentResponse)) {
+            console.log('🤖 SOL Agent enable request detected');
+            setShowEnableAgentPrompt({
+              show: true,
+              agentId: 'SOLAgent',
+              agentName: 'SOL Agent'
+            });
+            setChatDisabled(true);
+          }
           
           console.log('🔄 Agent response processing:', {
             currentAgentId,
@@ -589,6 +646,21 @@ const agents = AGENT_CONFIG;
       }
       
       console.log(`✅ Selected agent: ${agent.name}, Session: ${sessionId}`);
+      
+      // Check if this is the Solar Sales Specialist and show setup if needed
+      if (agent.id === 'SOLAgent') {
+        console.log('🌞 Solar Sales Specialist selected, checking configuration...');
+        const hasSolarConfig = localStorage.getItem('solarBusinessConfig');
+        if (!hasSolarConfig && !solarConfigCompleted) {
+          console.log('🔧 No solar configuration found, showing setup...');
+          setShowSolarSetup(true);
+        } else {
+          console.log('✅ Solar configuration exists or completed');
+          setShowSolarSetup(false);
+        }
+      } else {
+        setShowSolarSetup(false);
+      }
       
       // TODO: Uncomment when sessions table is available
       /*
@@ -953,6 +1025,98 @@ const agents = AGENT_CONFIG;
       // setIsLoading(false);
     }
   };
+  
+  // Handle enabling agent
+  const handleEnableAgent = (agentId: string) => {
+    console.log(`🤖 Enabling agent: ${agentId}`);
+    
+    // Update agent enabled status
+    const success = updateAgentEnabledStatus(agentId, true);
+    
+    if (success) {
+      // Hide the prompt and re-enable chat
+      setShowEnableAgentPrompt({ show: false, agentId: '', agentName: '' });
+      setChatDisabled(false);
+      
+      // Force re-render by updating the agents list
+      // The sidebar will automatically show the newly enabled agent
+      console.log('✅ Agent enabled successfully');
+      
+      // Optional: Show a success message
+      addMessage({
+        sender: 'system',
+        text: `✅ ${showEnableAgentPrompt.agentName} has been enabled and will persist across sessions! You can now find it in the Agents tab.`,
+        timestamp: Date.now()
+      });
+      
+      console.log('✅ SOL Agent enabled permanently and will appear on next login!');
+    } else {
+      console.error('❌ Failed to enable agent');
+    }
+  };
+  
+  // Handle declining agent enablement
+  const handleDeclineAgent = () => {
+    console.log('🚫 Agent enabling declined');
+    
+    // Hide the prompt and re-enable chat
+    setShowEnableAgentPrompt({ show: false, agentId: '', agentName: '' });
+    setChatDisabled(false);
+    
+    // Optional: Show a message
+    addMessage({
+      sender: 'system',
+      text: 'No problem! You can always enable additional agents later if needed.',
+      timestamp: Date.now()
+    });
+  };
+  
+  // Handle solar configuration completion
+  const handleSolarConfigComplete = (config: SolarBusinessConfig) => {
+    console.log('🌞 Solar configuration completed:', config);
+    setShowSolarSetup(false);
+    setSolarConfigCompleted(true);
+    
+    // Add a welcome message from the Solar Sales Specialist
+    addMessage({
+      sender: 'agent',
+      text: `Perfect! Your solar business is now configured. I can now provide accurate pricing, financing options, and savings calculations based on your business parameters. Let's help you close more solar deals! 🌞⚡`,
+      timestamp: Date.now()
+    });
+  };
+
+  const handleSolarConfigSkip = () => {
+    console.log('🌞 Solar configuration skipped');
+    setShowSolarSetup(false);
+    setSolarConfigCompleted(true);
+    
+    // Add a message about using default values
+    addMessage({
+      sender: 'agent',
+      text: `No problem! I'll use default solar industry values for now. You can always set up your business configuration later by saying "configure solar business" in our chat. How can I help you with solar sales today? 🌞`,
+      timestamp: Date.now()
+    });
+  };
+
+  // Initialize agent enabled status from localStorage on mount
+  useEffect(() => {
+    restoreAgentEnabledStatus();
+    setAgents(getEnabledAgents()); // Update with restored status
+  }, []);
+  
+  // Listen for agent updates and refresh agents list
+  useEffect(() => {
+    const handleAgentUpdate = () => {
+      console.log('Agent update event received in Dashboard, refreshing agents list');
+      setAgents(getEnabledAgents()); // Force re-render with updated config
+    };
+    
+    window.addEventListener('agentUpdated', handleAgentUpdate);
+    
+    return () => {
+      window.removeEventListener('agentUpdated', handleAgentUpdate);
+    };
+  }, []);
   
   return (
     <div className="h-screen flex flex-col bg-[#1B2431] text-white">
@@ -1337,6 +1501,15 @@ const agents = AGENT_CONFIG;
                         className="mb-4"
                       />
                     )}
+                    
+                    {/* Show Solar Agent Setup if needed */}
+                    {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
+                      <SolarAgentSetup
+                        onConfigurationComplete={handleSolarConfigComplete}
+                        onSkip={handleSolarConfigSkip}
+                      />
+                    )}
+                    
                     <div className="text-center text-gray-400 mt-6">
                       Start a conversation...
                     </div>
@@ -1348,6 +1521,14 @@ const agents = AGENT_CONFIG;
                       <AgentGreeting 
                         agentId={selectedAgent.id} 
                         className="mb-4"
+                      />
+                    )}
+                    
+                    {/* Show Solar Agent Setup if needed */}
+                    {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
+                      <SolarAgentSetup
+                        onConfigurationComplete={handleSolarConfigComplete}
+                        onSkip={handleSolarConfigSkip}
                       />
                     )}
                     {messages.map((msg, index) => (
@@ -1372,6 +1553,18 @@ const agents = AGENT_CONFIG;
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Show Enable Agent Prompt */}
+                    {showEnableAgentPrompt.show && (
+                      <div className="mb-4">
+                        <EnableAgentPrompt
+                          agentName={showEnableAgentPrompt.agentName}
+                          agentId={showEnableAgentPrompt.agentId}
+                          onEnable={handleEnableAgent}
+                          onDecline={handleDeclineAgent}
+                        />
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1388,9 +1581,9 @@ const agents = AGENT_CONFIG;
                         sendMessage();
                       }
                     }}
-                    placeholder="Type a message..."
+                    placeholder={chatDisabled ? "Please respond to the prompt above..." : "Type a message..."}
                     className="flex-1 bg-[#1B2431] text-white placeholder:text-gray-400 px-4 py-2 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[42px] max-h-[120px] overflow-y-auto border border-gray-600"
-                    disabled={!textEnabled}
+                    disabled={!textEnabled || chatDisabled}
                     rows={1}
                     style={{
                       height: 'auto',
@@ -1405,7 +1598,7 @@ const agents = AGENT_CONFIG;
                   />
                   <button
                     onClick={sendMessage}
-                    disabled={!textEnabled}
+                    disabled={!textEnabled || chatDisabled}
                     className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-r-lg transition-colors disabled:opacity-50 min-h-[42px] flex items-center border border-l-0 border-gray-600"
                   >
                     <Send size={16} />

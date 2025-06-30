@@ -179,7 +179,7 @@ class WebSocketService {
       this.ws.send(JSON.stringify({
         message,
         requestId: requestId || `req_${Date.now()}`,
-        agent: agentName || 'presaleskb'  // Include agent name in WebSocket message
+        agent: agentName || 'PersonalAssistant'  // Include agent name in WebSocket message
       }));
     } else {
       throw new Error('WebSocket not connected');

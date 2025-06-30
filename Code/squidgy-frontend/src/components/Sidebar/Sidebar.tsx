@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/components/Auth/AuthProvider';
 import { User, Users, Bot, UserPlus, FolderPlus, LogOut, Settings, MessageSquare } from 'lucide-react';
 import { Profile, Group, GroupMember } from '@/lib/supabase';
-import { AGENT_CONFIG } from '@/config/agents';
+import { AGENT_CONFIG, getEnabledAgents } from '@/config/agents';
 
 interface SidebarProps {
   onSessionSelect: (sessionId: string, isGroup?: boolean) => void;
@@ -23,7 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [activeSection, setActiveSection] = useState<'people' | 'agents' | 'groups'>('people');
   const [people, setPeople] = useState<Profile[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [agents, setAgents] = useState<any[]>(AGENT_CONFIG);
+  const [agents, setAgents] = useState<any[]>(getEnabledAgents());
   const [showAddPeopleModal, setShowAddPeopleModal] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -38,6 +38,20 @@ const Sidebar: React.FC<SidebarProps> = ({
       fetchGroups();
     }
   }, [profile]);
+
+  // Listen for agent updates and refresh the list
+  useEffect(() => {
+    const handleAgentUpdate = () => {
+      setAgents(getEnabledAgents());
+    };
+
+    // Listen for agent configuration changes
+    window.addEventListener('agentConfigUpdated', handleAgentUpdate);
+    
+    return () => {
+      window.removeEventListener('agentConfigUpdated', handleAgentUpdate);
+    };
+  }, []);
   
   const fetchPeople = async () => {
     if (!profile) return;
