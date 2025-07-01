@@ -9,6 +9,7 @@ import StreamingAvatar, {
   VoiceEmotion,
 } from "@heygen/streaming-avatar";
 import { getHeygenAvatarId, getFallbackAvatar, getValidatedAvatarId } from '@/config/agents';
+import { sendTextToAvatar, sendN8nResponseToAvatar, validateSessionId } from '@/services/heygenService';
 
 // Define VoiceChatTransport enum locally since it may not be exported
 enum VoiceChatTransport {
@@ -42,6 +43,7 @@ interface InteractiveAvatarProps {
   avatarTimeout?: number;
   retryTrigger?: number; // Increment this to trigger a manual retry
   cleanupTrigger?: number; // Increment this to trigger immediate cleanup
+  onTextToSpeech?: (text: string) => Promise<boolean>; // Callback for external text-to-speech requests
 }
 
 const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
@@ -54,7 +56,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   onAvatarError,
   avatarTimeout = 10000, // 10 seconds default timeout
   retryTrigger = 0,
-  cleanupTrigger = 0
+  cleanupTrigger = 0,
+  onTextToSpeech
 }) => {
   // State management
   const [stream, setStream] = useState<MediaStream>();
@@ -75,13 +78,18 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const voiceChatActiveRef = useRef<boolean>(false);
   const initializationInProgressRef = useRef<boolean>(false);
   const lastInitAttemptTimeRef = useRef<number>(0);
-  const lastActivityTimeRef = useRef<number>(Date.now()); // Track last user activity
+  const lastActivityTimeRef = useRef<number>(0); // Track last user activity - initialized in useEffect
   const lastRetryTriggerRef = useRef<number>(0); // Track last processed retry trigger
 
   // Constants for credit optimization
   const SESSION_MAX_DURATION_MS = 5 * 60 * 1000; // 5 minutes
   const IDLE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
   const DEBOUNCE_DELAY_MS = 500; // 500ms
+
+  // Initialize activity timestamp after component mounts to prevent hydration mismatch
+  useEffect(() => {
+    lastActivityTimeRef.current = Date.now();
+  }, []);
 
   // Handle avatar failures consistently
   const handleAvatarFailure = useCallback((error: any) => {
@@ -768,6 +776,213 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       }
     };
   }, []);
+
+  // Streaming Task Methods for HeyGen API
+  
+  /**
+   * Send text to the avatar for speech using HeyGen streaming task API
+   * This method uses the REST API endpoint instead of the SDK speak method
+   * @param text - The text to be spoken by the avatar
+   * @param taskMode - Whether the task is performed synchronously or not (default: sync)
+   * @param taskType - Task type: repeat or chat (default: repeat)
+   * @returns Promise with task response or null on error
+   */
+  const sendTextToAvatarAPI = useCallback(async (
+    text: string,
+    taskMode: 'sync' | 'async' = 'sync',
+    taskType: 'repeat' | 'chat' = 'repeat'
+  ) => {
+    if (!sessionId) {
+      console.error('❌ Cannot send text to avatar: No active session ID');
+      return null;
+    }
+
+    if (!sessionActive) {
+      console.error('❌ Cannot send text to avatar: Session not active');
+      return null;
+    }
+
+    try {
+      console.log('🎯 Sending text to avatar via streaming task API:', {
+        sessionId: sessionId.substring(0, 8) + '...',
+        textLength: text.length,
+        taskMode,
+        taskType
+      });
+
+      // Stop voice chat before avatar speaks to prevent feedback
+      await stopVoiceChat();
+
+      const result = await sendTextToAvatar(sessionId, text, taskMode, taskType);
+      
+      if (result) {
+        console.log('✅ Text sent to avatar successfully:', {
+          taskId: result.task_id,
+          duration: result.duration_ms + 'ms'
+        });
+        
+        // Update activity to prevent idle timeout during speech
+        updateActivity();
+        
+        // Restart voice chat after avatar finishes speaking
+        // Add a small delay to ensure avatar speech has started
+        setTimeout(async () => {
+          await restartVoiceChat();
+        }, 1000);
+        
+        // Call the callback if provided
+        if (onTextToSpeech) {
+          await onTextToSpeech(text);
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Failed to send text to avatar:', error);
+      
+      // Try fallback to SDK speak method if available
+      if (localAvatarRef.current) {
+        try {
+          console.log('🔄 Falling back to SDK speak method');
+          // @ts-ignore - speak method may not be in type definition
+          await localAvatarRef.current.speak({
+            text: text,
+            taskType: TaskType.REPEAT, // Only REPEAT is available in TaskType enum
+            taskMode: taskMode === 'async' ? TaskMode.ASYNC : TaskMode.SYNC
+          });
+          console.log('✅ Fallback speak method succeeded');
+          updateActivity();
+          
+          // Restart voice chat after fallback speech
+          setTimeout(async () => {
+            await restartVoiceChat();
+          }, 1000);
+          
+          return { task_id: 'fallback', duration_ms: 0 };
+        } catch (fallbackError) {
+          console.error('❌ Fallback speak method also failed:', fallbackError);
+        }
+      }
+      
+      // Ensure voice chat is restarted even if all speech methods fail
+      await restartVoiceChat();
+      
+      return null;
+    }
+  }, [sessionId, sessionActive, updateActivity, onTextToSpeech]);
+
+  /**
+   * Send n8n response text to avatar for speech
+   * Convenience method specifically for n8n integration
+   * @param n8nResponse - The response text from n8n workflow
+   * @param agentType - The type of agent for logging purposes
+   * @returns Promise with task response or null on error
+   */
+  const sendN8nResponseToAvatarAPI = useCallback(async (
+    n8nResponse: string,
+    agentType?: string
+  ) => {
+    try {
+      console.log('🔄 Processing n8n response for avatar speech:', {
+        agentType,
+        sessionId: sessionId?.substring(0, 8) + '...',
+        responseLength: n8nResponse.length
+      });
+
+      // Stop voice chat before avatar speaks to prevent feedback
+      await stopVoiceChat();
+
+      // Use 'chat' task type for n8n responses as they are conversational
+      const result = await sendTextToAvatarAPI(n8nResponse, 'sync', 'chat');
+      
+      if (result) {
+        console.log('✅ n8n response sent to avatar successfully');
+        
+        // Restart voice chat after avatar finishes speaking
+        // Add a small delay to ensure avatar speech has started
+        setTimeout(async () => {
+          await restartVoiceChat();
+        }, 1000);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Failed to send n8n response to avatar:', error);
+      // Ensure voice chat is restarted even if speech fails
+      await restartVoiceChat();
+      return null;
+    }
+  }, [sendTextToAvatarAPI, sessionId]);
+
+  /**
+   * Stop voice chat to prevent the avatar from listening
+   * Used when the avatar is about to speak to prevent feedback loops
+   */
+  const stopVoiceChat = useCallback(async () => {
+    if (!localAvatarRef.current || !voiceChatActiveRef.current) {
+      console.log('🎙️ Voice chat already stopped or avatar not available');
+      return;
+    }
+
+    try {
+      console.log('🔇 Stopping voice chat to prevent feedback during avatar speech');
+      
+      // Try to stop voice chat using the native SDK method
+      // We need to access the original SDK method, not our extended version
+      // @ts-ignore - stopVoiceChat method may exist but not in type definition
+      const nativeStopVoiceChat = Object.getPrototypeOf(localAvatarRef.current).stopVoiceChat;
+      if (typeof nativeStopVoiceChat === 'function') {
+        // Call the native SDK method directly to avoid recursion
+        await nativeStopVoiceChat.call(localAvatarRef.current);
+      } else {
+        // Fallback: recreate avatar connection without voice chat
+        console.log('⚠️ stopVoiceChat method not available, using fallback approach');
+      }
+      
+      voiceChatActiveRef.current = false;
+      console.log('✅ Voice chat stopped successfully');
+    } catch (error) {
+      console.error('❌ Failed to stop voice chat:', error);
+    }
+  }, []);
+
+  /**
+   * Restart voice chat after avatar finishes speaking
+   * Used to resume listening after the avatar has delivered its response
+   */
+  const restartVoiceChat = useCallback(async () => {
+    if (!localAvatarRef.current || voiceChatActiveRef.current) {
+      console.log('🎙️ Voice chat already active or avatar not available');
+      return;
+    }
+
+    try {
+      console.log('🎙️ Restarting voice chat after avatar speech');
+      
+      // @ts-ignore - startVoiceChat method exists but may not be in type definition
+      await localAvatarRef.current.startVoiceChat();
+      voiceChatActiveRef.current = true;
+      console.log('✅ Voice chat restarted successfully');
+    } catch (error) {
+      console.error('❌ Failed to restart voice chat:', error);
+    }
+  }, []);
+
+  // Expose methods via ref if provided
+  useEffect(() => {
+    if (avatarRef && localAvatarRef.current) {
+      // Extend the avatar ref with our custom methods
+      const extendedRef = localAvatarRef.current as any;
+      extendedRef.sendTextToAvatarAPI = sendTextToAvatarAPI;
+      extendedRef.sendN8nResponseToAvatarAPI = sendN8nResponseToAvatarAPI;
+      extendedRef.sendTextToAvatar = sendTextToAvatarAPI; // Alias for backward compatibility
+      extendedRef.sendN8nResponseToAvatar = sendN8nResponseToAvatarAPI; // Alias for backward compatibility
+      extendedRef.stopVoiceChat = stopVoiceChat;
+      extendedRef.restartVoiceChat = restartVoiceChat;
+      
+      avatarRef.current = extendedRef;
+    }
+  }, [avatarRef, sendTextToAvatarAPI, sendN8nResponseToAvatarAPI]);
 
   return (
     <div className="relative w-full h-full overflow-hidden rounded-lg" onMouseMove={updateActivity} onTouchMove={updateActivity}>

@@ -51,10 +51,6 @@ export const getChatProcessingState = (): ChatProcessingState => {
 };
 
 const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, initialTopic, currentAgent, onAgentSwitch }) => {
-  // Force enable text display for debugging
-  const textEnabled = true;
-  const videoEnabled = true; 
-  const voiceEnabled = true;
   // State management
   const [userInput, setUserInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -110,13 +106,18 @@ const Chatbot: React.FC<ChatbotProps> = ({ userId, sessionId, onSessionChange, i
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastMessageTimestamp = useRef<number>(Date.now());
+  const lastMessageTimestamp = useRef<number>(0); // Initialized in useEffect to prevent hydration mismatch
   const messageTimeoutsRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
   
   // Add a ref to track if we're switching agents
   const isSwitchingAgent = useRef(false);
   const lastAgentId = useRef<string>('');
   const avatarLoadingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Initialize timestamp after component mounts to prevent hydration mismatch
+  useEffect(() => {
+    lastMessageTimestamp.current = Date.now();
+  }, []);
 
   // Function to call n8n webhook endpoint with request_id support
   const callN8nEndpoint = async (userInput: string, requestId: string, agentName: string = 'PersonalAssistant') => {

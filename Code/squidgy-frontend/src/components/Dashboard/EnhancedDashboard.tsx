@@ -495,6 +495,38 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
           };
           console.log('Received agent response:', agentMessage);
           
+          addMessage(agentMessage);
+          
+          // Send agent response to avatar for speech if enabled
+          if (avatarRef.current && videoEnabled && voiceEnabled) {
+            try {
+              console.log('🗣️ Sending agent response to avatar for speech:', agentResponse);
+              
+              // Try using the new streaming task API method first
+              if (typeof (avatarRef.current as any).sendTextToAvatarAPI === 'function') {
+                await (avatarRef.current as any).sendTextToAvatarAPI(agentResponse, 'sync', 'chat');
+                console.log('✅ Agent response sent to avatar via streaming task API');
+              } else if (typeof (avatarRef.current as any).sendN8nResponseToAvatarAPI === 'function') {
+                await (avatarRef.current as any).sendN8nResponseToAvatarAPI(agentResponse);
+                console.log('✅ Agent response sent to avatar via n8n response API');
+              } else {
+                // Fallback to original speak method
+                console.log('⚠️ Using fallback speak method for avatar');
+                (avatarRef.current as any).speak({
+                  text: agentResponse,
+                  taskType: "repeat" as any,
+                  taskMode: "sync" as any
+                });
+                console.log('✅ Agent response sent to avatar via fallback speak method');
+              }
+            } catch (error) {
+              console.error('❌ Error sending agent response to avatar:', error);
+              
+              // Don't break the chat flow if avatar speech fails
+              console.log('💬 Chat continues despite avatar speech error');
+            }
+          }
+          
           // Only log if there's an error or important state
           if (data.error) {
             setWebsocketLogs(prev => [...prev, {
@@ -504,33 +536,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
               data: data
             }]);
           }
-          
-          addMessage(agentMessage);
-          
-          // Agent message will be saved by backend - no need to save here
-          
-          // Speak with avatar if enabled
-          if (avatarRef.current && videoEnabled && voiceEnabled) {
-            try {
-              avatarRef.current.speak({
-                text: agentResponse,
-                taskType: "talk" as any,
-                taskMode: 1 as any
-              });
-            } catch (error) {
-              console.error('Error speaking with avatar:', error);
-            }
-          }
         }
-        break;
-        
-      case 'error':
-        setWebsocketLogs(prev => [...prev, {
-          timestamp: new Date(),
-          type: 'error',
-          message: `Error: ${data.message}`,
-          data: data
-        }]);
         break;
     }
   };
