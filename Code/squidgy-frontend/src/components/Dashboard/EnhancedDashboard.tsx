@@ -1403,14 +1403,22 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                 <MessageSquare size={16} />
               </button>
               <button
-                onClick={() => setVoiceEnabled(!voiceEnabled)}
-                className={`p-2 rounded ${voiceEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}
-              >
-                <Mic size={16} />
-              </button>
-              <button
-                onClick={() => setVideoEnabled(!videoEnabled)}
+                onClick={() => {
+                  if (videoEnabled) {
+                    // Disable avatar
+                    setVideoEnabled(false);
+                    console.log('🎥 Avatar disabled by user');
+                  } else {
+                    // Enable and restart avatar
+                    console.log('🔄 Restarting avatar via video button');
+                    setAvatarError(null);
+                    setAvatarReady(false);
+                    setVideoEnabled(true);
+                    setRetryTrigger(prev => prev + 1); // Trigger avatar restart
+                  }
+                }}
                 className={`p-2 rounded ${videoEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}
+                title={videoEnabled ? 'Disable Avatar' : 'Enable & Restart Avatar'}
               >
                 <Video size={16} />
               </button>

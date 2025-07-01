@@ -9,7 +9,7 @@ import StreamingAvatar, {
   VoiceEmotion,
 } from "@heygen/streaming-avatar";
 import { getHeygenAvatarId, getFallbackAvatar, getValidatedAvatarId } from '@/config/agents';
-import { sendTextToAvatar, sendN8nResponseToAvatar, validateSessionId } from '@/services/heygenService';
+// HeyGen service functions removed - avatar speech now uses SDK speak method directly
 
 // Define VoiceChatTransport enum locally since it may not be exported
 enum VoiceChatTransport {
@@ -654,13 +654,12 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   // Handle manual retry when retryTrigger changes
   // Manual retry effect - only triggers on explicit user retry button clicks
   useEffect(() => {
-    // Only proceed if retry was explicitly triggered, avatar has failed, and we haven't processed this retry yet
+    // Only proceed if retry was explicitly triggered and we haven't processed this retry yet
     if (retryTrigger > 0 && 
-        avatarFailed && 
         !initializationInProgressRef.current && 
         retryTrigger > lastRetryTriggerRef.current) {
       
-      console.log(`🔄 Manual retry triggered (#${retryTrigger}) - resetting avatar failed state`);
+      console.log(`🔄 Manual retry triggered (#${retryTrigger}) - ${avatarFailed ? 'resetting failed state' : 'forcing restart'}`);
       
       // Track this retry attempt to prevent duplicates
       lastRetryTriggerRef.current = retryTrigger;
@@ -816,8 +815,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         taskType
       });
 
-      // Stop voice chat before avatar speaks to prevent feedback
-      await stopVoiceChat();
+      // Skip stopping voice chat since it's disabled and never started
+      console.log('🔇 Voice chat stop skipped - voice chat is disabled');
 
       // 🚫 HeyGen service is disabled, use SDK speak method directly
       console.log('🔄 Using SDK speak method (HeyGen service disabled)');
@@ -886,8 +885,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         responseLength: n8nResponse.length
       });
 
-      // Stop voice chat before avatar speaks to prevent feedback
-      await stopVoiceChat();
+      // Skip stopping voice chat since it's disabled and never started
+      console.log('🔇 Voice chat stop skipped - voice chat is disabled');
 
       // Use 'chat' task type for n8n responses as they are conversational
       const result = await sendTextToAvatarAPI(n8nResponse, 'sync', 'chat');
@@ -953,16 +952,12 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       return;
     }
 
-    try {
-      console.log('🎙️ Restarting voice chat after avatar speech');
-      
-      // @ts-ignore - startVoiceChat method exists but may not be in type definition
-      await localAvatarRef.current.startVoiceChat();
-      voiceChatActiveRef.current = true;
-      console.log('✅ Voice chat restarted successfully');
-    } catch (error) {
-      console.error('❌ Failed to restart voice chat:', error);
-    }
+    // 🚫 Voice chat restart disabled - avatar should not listen to user voice
+    console.log('🚫 Voice chat restart disabled - avatar will not listen to user voice');
+    voiceChatActiveRef.current = false;
+
+    // Note: Avatar will only speak responses, not listen to voice input
+    // Voice-to-text is handled separately by SpeechToText component
   }, []);
 
   // Expose methods via ref if provided
