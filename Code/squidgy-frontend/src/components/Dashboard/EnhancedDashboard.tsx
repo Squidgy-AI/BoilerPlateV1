@@ -1,7 +1,7 @@
 // src/components/Dashboard/EnhancedDashboard.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
 import { AGENT_CONFIG, updateAgentEnabledStatus, restoreAgentEnabledStatus, getEnabledAgents } from '@/config/agents';
 import { 
@@ -28,6 +28,7 @@ import StreamingAvatar from "@heygen/streaming-avatar";
 import WebSocketDebugger from '../WebSocketDebugger';
 import AgentGreeting from '../AgentGreeting';
 import SquidgyLogo from '../Auth/SquidgyLogo';
+import SpeechToText from '../SpeechToText';
 import MessageContent from '../Chat/MessageContent';
 import EnableAgentPrompt from '../EnableAgentPrompt';
 import SolarAgentSetup from '../SolarAgentSetup';
@@ -91,6 +92,11 @@ const EnhancedDashboard: React.FC = () => {
   // Solar Agent setup functionality
   const [showSolarSetup, setShowSolarSetup] = useState(false);
   const [solarConfigCompleted, setSolarConfigCompleted] = useState(false);
+  
+  // Voice input settings - simplified to always auto-send
+  const [voiceInputEnabled, setVoiceInputEnabled] = useState(true);
+  const [lastVoiceMessage, setLastVoiceMessage] = useState('');
+  const voiceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
 // src/components/Dashboard/EnhancedDashboard.tsx
 const [agents, setAgents] = useState(getEnabledAgents());
@@ -1602,13 +1608,93 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
                     }}
                   />
-                  <button
-                    onClick={sendMessage}
+                  <SpeechToText
+                    onTranscript={(text) => {
+                      console.log('🎤 Voice transcript received:', text);
+                      
+                      if (!text.trim()) {
+                        console.log('🎤 Empty transcript, ignoring');
+                        return;
+                      }
+                      
+                      // Check if this is the same message as last time (prevent duplicates)
+                      if (text.trim() === lastVoiceMessage) {
+                        console.log('🎤 Duplicate message detected, ignoring:', text);
+                        return;
+                      }
+                      
+                      // Set the message in the text area
+                      setInputMessage(text);
+                      console.log('🎤 Message set in input field:', text);
+                      
+                      // Clear any existing timeout
+                      if (voiceTimeoutRef.current) {
+                        clearTimeout(voiceTimeoutRef.current);
+                      }
+                      
+                      // Mark this message as sent to prevent duplicates
+                      setLastVoiceMessage(text.trim());
+                      
+                      // Debounce the message sending to prevent duplicates
+                      voiceTimeoutRef.current = setTimeout(async () => {
+                        console.log('🎤 Auto-sending voice message directly:', text);
+                        
+                        // Send voice message directly without relying on inputMessage state
+                        if (!text.trim() || !websocket || !selectedAgent) {
+                          console.log('🚨 Cannot send voice message:', { text: text.trim(), websocket: !!websocket, selectedAgent: !!selectedAgent });
+                          return;
+                        }
+                        
+                        try {
+                          // Use the agent's persistent session, or create one if it doesn't exist
+                          let sessionId = currentSessionId;
+                          if (!sessionId) {
+                            sessionId = agentSessions[selectedAgent.id];
+                            if (!sessionId) {
+                              sessionId = `${profile?.user_id}_${selectedAgent.id}_${Date.now()}`;
+                              setAgentSessions(prev => ({ ...prev, [selectedAgent.id]: sessionId }));
+                            }
+                            setCurrentSessionId(sessionId);
+                          }
+                          
+                          const userMessage = text.trim();
+                          console.log('🎤 Sending voice message:', userMessage, 'Session ID:', sessionId);
+                          
+                          // Add user message to UI and cache
+                          addMessage({ sender: 'user', text: userMessage, timestamp: new Date().toISOString() });
+                          
+                          // Send via WebSocket
+                          const agentName = selectedAgent.agent_name || selectedAgent.id;
+                          console.log(`🎯 Sending voice message with agent: ${agentName}`);
+                          await websocket.sendMessage(userMessage, undefined, agentName);
+                          
+                          // Clear input and set thinking state
+                          setInputMessage('');
+                          setAgentThinking('AI is thinking...');
+                          
+                          console.log('✅ Voice message sent successfully');
+                        } catch (error) {
+                          console.error('🚨 Failed to send voice message:', error);
+                          setWebsocketLogs(prev => [...prev, {
+                            timestamp: new Date(),
+                            type: 'error',
+                            message: `Failed to send voice message: ${error}`,
+                            data: error
+                          }]);
+                        }
+                      }, 1000); // 1 second debounce to prevent duplicates
+                    }}
+                    onError={(error) => {
+                      console.error('🚨 Speech recognition error:', error);
+                      // Could show a toast notification here
+                    }}
                     disabled={!textEnabled || chatDisabled}
-                    className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-r-lg transition-colors disabled:opacity-50 min-h-[42px] flex items-center border border-l-0 border-gray-600"
-                  >
-                    <Send size={16} />
-                  </button>
+                    className="border-l-0 border-r-0 border-gray-600"
+                    continuous={false}
+                    interimResults={true}
+                    language="en-US"
+                  />
+
                 </div>
               </div>
             </div>
