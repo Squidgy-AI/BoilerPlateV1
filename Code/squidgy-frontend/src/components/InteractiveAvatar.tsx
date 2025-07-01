@@ -426,16 +426,22 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
         console.log("WebSocket stabilization period complete");
         
+        // 🚫 Avatar voice chat is temporarily disabled
         // Start voice chat after stabilization
-        try {
-          console.log("🎙️ Starting voice chat...");
-          // @ts-ignore - startVoiceChat method exists but may not be in type definition
-          await avatar.startVoiceChat();
-          voiceChatActiveRef.current = true;
-          console.log("✅ Voice chat started successfully");
-        } catch (voiceError) {
-          console.warn("⚠️ Voice chat failed to start (will retry later):", voiceError);
-          // Don't fail the entire initialization if voice chat fails
+        if (false) {
+          try {
+            console.log("🎙️ Starting voice chat...");
+            // @ts-ignore - startVoiceChat method exists but may not be in type definition
+            await avatar.startVoiceChat();
+            voiceChatActiveRef.current = true;
+            console.log("✅ Voice chat started successfully");
+          } catch (voiceError) {
+            console.warn("⚠️ Voice chat failed to start (will retry later):", voiceError);
+            // Don't fail the entire initialization if voice chat fails
+          }
+        } else {
+          console.log("🚫 Avatar voice chat is disabled - avatar will not listen to voice input");
+          voiceChatActiveRef.current = false;
         }
         
       } catch (error) {
@@ -813,63 +819,54 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       // Stop voice chat before avatar speaks to prevent feedback
       await stopVoiceChat();
 
-      const result = await sendTextToAvatar(sessionId, text, taskMode, taskType);
+      // 🚫 HeyGen service is disabled, use SDK speak method directly
+      console.log('🔄 Using SDK speak method (HeyGen service disabled)');
       
-      if (result) {
-        console.log('✅ Text sent to avatar successfully:', {
-          taskId: result.task_id,
-          duration: result.duration_ms + 'ms'
-        });
-        
-        // Update activity to prevent idle timeout during speech
-        updateActivity();
-        
-        // Restart voice chat after avatar finishes speaking
-        // Add a small delay to ensure avatar speech has started
-        setTimeout(async () => {
-          await restartVoiceChat();
-        }, 1000);
-        
-        // Call the callback if provided
-        if (onTextToSpeech) {
-          await onTextToSpeech(text);
-        }
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('❌ Failed to send text to avatar:', error);
-      
-      // Try fallback to SDK speak method if available
       if (localAvatarRef.current) {
         try {
-          console.log('🔄 Falling back to SDK speak method');
           // @ts-ignore - speak method may not be in type definition
           await localAvatarRef.current.speak({
             text: text,
             taskType: TaskType.REPEAT, // Only REPEAT is available in TaskType enum
             taskMode: taskMode === 'async' ? TaskMode.ASYNC : TaskMode.SYNC
           });
-          console.log('✅ Fallback speak method succeeded');
+          
+          console.log('✅ SDK speak method succeeded');
           updateActivity();
           
-          // Restart voice chat after fallback speech
+          // Restart voice chat after speech
           setTimeout(async () => {
             await restartVoiceChat();
           }, 1000);
           
-          return { task_id: 'fallback', duration_ms: 0 };
-        } catch (fallbackError) {
-          console.error('❌ Fallback speak method also failed:', fallbackError);
+          // Call the callback if provided
+          if (onTextToSpeech) {
+            await onTextToSpeech(text);
+          }
+          
+          return { task_id: 'sdk_speak', duration_ms: 0 };
+        } catch (speakError) {
+          console.error('❌ SDK speak method failed:', speakError);
+          // Continue to restart voice chat even if speech fails
         }
+      } else {
+        console.error('❌ No avatar reference available for speech');
       }
       
-      // Ensure voice chat is restarted even if all speech methods fail
+      // Ensure voice chat is restarted even if speech fails
       await restartVoiceChat();
+      return null;
       
+    } catch (error) {
+      console.error('❌ Failed to send text to avatar:', error);
+      
+      // Ensure voice chat is restarted even on error
+      await restartVoiceChat();
       return null;
     }
   }, [sessionId, sessionActive, updateActivity, onTextToSpeech]);
+
+
 
   /**
    * Send n8n response text to avatar for speech

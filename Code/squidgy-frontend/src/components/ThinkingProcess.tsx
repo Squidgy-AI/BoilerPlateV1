@@ -171,9 +171,9 @@ const ThinkingProcess: React.FC<ThinkingProcessProps> = ({
               {step.status === 'thinking' && currentAgent === step.agent && (
                 <div className="w-full h-1 bg-gray-700 rounded-full mt-2 overflow-hidden">
                   <div 
-                    className="h-full bg-blue-500 rounded-full"
+                    className="h-full bg-blue-500 rounded-full animate-pulse"
                     style={{ 
-                      width: `${Math.random() * 50 + 30}%`,
+                      width: '60%',
                       animation: 'pulse 1.5s infinite'
                     }}
                   ></div>

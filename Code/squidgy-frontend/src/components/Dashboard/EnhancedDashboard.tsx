@@ -471,8 +471,9 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
               
               // Agent message will be saved by backend - no need to save here
               
+              // 🚫 Avatar speech is temporarily disabled
               // Speak with avatar if enabled
-              if (avatarRef.current && videoEnabled && voiceEnabled) {
+              if (false && avatarRef.current && videoEnabled && voiceEnabled) {
                 try {
                   avatarRef.current.speak({
                     text: transitionMessage.text,
@@ -482,6 +483,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                 } catch (error) {
                   console.error('Error speaking with avatar:', error);
                 }
+              } else {
+                console.log('🚫 Avatar speech is disabled - agent transition will not be spoken');
               }
               
               return; // Exit early since we handled the switch
@@ -503,7 +506,15 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
           
           addMessage(agentMessage);
           
+          // 🎯 Avatar will read n8n responses (but not listen to voice directly)
           // Send agent response to avatar for speech if enabled
+          console.log('🔍 Avatar speech check:', {
+            avatarExists: !!avatarRef.current,
+            videoEnabled,
+            voiceEnabled,
+            agentResponseLength: agentResponse?.length
+          });
+          
           if (avatarRef.current && videoEnabled && voiceEnabled) {
             try {
               console.log('🗣️ Sending agent response to avatar for speech:', agentResponse);
@@ -531,6 +542,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
               // Don't break the chat flow if avatar speech fails
               console.log('💬 Chat continues despite avatar speech error');
             }
+          } else {
+            console.log('🚫 Avatar speech is disabled (video/voice not enabled) - agent response will not be spoken');
           }
           
           // Only log if there's an error or important state
