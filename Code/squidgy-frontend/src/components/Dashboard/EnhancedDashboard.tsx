@@ -874,6 +874,54 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     setAgentThinking('AI is thinking...');
   };
   
+  // Function to send speech message directly without state dependency
+  const sendSpeechMessage = async (speechText: string) => {
+    if (!speechText.trim() || !websocket || !selectedAgent) {
+      console.log('Cannot send speech message:', { speechText: speechText.trim(), websocket: !!websocket, selectedAgent: !!selectedAgent });
+      return;
+    }
+    
+    // Use the agent's persistent session, or create one if it doesn't exist
+    let sessionId = currentSessionId;
+    if (!sessionId) {
+      sessionId = agentSessions[selectedAgent.id];
+      if (!sessionId) {
+        sessionId = `${profile?.user_id}_${selectedAgent.id}_${Date.now()}`;
+        setAgentSessions(prev => ({ ...prev, [selectedAgent.id]: sessionId }));
+      }
+      setCurrentSessionId(sessionId);
+      console.log(`Using session for agent: ${selectedAgent.name}`);
+    }
+    
+    const userMessage = speechText.trim();
+    console.log('🎤 Sending speech message:', userMessage, 'Session ID:', sessionId);
+    
+    // Add user message to UI and cache
+    addMessage({ sender: 'user', text: userMessage, timestamp: new Date().toISOString() });
+    
+    // Send via WebSocket
+    console.log('WebSocket status:', websocket.getStatus(), 'Connection state:', connectionStatus);
+    
+    try {
+      // Pass the selected agent's agent_name to WebSocket
+      const agentName = selectedAgent.agent_name || selectedAgent.id;
+      console.log(`🎯 Sending speech message with agent: ${agentName} (selected agent: ${selectedAgent.name})`);
+      await websocket.sendMessage(userMessage, undefined, agentName);
+    } catch (error) {
+      console.error('Failed to send speech message:', error);
+      setWebsocketLogs(prev => [...prev, {
+        timestamp: new Date(),
+        type: 'error',
+        message: `Failed to send speech message: ${error}`,
+        data: error
+      }]);
+    }
+    
+    // Clear input field and set thinking state
+    setInputMessage('');
+    setAgentThinking('AI is thinking...');
+  };
+  
   // Speech recognition handlers for microphone button
   const toggleListening = () => {
     if (!voiceEnabled) return;
@@ -915,7 +963,11 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       }
       
       if (finalTranscript) {
-        setInputMessage(prev => prev + finalTranscript);
+        const speechText = finalTranscript.trim();
+        if (speechText) {
+          // Send the speech text directly without relying on state
+          sendSpeechMessage(speechText);
+        }
       }
     };
 
