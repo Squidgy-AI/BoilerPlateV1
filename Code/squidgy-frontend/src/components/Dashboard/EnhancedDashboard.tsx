@@ -8,7 +8,6 @@ import {
   User, 
   Users, 
   Bot, 
-  MessageSquare, 
   Send, 
   Video, 
   Mic, 
@@ -97,6 +96,11 @@ const EnhancedDashboard: React.FC = () => {
   const [voiceInputEnabled, setVoiceInputEnabled] = useState(true);
   const [lastVoiceMessage, setLastVoiceMessage] = useState('');
   const voiceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Speech recognition state for microphone button
+  const [isListening, setIsListening] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
   
 // src/components/Dashboard/EnhancedDashboard.tsx
 const [agents, setAgents] = useState(getEnabledAgents());
@@ -870,6 +874,78 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     setAgentThinking('AI is thinking...');
   };
   
+  // Speech recognition handlers for microphone button
+  const toggleListening = () => {
+    if (!voiceEnabled) return;
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+      setSpeechError(null);
+    } else {
+      startSpeechRecognition();
+    }
+  };
+
+  const startSpeechRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechError('Speech recognition not supported');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setSpeechError(null);
+    };
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        }
+      }
+      
+      if (finalTranscript) {
+        setInputMessage(prev => prev + finalTranscript);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+      
+      switch (event.error) {
+        case 'no-speech':
+          setSpeechError('No speech detected');
+          break;
+        case 'audio-capture':
+          setSpeechError('Microphone not accessible');
+          break;
+        case 'not-allowed':
+          setSpeechError('Microphone access denied');
+          break;
+        default:
+          setSpeechError('Speech recognition error');
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+  
   // Handle avatar ready callback
   const handleAvatarReady = useCallback(() => {
     console.log("🎯 Avatar ready callback received - hiding loading indicator");
@@ -1296,7 +1372,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                 onClick={handleNewSession}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center"
               >
-                <MessageSquare size={16} className="mr-2" />
+                <Send size={16} className="mr-2" />
                 New Chat
               </button>
             )}
@@ -1396,12 +1472,6 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
             
             {/* Control Buttons */}
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setTextEnabled(!textEnabled)}
-                className={`p-2 rounded ${textEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}
-              >
-                <MessageSquare size={16} />
-              </button>
               <button
                 onClick={() => {
                   if (videoEnabled) {
@@ -1513,6 +1583,32 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                           <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
                           {agentThinking}
                         </div>
+                      </div>
+                    )}
+                    
+                    {/* Microphone Button - Floating at bottom center of avatar */}
+                    {videoEnabled && !avatarError && (
+                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30">
+                        {speechError && (
+                          <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                            {speechError}
+                          </div>
+                        )}
+                        <button
+                          onClick={toggleListening}
+                          disabled={!voiceEnabled}
+                          className={`
+                            w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg
+                            ${isListening 
+                              ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' 
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                            }
+                            ${!voiceEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
+                          `}
+                          title={isListening ? 'Stop listening' : 'Start voice input'}
+                        >
+                          <Mic size={20} />
+                        </button>
                       </div>
                     )}
                   </>
@@ -1629,93 +1725,6 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
                     }}
                   />
-                  <SpeechToText
-                    onTranscript={(text) => {
-                      console.log('🎤 Voice transcript received:', text);
-                      
-                      if (!text.trim()) {
-                        console.log('🎤 Empty transcript, ignoring');
-                        return;
-                      }
-                      
-                      // Check if this is the same message as last time (prevent duplicates)
-                      if (text.trim() === lastVoiceMessage) {
-                        console.log('🎤 Duplicate message detected, ignoring:', text);
-                        return;
-                      }
-                      
-                      // Set the message in the text area
-                      setInputMessage(text);
-                      console.log('🎤 Message set in input field:', text);
-                      
-                      // Clear any existing timeout
-                      if (voiceTimeoutRef.current) {
-                        clearTimeout(voiceTimeoutRef.current);
-                      }
-                      
-                      // Mark this message as sent to prevent duplicates
-                      setLastVoiceMessage(text.trim());
-                      
-                      // Debounce the message sending to prevent duplicates
-                      voiceTimeoutRef.current = setTimeout(async () => {
-                        console.log('🎤 Auto-sending voice message directly:', text);
-                        
-                        // Send voice message directly without relying on inputMessage state
-                        if (!text.trim() || !websocket || !selectedAgent) {
-                          console.log('🚨 Cannot send voice message:', { text: text.trim(), websocket: !!websocket, selectedAgent: !!selectedAgent });
-                          return;
-                        }
-                        
-                        try {
-                          // Use the agent's persistent session, or create one if it doesn't exist
-                          let sessionId = currentSessionId;
-                          if (!sessionId) {
-                            sessionId = agentSessions[selectedAgent.id];
-                            if (!sessionId) {
-                              sessionId = `${profile?.user_id}_${selectedAgent.id}_${Date.now()}`;
-                              setAgentSessions(prev => ({ ...prev, [selectedAgent.id]: sessionId }));
-                            }
-                            setCurrentSessionId(sessionId);
-                          }
-                          
-                          const userMessage = text.trim();
-                          console.log('🎤 Sending voice message:', userMessage, 'Session ID:', sessionId);
-                          
-                          // Add user message to UI and cache
-                          addMessage({ sender: 'user', text: userMessage, timestamp: new Date().toISOString() });
-                          
-                          // Send via WebSocket
-                          const agentName = selectedAgent.agent_name || selectedAgent.id;
-                          console.log(`🎯 Sending voice message with agent: ${agentName}`);
-                          await websocket.sendMessage(userMessage, undefined, agentName);
-                          
-                          // Clear input and set thinking state
-                          setInputMessage('');
-                          setAgentThinking('AI is thinking...');
-                          
-                          console.log('✅ Voice message sent successfully');
-                        } catch (error) {
-                          console.error('🚨 Failed to send voice message:', error);
-                          setWebsocketLogs(prev => [...prev, {
-                            timestamp: new Date(),
-                            type: 'error',
-                            message: `Failed to send voice message: ${error}`,
-                            data: error
-                          }]);
-                        }
-                      }, 1000); // 1 second debounce to prevent duplicates
-                    }}
-                    onError={(error) => {
-                      console.error('🚨 Speech recognition error:', error);
-                      // Could show a toast notification here
-                    }}
-                    disabled={!textEnabled || chatDisabled}
-                    className="border-l-0 border-r-0 border-gray-600"
-                    continuous={false}
-                    interimResults={true}
-                    language="en-US"
-                  />
-
                 </div>
               </div>
             </div>

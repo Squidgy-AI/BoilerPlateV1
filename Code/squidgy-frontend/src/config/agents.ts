@@ -22,7 +22,9 @@ export const AGENT_CONFIG: Agent[] = [
     description: 'Your intelligent personal assistant for all needs',
     // heygenAvatarId: '413a244b053949f39e8ab50099a895ea', // Original avatar ID - NOT FOUND ERROR
     // heygenAvatarId: 'Wayne_20240711', // May not be available
-    heygenAvatarId: 'josh_lite3_20230714', // HeyGen's default public avatar
+    // heygenAvatarId: 'josh_lite3_20230714', // HeyGen's default public avatar
+    // heygenAvatarId: 'Graham_Black_Shirt_public', // without background
+    heygenAvatarId: 'Judy_Lawyer_Sitting2_public', // with background
     fallbackAvatar: '/avatars/personal-assistant-fallback.jpg',
     agent_name: 'PersonalAssistant',
     introMessage: "Hi! I'm your Personal Assistant Bot. I help with various tasks, answer questions, and provide assistance with anything you need.",
