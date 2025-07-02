@@ -80,11 +80,11 @@ const SpeechToText: React.FC<SpeechToTextProps> = ({
         // Update interim text for real-time display
         setInterimText(interimTranscript);
 
-        // If we have final results, send them
+        // If we have final results, accumulate them but don't send yet
         if (finalTranscript) {
           finalTranscriptRef.current += finalTranscript;
-          console.log('🗣️ Final transcript:', finalTranscript);
-          onTranscript(finalTranscript.trim());
+          console.log('🗣️ Final transcript part:', finalTranscript);
+          // Don't send yet - wait for recognition to end
         }
       };
 

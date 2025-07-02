@@ -45,6 +45,11 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   const [selectedAvatarId, setSelectedAvatarId] = useState('Anna_public_3_20240108');
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
   
+  // Speech-to-text state
+  const [isListening, setIsListening] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<any>(null);
@@ -456,6 +461,114 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
     }
   };
   
+  // Speech-to-text handlers
+  const handleSpeechTranscript = (transcript: string) => {
+    console.log('🎤 Speech transcript received:', transcript);
+    
+    // Add transcript to current message
+    setNewMessage(prev => {
+      const newText = prev ? `${prev} ${transcript}` : transcript;
+      return newText.trim();
+    });
+    
+    // Clear any speech errors
+    setSpeechError(null);
+  };
+  
+  const handleSpeechError = (error: string) => {
+    console.error('🎤 Speech recognition error:', error);
+    setSpeechError(error);
+    setIsListening(false);
+  };
+  
+  const toggleListening = () => {
+    if (!voiceEnabled) return;
+    
+    if (isListening) {
+      // Stop listening
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+      setSpeechError(null);
+    } else {
+      // Start listening
+      startSpeechRecognition();
+    }
+  };
+  
+  const startSpeechRecognition = () => {
+    // Check browser support
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechError('Speech recognition not supported');
+      return;
+    }
+    
+    // Create recognition instance
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    
+    recognition.onstart = () => {
+      console.log('🎤 Speech recognition started');
+      setIsListening(true);
+      setSpeechError(null);
+    };
+    
+    recognition.onresult = (event: any) => {
+      let finalTranscript = '';
+      
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        }
+      }
+      
+      if (finalTranscript) {
+        handleSpeechTranscript(finalTranscript);
+      }
+    };
+    
+    recognition.onerror = (event: any) => {
+      console.error('🚨 Speech recognition error:', event.error);
+      setIsListening(false);
+      
+      let errorMessage = 'Speech recognition error';
+      switch (event.error) {
+        case 'no-speech':
+          errorMessage = 'No speech detected';
+          break;
+        case 'audio-capture':
+          errorMessage = 'Microphone not available';
+          break;
+        case 'not-allowed':
+          errorMessage = 'Microphone access denied';
+          break;
+        default:
+          errorMessage = `Speech error: ${event.error}`;
+      }
+      setSpeechError(errorMessage);
+    };
+    
+    recognition.onend = () => {
+      console.log('🎤 Speech recognition ended');
+      setIsListening(false);
+    };
+    
+    recognitionRef.current = recognition;
+    
+    try {
+      recognition.start();
+    } catch (error) {
+      console.error('🚨 Error starting speech recognition:', error);
+      setSpeechError('Failed to start speech recognition');
+      setIsListening(false);
+    }
+  };
+  
   return (
     <div className="flex flex-col h-full bg-[#1E2A3B]">
       {/* Chat Header */}
@@ -541,6 +654,36 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
             voiceEnabled={voiceEnabled}
             avatarId={selectedAvatarId}
           />
+          
+          {/* Microphone Button - Centered at bottom of avatar frame */}
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+            <div className="relative">
+              <button
+                onClick={toggleListening}
+                disabled={!voiceEnabled}
+                className={`
+                  p-3 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center
+                  ${isListening 
+                    ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                  }
+                  ${!voiceEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
+                title={isListening ? 'Stop listening' : 'Start voice input'}
+              >
+                <Mic size={20} className="text-white" />
+              </button>
+              
+              {/* Speech Error Indicator */}
+              {speechError && (
+                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-red-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                  {speechError}
+                </div>
+              )}
+            </div>
+          </div>
+          
+
         </div>
       )}
       

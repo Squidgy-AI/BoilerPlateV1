@@ -1578,7 +1578,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                     )}
                     
                     {agentThinking && (
-                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
+                      <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg z-20">
                         <div className="flex items-center">
                           <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
                           {agentThinking}
