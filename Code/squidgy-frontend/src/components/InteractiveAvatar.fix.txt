@@ -1,0 +1,83 @@
+// HEYGEN AVATAR STREAMING FIXES
+// ===========================
+// This file contains the fixes for the WebSocket connection issues in the InteractiveAvatar component.
+// Apply these changes to the original file to fix the issues.
+
+// FIX 1: Add a delay before starting voice chat to ensure WebSocket connection is ready
+// Find the section where voice chat is started (around line 180) and replace with:
+
+if (voiceEnabled) {
+  // Wait for WebSocket connection to be fully established
+  console.log("⏱️ Waiting for WebSocket connection to be ready...");
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  try {
+    console.log("🎤 Starting voice chat...");
+    await actualAvatarRef.current?.startVoiceChat({
+      useSilencePrompt: false
+    });
+    console.log("✅ Voice chat started successfully");
+  } catch (error) {
+    console.error("❌ Failed to start voice chat:", error);
+  }
+}
+
+// FIX 2: Improve the stream-ready event handler to check if the initialization attempt is still valid
+// Find the stream-ready event handler in setupAvatarEventListeners function and replace with:
+
+safeAddEventListener(avatar, 'stream-ready', (event: any) => {
+  console.log("Stream ready:", event.detail);
+  
+  // Check if this is still the current initialization attempt
+  const currentAttempt = initializationAttemptRef.current;
+  if (currentAvatarIdRef.current === avatarId && currentSessionIdRef.current === sessionId) {
+    console.log(`✅ Stream ready for attempt #${currentAttempt}`);
+    setStream(event.detail);
+    // Reset retry counter when stream is successfully established
+    retryCountRef.current = 0;
+  } else {
+    console.log(`🚫 Stream ready for canceled attempt #${currentAttempt}`);
+  }
+});
+
+// FIX 3: Remove the duplicate endSession function
+// If you have a duplicate endSession function (around line 538), replace it with:
+
+// The endSession function is already defined above
+/* Removed duplicate endSession function to fix TypeScript error */
+
+// FIX 4: Add a retry counter and max retries variables if they don't exist
+// Add these at the top of the component with other refs:
+
+const retryCountRef = useRef<number>(0);
+const maxRetries = 2; // Maximum number of reconnection attempts
+
+// FIX 5: Improve the stream-disconnected event handler to handle reconnection properly
+// Find the stream-disconnected event handler and replace with:
+
+safeAddEventListener(avatar, 'stream-disconnected', (event: any) => {
+  console.log("⚠️ Stream disconnected:", event);
+  
+  // Only attempt reconnection if this is the current avatar session
+  if (currentAvatarIdRef.current === avatarId && currentSessionIdRef.current === sessionId) {
+    if (retryCountRef.current < maxRetries) {
+      retryCountRef.current++;
+      console.log(`🔄 Attempting reconnection ${retryCountRef.current}/${maxRetries}...`);
+      
+      // Wait a bit before reconnecting to avoid rapid reconnection attempts
+      setTimeout(() => {
+        if (actualAvatarRef.current) {
+          console.log("🔄 Reconnecting avatar stream...");
+          startAvatarSession().catch(error => {
+            console.error("❌ Reconnection failed:", error);
+          });
+        }
+      }, 2000);
+    } else {
+      console.log("❌ Maximum retry attempts reached. Giving up.");
+      handleAvatarFailure("Maximum reconnection attempts reached");
+    }
+  } else {
+    console.log("🚫 Ignoring disconnection for outdated session");
+  }
+});

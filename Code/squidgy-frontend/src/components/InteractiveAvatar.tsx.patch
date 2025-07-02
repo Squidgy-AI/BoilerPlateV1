@@ -1,0 +1,11 @@
+// MANUAL FIX INSTRUCTIONS:
+// 1. Open InteractiveAvatar.tsx in your editor
+// 2. Find the second implementation of endSession function (around line 523)
+// 3. Replace the entire second endSession function (lines 523-621) with this comment:
+
+  // The endSession function is already defined above
+  /* Removed duplicate endSession function to fix TypeScript error */
+
+// 4. Save the file and restart the development server
+
+// This will fix the duplicate function error and should resolve the build issues

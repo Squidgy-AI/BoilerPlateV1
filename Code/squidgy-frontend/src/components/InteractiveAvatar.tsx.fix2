@@ -1,0 +1,82 @@
+// MANUAL FIX INSTRUCTIONS FOR HEYGEN AVATAR WEBSOCKET ISSUES
+
+// 1. First, fix the duplicate endSession function:
+// Find the second implementation of endSession function (around line 538)
+// Replace the entire second endSession function (lines 538-642) with:
+/*
+  // The endSession function is already defined above
+  /* Removed duplicate endSession function to fix TypeScript error */
+*/
+
+// 2. Add WebSocket connection state check in setupAvatarEventListeners function:
+// Find the setupAvatarEventListeners function (around line 445)
+// After the line "console.log("Setting up avatar event listeners");" add:
+
+/*
+    // Add a connection readiness check
+    let wsCheckAttempts = 0;
+    const wsCheckInterval = setInterval(() => {
+      if (!actualAvatarRef.current) {
+        clearInterval(wsCheckInterval);
+        return;
+      }
+      
+      wsCheckAttempts++;
+      console.log(`Checking WebSocket connection state (attempt ${wsCheckAttempts})...`);
+      
+      // After 10 attempts (5 seconds), stop checking
+      if (wsCheckAttempts >= 10) {
+        console.log("Stopped checking WebSocket connection state");
+        clearInterval(wsCheckInterval);
+      }
+    }, 500);
+    
+    // Clean up interval on component unmount
+    useEffect(() => {
+      return () => {
+        if (wsCheckInterval) {
+          clearInterval(wsCheckInterval);
+        }
+      };
+    }, []);
+*/
+
+// 3. Fix initialization cancellation issues:
+// In the stream-ready event handler (around line 470), add a check:
+
+/*
+    safeAddEventListener(avatar, 'stream-ready', (event: any) => {
+      console.log("Stream ready:", event.detail);
+      
+      // Check if this is still the current initialization attempt
+      const currentAttempt = initializationAttemptRef.current;
+      if (currentAvatarIdRef.current === avatarId && currentSessionIdRef.current === sessionId) {
+        console.log(`✅ Stream ready for attempt #${currentAttempt}`);
+        setStream(event.detail);
+        // Reset retry counter when stream is successfully established
+        retryCountRef.current = 0;
+      } else {
+        console.log(`🚫 Stream ready for canceled attempt #${currentAttempt}`);
+      }
+    });
+*/
+
+// 4. Add a delay before sending data over WebSocket:
+// In the startAvatarSession function, after initializing the avatar but before calling startVoiceChat,
+// add a small delay:
+
+/*
+    // Wait for WebSocket connection to be fully established
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Now start voice chat when WebSocket is likely ready
+    if (actualAvatarRef.current) {
+      try {
+        await actualAvatarRef.current.startVoiceChat({
+          // existing options...
+        });
+      } catch (error) {
+        console.error("Failed to start voice chat:", error);
+      }
+    }
+*/

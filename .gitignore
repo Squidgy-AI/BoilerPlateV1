@@ -160,3 +160,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 Code/squidgy-backend_host/app/~$conversation_templates.xlsx
+Code/testing files/node_modules
+Code/testing files/InteractiveAvatarNextJSDemo
+node_modules/
