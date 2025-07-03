@@ -168,7 +168,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     
     if (selectedAgent?.id === 'SOLAgent') {
       console.log('🌞 Solar Sales Specialist detected on agent change, checking configuration...');
-      checkSolarAgentSetup();
+      console.log('🔍 About to call checkSolarAgentSetup()');
+      checkSolarAgentSetup().catch(err => {
+        console.error('❌ checkSolarAgentSetup failed:', err);
+        setShowSolarSetup(true);
+        setSolarConfigCompleted(false);
+      });
     } else {
       console.log('🚫 Not Solar Agent, hiding setup');
       setShowSolarSetup(false);
@@ -659,7 +664,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       // Check if this is the Solar Sales Specialist and show setup if needed
       if (agent.id === 'SOLAgent') {
         console.log('🌞 Solar Sales Specialist selected, checking configuration...');
-        checkSolarAgentSetup();
+        console.log('🔍 About to call checkSolarAgentSetup() from handleAgentSelect');
+        checkSolarAgentSetup().catch(err => {
+          console.error('❌ checkSolarAgentSetup failed in handleAgentSelect:', err);
+          setShowSolarSetup(true);
+          setSolarConfigCompleted(false);
+        });
       } else {
         setShowSolarSetup(false);
       }
@@ -1031,6 +1041,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       }
 
       console.log('🔍 Checking solar agent setup for user:', userIdResult.user_id);
+
+      // TEMPORARY: Force setup to show while debugging database issues
+      console.log('🔧 TEMPORARILY FORCING SETUP TO SHOW FOR DEBUGGING');
+      setShowSolarSetup(true);
+      setSolarConfigCompleted(false);
+      return;
 
       // Check if Solar Agent has completed setup in database
       const { data: setupData, error } = await supabase
