@@ -1032,14 +1032,6 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
 
       console.log('🔍 Checking solar agent setup for user:', userIdResult.user_id);
 
-      // TEMPORARY FIX: Force setup to show until database permissions are fixed
-      console.log('🔧 FORCING SETUP TO SHOW (temporary fix for database permissions)');
-      setShowSolarSetup(true);
-      setSolarConfigCompleted(false);
-      return;
-
-      // TODO: Re-enable after running fix_agent_setup_permissions.sql
-      /*
       // Check if Solar Agent has completed setup in database
       const { data: setupData, error } = await supabase
         .from('squidgy_agent_business_setup')
@@ -1063,7 +1055,6 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         setShowSolarSetup(true);
         setSolarConfigCompleted(false);
       }
-      */
     } catch (error) {
       console.error('Error checking solar agent setup:', error);
       setShowSolarSetup(true);
