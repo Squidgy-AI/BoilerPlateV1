@@ -1061,17 +1061,13 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     });
   };
 
-  // Initialize agent enabled status from localStorage on mount
-  useEffect(() => {
-    restoreAgentEnabledStatus();
-    setAgents(getEnabledAgents()); // Update with restored status
-  }, []);
+  // Agent enabled status is now handled by database loading in loadAgentsFromDatabase
   
   // Listen for agent updates and refresh agents list
   useEffect(() => {
     const handleAgentUpdate = () => {
       console.log('Agent update event received in Dashboard, refreshing agents list');
-      setAgents(getEnabledAgents()); // Force re-render with updated config
+      loadAgentsFromDatabase(); // Reload from database instead of local files
     };
     
     window.addEventListener('agentUpdated', handleAgentUpdate);
