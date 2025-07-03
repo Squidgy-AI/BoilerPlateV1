@@ -168,17 +168,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     
     if (selectedAgent?.id === 'SOLAgent') {
       console.log('🌞 Solar Sales Specialist detected on agent change, checking configuration...');
-      const hasSolarConfig = localStorage.getItem('solarBusinessConfig');
-      console.log('📁 localStorage solarBusinessConfig:', hasSolarConfig ? 'exists' : 'not found');
-      console.log('✅ solarConfigCompleted state:', solarConfigCompleted);
-      
-      if (!hasSolarConfig && !solarConfigCompleted) {
-        console.log('🔧 No solar configuration found on agent change, showing setup...');
-        setShowSolarSetup(true);
-      } else {
-        console.log('✅ Solar configuration exists or completed on agent change');
-        setShowSolarSetup(false);
-      }
+      checkSolarAgentSetup();
     } else {
       console.log('🚫 Not Solar Agent, hiding setup');
       setShowSolarSetup(false);
@@ -669,14 +659,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       // Check if this is the Solar Sales Specialist and show setup if needed
       if (agent.id === 'SOLAgent') {
         console.log('🌞 Solar Sales Specialist selected, checking configuration...');
-        const hasSolarConfig = localStorage.getItem('solarBusinessConfig');
-        if (!hasSolarConfig && !solarConfigCompleted) {
-          console.log('🔧 No solar configuration found, showing setup...');
-          setShowSolarSetup(true);
-        } else {
-          console.log('✅ Solar configuration exists or completed');
-          setShowSolarSetup(false);
-        }
+        checkSolarAgentSetup();
       } else {
         setShowSolarSetup(false);
       }
@@ -1036,7 +1019,41 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     });
   };
   
-  // Handle solar configuration completion
+  // Check Solar Agent setup status from database
+  const checkSolarAgentSetup = async () => {
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) return;
+
+      // Check if Solar Agent has completed setup in database
+      const { data: setupData, error } = await supabase
+        .from('squidgy_agent_business_setup')
+        .select('setup_json')
+        .eq('firm_user_id', userIdResult.user_id)
+        .eq('agent_id', 'SOLAgent')
+        .single();
+
+      if (error) {
+        console.log('🔧 No solar configuration found in database, showing setup...');
+        setShowSolarSetup(true);
+        setSolarConfigCompleted(false);
+      } else if (setupData?.setup_json?.completed) {
+        console.log('✅ Solar configuration exists and is completed in database');
+        setShowSolarSetup(false);
+        setSolarConfigCompleted(true);
+      } else {
+        console.log('🔧 Solar configuration exists but not completed, showing setup...');
+        setShowSolarSetup(true);
+        setSolarConfigCompleted(false);
+      }
+    } catch (error) {
+      console.error('Error checking solar agent setup:', error);
+      setShowSolarSetup(true);
+      setSolarConfigCompleted(false);
+    }
+  };
+
+  // Handle solar configuration completion (legacy handler)
   const handleSolarConfigComplete = (config: SolarBusinessConfig) => {
     console.log('🌞 Solar configuration completed:', config);
     setShowSolarSetup(false);
@@ -1046,6 +1063,23 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     addMessage({
       sender: 'agent',
       text: `Perfect! Your solar business is now configured. I can now provide accurate pricing, financing options, and savings calculations based on your business parameters. Let's help you close more solar deals! 🌞⚡`,
+      timestamp: Date.now()
+    });
+  };
+
+  // Handle setup chat assistant completion
+  const handleSetupChatComplete = () => {
+    console.log('🌞 Solar Sales Specialist setup completed via chat assistant');
+    setShowSolarSetup(false);
+    setSolarConfigCompleted(true);
+    
+    // Reload agents to reflect the updated status
+    loadAgentsFromDatabase();
+    
+    // Add completion message
+    addMessage({
+      sender: 'agent',
+      text: `🎉 Excellent! Your Solar Sales Specialist is now fully configured and ready to help customers with solar consultations. I have all your business information and can provide accurate quotes and guidance!`,
       timestamp: Date.now()
     });
   };
@@ -1409,7 +1443,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       <SetupChatAssistant
                         agentId={selectedAgent.id}
                         agentName={selectedAgent.name}
-                        onComplete={handleSolarConfigComplete}
+                        onComplete={handleSetupChatComplete}
                       />
                     )}
                     
@@ -1440,7 +1474,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       <SetupChatAssistant
                         agentId={selectedAgent.id}
                         agentName={selectedAgent.name}
-                        onComplete={handleSolarConfigComplete}
+                        onComplete={handleSetupChatComplete}
                       />
                     )}
                     
