@@ -2,6 +2,7 @@
 // Centralized utility to get the correct user_id from profiles table
 
 import { supabase } from '@/lib/supabase';
+import { handleAuthError, isAuthError } from './authErrorHandler';
 
 export interface UserIdResult {
   success: boolean;
@@ -19,7 +20,18 @@ export const getUserId = async (): Promise<UserIdResult> => {
     // Get auth user first
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !user) {
+    if (authError) {
+      // Handle refresh token errors
+      if (isAuthError(authError)) {
+        await handleAuthError(authError);
+      }
+      return {
+        success: false,
+        error: authError.message || 'Authentication error'
+      };
+    }
+    
+    if (!user) {
       return {
         success: false,
         error: 'No authenticated user'
@@ -47,6 +59,10 @@ export const getUserId = async (): Promise<UserIdResult> => {
       auth_user_id: user.id
     };
   } catch (error) {
+    // Handle any unexpected auth errors
+    if (isAuthError(error)) {
+      await handleAuthError(error);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
