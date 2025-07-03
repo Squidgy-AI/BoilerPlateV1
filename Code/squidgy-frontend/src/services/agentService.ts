@@ -42,11 +42,15 @@ export const getUserAgents = async (): Promise<Agent[]> => {
       return [];
     }
 
+    console.log('🔍 getUserAgents: Making Supabase query for user:', userIdResult.user_id);
+
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
       .select('*')
       .eq('firm_user_id', userIdResult.user_id)
       .order('agent_id');
+
+    console.log('🔍 getUserAgents: Supabase response:', { data, error });
 
     if (error) {
       console.error('Error fetching user agents:', error);

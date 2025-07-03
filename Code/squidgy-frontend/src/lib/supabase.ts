@@ -12,7 +12,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing required Supabase environment variables. Please check your .env.local file.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false
+  },
+  realtime: {
+    headers: {
+      apikey: supabaseAnonKey,
+    },
+  },
+});
 
 // Custom types for Supabase tables
 export interface Profile {
