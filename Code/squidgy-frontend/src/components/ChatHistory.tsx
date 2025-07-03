@@ -63,6 +63,8 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ isOpen, onClose, agentId }) =
       }
 
       // Query chat history to get unique sessions with message counts and latest messages
+      console.log('🔍 Querying chat_history for user_id:', userIdResult.user_id);
+      
       const { data: sessionData, error } = await supabase
         .from('chat_history')
         .select(`
@@ -75,6 +77,12 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ isOpen, onClose, agentId }) =
         `)
         .eq('user_id', userIdResult.user_id)
         .order('timestamp', { ascending: false });
+        
+      console.log('📊 Chat history query result:', { 
+        dataCount: sessionData?.length || 0, 
+        error: error?.message,
+        sampleData: sessionData?.slice(0, 2)
+      });
 
       if (error) {
         console.error('Error loading chat history:', error);

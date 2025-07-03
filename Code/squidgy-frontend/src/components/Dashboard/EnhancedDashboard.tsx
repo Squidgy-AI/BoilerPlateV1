@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { AGENT_CONFIG, updateAgentEnabledStatus, restoreAgentEnabledStatus, getEnabledAgents } from '@/config/agents';
+import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, initializeUserAgents } from '@/services/agentService';
+import type { Agent } from '@/services/agentService';
 import { 
   User, 
   Users, 
@@ -95,36 +96,56 @@ const EnhancedDashboard: React.FC = () => {
   const [showChatHistory, setShowChatHistory] = useState(false);
   
 // src/components/Dashboard/EnhancedDashboard.tsx
-const [agents, setAgents] = useState(getEnabledAgents());
+const [agents, setAgents] = useState<Agent[]>([]);
+const [allAgents, setAllAgents] = useState<Agent[]>([]);
 const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   
-  // Initialize with first agent on mount
+  // Load agents from database and initialize
   useEffect(() => {
     if (!profile) return;
     
-    // Try to restore last selected agent from localStorage
-    const lastSelectedAgentId = localStorage.getItem('selectedAgentId');
-    let agentToSelect;
-    
-    if (lastSelectedAgentId) {
-      // Search only in ENABLED agents for initialization
-      agentToSelect = getEnabledAgents().find(a => a.id === lastSelectedAgentId);
-      console.log(`🔄 Restoring agent from localStorage: ${lastSelectedAgentId}`, agentToSelect ? 'Found and enabled' : 'Not found or disabled');
-    }
-    
-    // Fallback to first enabled agent if no stored agent or agent not found/disabled
-    if (!agentToSelect) {
-      const enabledAgents = getEnabledAgents();
-      agentToSelect = enabledAgents.find(a => a.id === 'PersonalAssistant') || enabledAgents[0];
-      console.log(`🔄 Using fallback enabled agent: ${agentToSelect?.id}`);
-    }
-    
-    setSelectedAgent(agentToSelect);
-    setSelectedAvatarId(agentToSelect.id); // 🔧 FIX: Sync avatar with selected agent
-    setCurrentSessionId(`${profile.user_id}_${agentToSelect.id}`);
-    
-    console.log(`✅ Initialized with agent: ${agentToSelect.id}, avatar: ${agentToSelect.id}, session: ${profile.user_id}_${agentToSelect.id}`);
+    loadAgentsFromDatabase();
   }, [profile]);
+
+  const loadAgentsFromDatabase = async () => {
+    try {
+      // Initialize user agents if needed
+      await initializeUserAgents();
+      
+      // Load all agents and enabled agents
+      const [allUserAgents, enabledAgents] = await Promise.all([
+        getUserAgents(),
+        getEnabledAgents()
+      ]);
+      
+      setAllAgents(allUserAgents);
+      setAgents(enabledAgents);
+      
+      // Try to restore last selected agent from localStorage
+      const lastSelectedAgentId = localStorage.getItem('selectedAgentId');
+      let agentToSelect;
+      
+      if (lastSelectedAgentId) {
+        agentToSelect = enabledAgents.find(a => a.id === lastSelectedAgentId);
+        console.log(`🔄 Restoring agent from localStorage: ${lastSelectedAgentId}`, agentToSelect ? 'Found and enabled' : 'Not found or disabled');
+      }
+      
+      // Fallback to first enabled agent if no stored agent or agent not found/disabled
+      if (!agentToSelect && enabledAgents.length > 0) {
+        agentToSelect = enabledAgents.find(a => a.id === 'PersonalAssistant') || enabledAgents[0];
+        console.log(`🔄 Using fallback enabled agent: ${agentToSelect?.id}`);
+      }
+      
+      if (agentToSelect) {
+        setSelectedAgent(agentToSelect);
+        setSelectedAvatarId(agentToSelect.id);
+        setCurrentSessionId(`${profile.user_id}_${agentToSelect.id}`);
+        console.log(`✅ Initialized with agent: ${agentToSelect.id}, avatar: ${agentToSelect.id}, session: ${profile.user_id}_${agentToSelect.id}`);
+      }
+    } catch (error) {
+      console.error('Error loading agents from database:', error);
+    }
+  };
 
   // Safety sync: Ensure avatar ID always matches selected agent
   useEffect(() => {
@@ -728,18 +749,24 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     try {
       console.log(`Loading chat history from database for agent: ${agent.name}, session: ${sessionId}`);
       
-      // Get all chat history (both user and agent messages) for this specific session
-      const query = supabase
+      // Get user_id from profiles table for proper querying
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        console.error('Failed to get user ID:', userIdResult.error);
+        return;
+      }
+
+      // Get all chat history (both user and agent messages) for this specific agent
+      let query = supabase
         .from('chat_history')
         .select('*')
-        .eq('user_id', profile.user_id)
+        .eq('user_id', userIdResult.user_id)
+        .eq('agent_id', agent.id)
         .order('timestamp', { ascending: true });
       
-      // If we have a specific session ID, use it; otherwise fall back to pattern matching
+      // If we have a specific session ID, use it; otherwise get all sessions for this agent
       if (sessionId) {
-        query.eq('session_id', sessionId);
-      } else {
-        query.ilike('session_id', `%_${agent.id}_%`); // Match any session with this agent
+        query = query.eq('session_id', sessionId);
       }
       
       const { data: chatHistory, error: historyError } = await query;
@@ -922,15 +949,17 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   const handleEnableAgent = async (agentId: string) => {
     console.log(`🤖 Enabling agent: ${agentId}`);
     
-    // Update agent enabled status
-    const success = updateAgentEnabledStatus(agentId, true);
+    // Update agent enabled status in database
+    const success = await updateAgentEnabledStatus(agentId, true);
     
     if (success) {
       // Hide the prompt and re-enable chat
       setShowEnableAgentPrompt({ show: false, agentId: '', agentName: '' });
       setChatDisabled(false);
       
-      // Force re-render by updating the agents list
+      // Reload agents from database to reflect changes
+      await loadAgentsFromDatabase();
+      
       console.log('✅ Agent enabled successfully');
       
       // Add welcome message to database for newly enabled agent
@@ -940,8 +969,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
           if (userIdResult.success && userIdResult.user_id) {
             const sessionId = `${userIdResult.user_id}_${agentId}_${Date.now()}`;
             
-            // Get agent name
-            const agent = AGENT_CONFIG.find(a => a.id === agentId);
+            // Get agent name from database
+            const agent = allAgents.find(a => a.id === agentId);
             const agentName = agent?.name || agentId;
             
             // Create welcome message for the enabled agent
