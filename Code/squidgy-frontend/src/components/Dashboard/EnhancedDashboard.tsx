@@ -18,7 +18,8 @@ import {
   UserPlus, 
   FolderPlus, 
   X,
-  Code2 
+  Code2,
+  Sun
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import ProfileSettings from '../ProfileSettings';
@@ -1277,8 +1278,10 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                     selectedAgent?.id === agent.id ? 'bg-[#2D3B4F]' : 'hover:bg-[#2D3B4F]/50'
                   }`}
                 >
-                <div className="w-8 h-8 rounded-full bg-blue-600 mr-2 flex items-center justify-center text-lg">
-                  {agent.avatar}
+                <div className="w-8 h-8 rounded-full bg-blue-600 mr-2 flex items-center justify-center">
+                  {agent.avatar === 'Bot' && <Bot size={16} className="text-white" />}
+                  {agent.avatar === 'Sun' && <Sun size={16} className="text-white" />}
+                  {!['Bot', 'Sun'].includes(agent.avatar) && <Bot size={16} className="text-white" />}
                 </div>
                 <span className="text-sm">{agent.name}</span>
               </div>
