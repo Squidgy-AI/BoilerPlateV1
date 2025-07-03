@@ -34,6 +34,7 @@ import CompleteBusinessSetup from '../CompleteBusinessSetup';
 import SetupStatusIndicator from '../SetupStatusIndicator';
 import ChatHistory from '../ChatHistory';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
+import { getUserId } from '@/utils/getUserId';
 
 const EnhancedDashboard: React.FC = () => {
   type WebSocketLog = {
@@ -918,7 +919,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   };
   
   // Handle enabling agent
-  const handleEnableAgent = (agentId: string) => {
+  const handleEnableAgent = async (agentId: string) => {
     console.log(`🤖 Enabling agent: ${agentId}`);
     
     // Update agent enabled status
@@ -930,17 +931,59 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       setChatDisabled(false);
       
       // Force re-render by updating the agents list
-      // The sidebar will automatically show the newly enabled agent
       console.log('✅ Agent enabled successfully');
       
-      // Optional: Show a success message
+      // Add welcome message to database for newly enabled agent
+      if (profile?.user_id) {
+        try {
+          const userIdResult = await getUserId();
+          if (userIdResult.success && userIdResult.user_id) {
+            const sessionId = `${userIdResult.user_id}_${agentId}_${Date.now()}`;
+            
+            // Get agent name
+            const agent = AGENT_CONFIG.find(a => a.id === agentId);
+            const agentName = agent?.name || agentId;
+            
+            // Create welcome message for the enabled agent
+            let welcomeMessage = '';
+            if (agentId === 'SOLAgent') {
+              welcomeMessage = `Hello! I'm your Solar Sales Specialist. I've been enabled and I'm ready to help customers find the perfect solar energy solutions, calculate savings, and guide them through the transition to renewable energy. You can now configure my settings or start using me right away! ☀️`;
+            } else {
+              welcomeMessage = `Hello! I'm ${agentName} and I've been enabled. I'm ready to assist you!`;
+            }
+            
+            // Save to chat_history table
+            const { error } = await supabase
+              .from('chat_history')
+              .insert({
+                user_id: userIdResult.user_id,
+                session_id: sessionId,
+                agent_id: agentId,
+                sender: 'agent',
+                message: welcomeMessage,
+                timestamp: new Date().toISOString(),
+                agent_name: agentName
+              });
+              
+            if (error) {
+              console.error('Error saving agent enable message to database:', error);
+            } else {
+              console.log(`✅ Agent ${agentId} welcome message saved to chat history`);
+            }
+          }
+        } catch (error) {
+          console.error('Error saving agent enable message:', error);
+        }
+      }
+      
+      // Show success message in UI
       addMessage({
         sender: 'system',
         text: `✅ ${showEnableAgentPrompt.agentName} has been enabled and will persist across sessions! You can now find it in the Agents tab.`,
         timestamp: Date.now()
       });
       
-      console.log('✅ SOL Agent enabled permanently and will appear on next login!');
+      console.log('✅ Agent enabled permanently and will appear on next login!');
     } else {
       console.error('❌ Failed to enable agent');
     }
