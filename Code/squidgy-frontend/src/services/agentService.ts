@@ -20,13 +20,13 @@ const DEFAULT_AGENTS = [
   {
     id: 'PersonalAssistant',
     name: 'Personal Assistant Bot',
-    avatar: '/avatars/personal-assistant.jpg',
+    avatar: '🤖',
     description: 'Your general-purpose AI assistant'
   },
   {
     id: 'SOLAgent',
     name: 'Solar Sales Specialist',
-    avatar: '/avatars/sol-agent.jpg',
+    avatar: '☀️',
     description: 'Specialized in solar energy sales and calculations'
   }
 ];
@@ -59,7 +59,7 @@ export const getUserAgents = async (): Promise<Agent[]> => {
       return {
         id: record.agent_id,
         name: record.agent_name,
-        avatar: defaultAgent?.avatar || '/avatars/default.jpg',
+        avatar: defaultAgent?.avatar || '🤖',
         description: defaultAgent?.description || 'AI Assistant',
         enabled: record.is_enabled,
         setup_json: record.setup_json,

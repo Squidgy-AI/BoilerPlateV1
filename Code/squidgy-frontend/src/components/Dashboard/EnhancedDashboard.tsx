@@ -34,6 +34,7 @@ import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
 import SetupStatusIndicator from '../SetupStatusIndicator';
 import ChatHistory from '../ChatHistory';
+import SetupChatAssistant from '../SetupChatAssistant';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { getUserId } from '@/utils/getUserId';
 
@@ -1276,16 +1277,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                     selectedAgent?.id === agent.id ? 'bg-[#2D3B4F]' : 'hover:bg-[#2D3B4F]/50'
                   }`}
                 >
-                <div className="w-8 h-8 rounded-full bg-gray-600 mr-2 overflow-hidden">
-                  <img 
-                    src={agent.avatar}
-                    alt={agent.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = agent.fallbackAvatar || '/avatars/default-agent.jpg';
-                    }}
-                  />
+                <div className="w-8 h-8 rounded-full bg-blue-600 mr-2 flex items-center justify-center text-lg">
+                  {agent.avatar}
                 </div>
                 <span className="text-sm">{agent.name}</span>
               </div>
@@ -1408,11 +1401,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
-                    {/* Show Complete Business Setup if needed */}
+                    {/* Show Setup Chat Assistant if needed */}
                     {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
-                      <CompleteBusinessSetup
+                      <SetupChatAssistant
+                        agentId={selectedAgent.id}
+                        agentName={selectedAgent.name}
                         onComplete={handleSolarConfigComplete}
-                        onSkip={handleSolarConfigSkip}
                       />
                     )}
                     
@@ -1438,11 +1432,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
-                    {/* Show Complete Business Setup if needed */}
+                    {/* Show Setup Chat Assistant if needed */}
                     {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
-                      <CompleteBusinessSetup
+                      <SetupChatAssistant
+                        agentId={selectedAgent.id}
+                        agentName={selectedAgent.name}
                         onComplete={handleSolarConfigComplete}
-                        onSkip={handleSolarConfigSkip}
                       />
                     )}
                     

@@ -60,4 +60,12 @@ FROM pg_policies
 WHERE tablename = 'squidgy_agent_business_setup';
 
 -- Verify table structure
-\d public.squidgy_agent_business_setup;
+SELECT 
+    column_name,
+    data_type,
+    is_nullable,
+    column_default
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+    AND table_name = 'squidgy_agent_business_setup'
+ORDER BY ordinal_position;
