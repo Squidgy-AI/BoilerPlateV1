@@ -30,7 +30,7 @@ import AgentGreeting from '../AgentGreeting';
 import SquidgyLogo from '../Auth/SquidgyLogo';
 import MessageContent from '../Chat/MessageContent';
 import EnableAgentPrompt from '../EnableAgentPrompt';
-import SolarAgentSetup from '../SolarAgentSetup';
+import CompleteBusinessSetup from '../CompleteBusinessSetup';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 
 const EnhancedDashboard: React.FC = () => {
@@ -1335,10 +1335,10 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
-                    {/* Show Solar Agent Setup if needed */}
+                    {/* Show Complete Business Setup if needed */}
                     {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
-                      <SolarAgentSetup
-                        onConfigurationComplete={handleSolarConfigComplete}
+                      <CompleteBusinessSetup
+                        onComplete={handleSolarConfigComplete}
                         onSkip={handleSolarConfigSkip}
                       />
                     )}
@@ -1357,10 +1357,10 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
-                    {/* Show Solar Agent Setup if needed */}
+                    {/* Show Complete Business Setup if needed */}
                     {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
-                      <SolarAgentSetup
-                        onConfigurationComplete={handleSolarConfigComplete}
+                      <CompleteBusinessSetup
+                        onComplete={handleSolarConfigComplete}
                         onSkip={handleSolarConfigSkip}
                       />
                     )}
