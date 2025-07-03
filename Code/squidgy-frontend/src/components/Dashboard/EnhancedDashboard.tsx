@@ -1025,24 +1025,28 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       const userIdResult = await getUserId();
       if (!userIdResult.success || !userIdResult.user_id) return;
 
+      console.log('🔍 Checking solar agent setup for user:', userIdResult.user_id);
+
       // Check if Solar Agent has completed setup in database
       const { data: setupData, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .select('setup_json')
+        .select('*')
         .eq('firm_user_id', userIdResult.user_id)
         .eq('agent_id', 'SOLAgent')
         .single();
+
+      console.log('🔍 Setup query result:', { setupData, error });
 
       if (error) {
         console.log('🔧 No solar configuration found in database, showing setup...');
         setShowSolarSetup(true);
         setSolarConfigCompleted(false);
       } else if (setupData?.setup_json?.completed) {
-        console.log('✅ Solar configuration exists and is completed in database');
+        console.log('✅ Solar configuration exists and is completed in database:', setupData.setup_json);
         setShowSolarSetup(false);
         setSolarConfigCompleted(true);
       } else {
-        console.log('🔧 Solar configuration exists but not completed, showing setup...');
+        console.log('🔧 Solar configuration exists but not completed, showing setup...', setupData);
         setShowSolarSetup(true);
         setSolarConfigCompleted(false);
       }
@@ -1453,6 +1457,11 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                     )}
                     
                     {/* Show Setup Chat Assistant if needed */}
+                    {console.log('🌞 Render check:', { 
+                      agentId: selectedAgent?.id, 
+                      showSolarSetup, 
+                      shouldShowSetup: selectedAgent?.id === 'SOLAgent' && showSolarSetup 
+                    })}
                     {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
                       <SetupChatAssistant
                         agentId={selectedAgent.id}
@@ -1484,6 +1493,11 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                     )}
                     
                     {/* Show Setup Chat Assistant if needed */}
+                    {console.log('🌞 Render check:', { 
+                      agentId: selectedAgent?.id, 
+                      showSolarSetup, 
+                      shouldShowSetup: selectedAgent?.id === 'SOLAgent' && showSolarSetup 
+                    })}
                     {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
                       <SetupChatAssistant
                         agentId={selectedAgent.id}
