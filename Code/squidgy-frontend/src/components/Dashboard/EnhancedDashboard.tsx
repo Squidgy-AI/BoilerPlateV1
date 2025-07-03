@@ -1312,10 +1312,24 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                     selectedAgent?.id === agent.id ? 'bg-[#2D3B4F]' : 'hover:bg-[#2D3B4F]/50'
                   }`}
                 >
-                <div className="w-8 h-8 rounded-full bg-blue-600 mr-2 flex items-center justify-center">
-                  {agent.avatar === 'Bot' && <Bot size={16} className="text-white" />}
-                  {agent.avatar === 'Sun' && <Sun size={16} className="text-white" />}
-                  {!['Bot', 'Sun'].includes(agent.avatar) && <Bot size={16} className="text-white" />}
+                <div className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-gray-600">
+                  {agent.id === 'PersonalAssistant' ? (
+                    <img 
+                      src="/seth.JPG" 
+                      alt="Personal Assistant Bot" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : agent.id === 'SOLAgent' ? (
+                    <img 
+                      src="/sol.jpg" 
+                      alt="Solar Sales Specialist" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-blue-600 flex items-center justify-center">
+                      <Bot size={16} className="text-white" />
+                    </div>
+                  )}
                 </div>
                 <span className="text-sm">{agent.name}</span>
               </div>
