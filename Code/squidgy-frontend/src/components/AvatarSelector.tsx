@@ -178,7 +178,7 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({ onAvatarChange, current
                 <div className="w-8 h-8 rounded-full overflow-hidden">
                   {/* Use real image for avatar 2 */}
                   <img 
-                    src="/sol.jpg" 
+                    src="/avatars/lead-gen-specialist.jpg" 
                     alt="Avatar 2" 
                     className="h-full w-full object-cover"
                   />

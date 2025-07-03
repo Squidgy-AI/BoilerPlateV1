@@ -1321,7 +1321,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                     />
                   ) : agent.id === 'SOLAgent' ? (
                     <img 
-                      src="/sol.jpg" 
+                      src="/avatars/lead-gen-specialist.jpg" 
                       alt="Solar Sales Specialist" 
                       className="w-full h-full object-cover"
                     />
