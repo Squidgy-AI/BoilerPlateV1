@@ -31,6 +31,8 @@ import SquidgyLogo from '../Auth/SquidgyLogo';
 import MessageContent from '../Chat/MessageContent';
 import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
+import SetupStatusIndicator from '../SetupStatusIndicator';
+import ChatHistory from '../ChatHistory';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 
 const EnhancedDashboard: React.FC = () => {
@@ -87,6 +89,9 @@ const EnhancedDashboard: React.FC = () => {
   // Solar Agent setup functionality
   const [showSolarSetup, setShowSolarSetup] = useState(false);
   const [solarConfigCompleted, setSolarConfigCompleted] = useState(false);
+  
+  // Chat history functionality
+  const [showChatHistory, setShowChatHistory] = useState(false);
   
 // src/components/Dashboard/EnhancedDashboard.tsx
 const [agents, setAgents] = useState(getEnabledAgents());
@@ -1343,6 +1348,14 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
+                    {/* Show Setup Status Indicator when not showing setup */}
+                    {selectedAgent?.id === 'SOLAgent' && !showSolarSetup && (
+                      <SetupStatusIndicator
+                        agentId={selectedAgent.id}
+                        onViewHistory={() => setShowChatHistory(true)}
+                      />
+                    )}
+                    
                     <div className="text-center text-gray-400 mt-6">
                       Start a conversation...
                     </div>
@@ -1364,6 +1377,15 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                         onSkip={handleSolarConfigSkip}
                       />
                     )}
+                    
+                    {/* Show Setup Status Indicator when not showing setup */}
+                    {selectedAgent?.id === 'SOLAgent' && !showSolarSetup && (
+                      <SetupStatusIndicator
+                        agentId={selectedAgent.id}
+                        onViewHistory={() => setShowChatHistory(true)}
+                      />
+                    )}
+                    
                     {messages.map((msg, index) => (
                       <div
                         key={`${msg.timestamp}-${index}`}
@@ -1623,6 +1645,15 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         <GroupManagement 
           groupId={currentSessionId}
           onClose={() => setShowGroupManagement(false)}
+        />
+      )}
+      
+      {/* Chat History Modal */}
+      {showChatHistory && (
+        <ChatHistory
+          isOpen={showChatHistory}
+          onClose={() => setShowChatHistory(false)}
+          agentId={selectedAgent?.id}
         />
       )}
     </div>

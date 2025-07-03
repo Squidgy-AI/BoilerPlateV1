@@ -61,7 +61,7 @@ interface ChatContextType {
   
   // Session management
   createNewSession: () => Promise<string>;
-  fetchSessionMessages: (sessionId: string, isGroup: boolean) => Promise<void>;
+  fetchSessionMessages: (sessionId: string, isGroup: boolean, agentId?: string) => Promise<void>;
   clearSessionMessages: () => void;
 }
 
@@ -513,17 +513,23 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Fetch messages for a session
-  const fetchSessionMessages = async (sessionId: string, _isGroup: boolean) => {
+  const fetchSessionMessages = async (sessionId: string, _isGroup: boolean, agentId?: string) => {
     if (!profile) return;
     
     try {
-      // Fetch messages from chat_history table (matches backend)
-      const { data, error } = await supabase
+      // Build query for chat_history table with agent_id support
+      let query = supabase
         .from('chat_history')
         .select('*')
         .eq('session_id', sessionId)
-        .eq('user_id', profile.user_id)
-        .order('timestamp', { ascending: true });
+        .eq('user_id', profile.user_id);
+
+      // Add agent_id filter if provided
+      if (agentId) {
+        query = query.eq('agent_id', agentId);
+      }
+
+      const { data, error } = await query.order('timestamp', { ascending: true });
         
       if (error) throw error;
       
