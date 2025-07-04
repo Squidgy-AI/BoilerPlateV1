@@ -12,6 +12,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing required Supabase environment variables. Please check your .env.local file.');
 }
 
+// Log Supabase configuration for debugging
+console.log('🔧 Supabase client configuration:', {
+  url: supabaseUrl,
+  anonKeyPrefix: supabaseAnonKey.substring(0, 20) + '...',
+  isClient: typeof window !== 'undefined'
+});
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,

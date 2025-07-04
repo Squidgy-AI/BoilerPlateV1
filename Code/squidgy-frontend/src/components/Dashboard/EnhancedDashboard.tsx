@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, initializeUserAgents } from '@/services/agentService';
+import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, initializeUserAgents, getAgentSetup } from '@/services/agentService';
 import type { Agent } from '@/services/agentService';
 import { 
   User, 
@@ -1042,32 +1042,26 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
 
       console.log('🔍 Checking solar agent setup for user:', userIdResult.user_id);
 
-      // TEMPORARY: Force setup to show while debugging database issues
-      console.log('🔧 TEMPORARILY FORCING SETUP TO SHOW FOR DEBUGGING');
-      setShowSolarSetup(true);
-      setSolarConfigCompleted(false);
-      return;
-
-      // Check if Solar Agent has completed setup in database
-      const { data: setupData, error } = await supabase
-        .from('squidgy_agent_business_setup')
-        .select('*')
-        .eq('firm_user_id', userIdResult.user_id)
-        .eq('agent_id', 'SOLAgent')
-        .single();
-
-      console.log('🔍 Setup query result:', { setupData, error });
-
-      if (error) {
-        console.log('🔧 No solar configuration found in database, showing setup...');
-        setShowSolarSetup(true);
-        setSolarConfigCompleted(false);
-      } else if (setupData?.setup_json?.completed) {
-        console.log('✅ Solar configuration exists and is completed in database:', setupData.setup_json);
-        setShowSolarSetup(false);
-        setSolarConfigCompleted(true);
-      } else {
-        console.log('🔧 Solar configuration exists but not completed, showing setup...', setupData);
+      // Check if Solar Agent has completed setup via backend API
+      console.log('🔍 Checking solar agent setup via backend API...');
+      
+      try {
+        const solarSetup = await getAgentSetup('SOLAgent');
+        
+        console.log('🔍 Solar setup result:', solarSetup);
+        
+        if (solarSetup && solarSetup.completed) {
+          console.log('✅ Solar configuration exists and is completed:', solarSetup);
+          setShowSolarSetup(false);
+          setSolarConfigCompleted(true);
+        } else {
+          console.log('🔧 Solar configuration not completed, showing setup...');
+          setShowSolarSetup(true);
+          setSolarConfigCompleted(false);
+        }
+      } catch (setupError) {
+        console.error('❌ Error checking solar setup via backend:', setupError);
+        // Default to showing setup on error
         setShowSolarSetup(true);
         setSolarConfigCompleted(false);
       }

@@ -1,8 +1,15 @@
 // src/services/agentService.ts
-// Service for managing agents from squidgy_agent_business_setup table
+// Service for managing agents via backend API
 
-import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
+import { 
+  getUserAgentsFromBackend, 
+  getAgentSetupFromBackend, 
+  createOrUpdateAgentSetup, 
+  updateAgentStatusViaBackend,
+  deleteAgentSetupViaBackend,
+  type BackendAgent 
+} from './backendApiService';
 
 export interface Agent {
   id: string;
@@ -32,7 +39,7 @@ const DEFAULT_AGENTS = [
 ];
 
 /**
- * Get all agents for the current user from database
+ * Get all agents for the current user via backend API
  */
 export const getUserAgents = async (): Promise<Agent[]> => {
   try {
@@ -42,23 +49,13 @@ export const getUserAgents = async (): Promise<Agent[]> => {
       return [];
     }
 
-    console.log('🔍 getUserAgents: Making Supabase query for user:', userIdResult.user_id);
+    console.log('🔍 getUserAgents: Fetching from backend for user:', userIdResult.user_id);
 
-    const { data, error } = await supabase
-      .from('squidgy_agent_business_setup')
-      .select('*')
-      .eq('firm_user_id', userIdResult.user_id)
-      .order('agent_id');
+    // Get agents from backend API
+    const backendAgents = await getUserAgentsFromBackend(userIdResult.user_id);
 
-    console.log('🔍 getUserAgents: Supabase response:', { data, error });
-
-    if (error) {
-      console.error('Error fetching user agents:', error);
-      return [];
-    }
-
-    // Map database records to Agent interface
-    const agents: Agent[] = (data || []).map(record => {
+    // Map backend records to Agent interface
+    const agents: Agent[] = backendAgents.map((record: BackendAgent) => {
       const defaultAgent = DEFAULT_AGENTS.find(a => a.id === record.agent_id);
       return {
         id: record.agent_id,
@@ -72,6 +69,7 @@ export const getUserAgents = async (): Promise<Agent[]> => {
       };
     });
 
+    console.log('✅ Successfully mapped agents:', agents.length);
     return agents;
   } catch (error) {
     console.error('Error in getUserAgents:', error);
@@ -88,7 +86,7 @@ export const getEnabledAgents = async (): Promise<Agent[]> => {
 };
 
 /**
- * Enable/disable an agent for the current user
+ * Enable/disable an agent for the current user via backend API
  */
 export const updateAgentEnabledStatus = async (agentId: string, enabled: boolean): Promise<boolean> => {
   try {
@@ -98,43 +96,22 @@ export const updateAgentEnabledStatus = async (agentId: string, enabled: boolean
       return false;
     }
 
-    // First try to update existing record
-    const { data: updateData, error: updateError } = await supabase
-      .from('squidgy_agent_business_setup')
-      .update({ 
-        is_enabled: enabled,
-        updated_at: new Date().toISOString()
-      })
-      .eq('firm_user_id', userIdResult.user_id)
-      .eq('agent_id', agentId)
-      .select();
+    console.log(`🔄 Updating agent ${agentId} status to ${enabled ? 'enabled' : 'disabled'}`);
 
-    if (updateError) {
-      console.error('Error updating agent status:', updateError);
+    // Update via backend API
+    const result = await updateAgentStatusViaBackend({
+      user_id: userIdResult.user_id,
+      agent_id: agentId,
+      is_enabled: enabled
+    });
+
+    if (result) {
+      console.log(`✅ Agent ${agentId} ${enabled ? 'enabled' : 'disabled'} successfully`);
+      return true;
+    } else {
+      console.error('❌ Failed to update agent status');
       return false;
     }
-
-    // If no rows were updated, insert new record
-    if (!updateData || updateData.length === 0) {
-      const defaultAgent = DEFAULT_AGENTS.find(a => a.id === agentId);
-      const { error: insertError } = await supabase
-        .from('squidgy_agent_business_setup')
-        .insert({
-          firm_user_id: userIdResult.user_id,
-          agent_id: agentId,
-          agent_name: defaultAgent?.name || agentId,
-          is_enabled: enabled,
-          setup_json: {}
-        });
-
-      if (insertError) {
-        console.error('Error inserting agent record:', insertError);
-        return false;
-      }
-    }
-
-    console.log(`✅ Agent ${agentId} ${enabled ? 'enabled' : 'disabled'} successfully`);
-    return true;
   } catch (error) {
     console.error('Error in updateAgentEnabledStatus:', error);
     return false;
@@ -142,7 +119,7 @@ export const updateAgentEnabledStatus = async (agentId: string, enabled: boolean
 };
 
 /**
- * Update agent setup configuration
+ * Update agent setup configuration via backend API
  */
 export const updateAgentSetup = async (agentId: string, setupData: any): Promise<boolean> => {
   try {
@@ -152,22 +129,28 @@ export const updateAgentSetup = async (agentId: string, setupData: any): Promise
       return false;
     }
 
-    const { error } = await supabase
-      .from('squidgy_agent_business_setup')
-      .update({ 
-        setup_json: setupData,
-        updated_at: new Date().toISOString()
-      })
-      .eq('firm_user_id', userIdResult.user_id)
-      .eq('agent_id', agentId);
+    console.log(`🔄 Updating agent ${agentId} setup configuration`);
 
-    if (error) {
-      console.error('Error updating agent setup:', error);
+    // Get the agent name from defaults
+    const defaultAgent = DEFAULT_AGENTS.find(a => a.id === agentId);
+    const agentName = defaultAgent?.name || agentId;
+
+    // Update via backend API
+    const result = await createOrUpdateAgentSetup({
+      user_id: userIdResult.user_id,
+      agent_id: agentId,
+      agent_name: agentName,
+      setup_data: setupData,
+      is_enabled: true  // Enable agent when setup is completed
+    });
+
+    if (result) {
+      console.log(`✅ Agent ${agentId} setup updated successfully`);
+      return true;
+    } else {
+      console.error('❌ Failed to update agent setup');
       return false;
     }
-
-    console.log(`✅ Agent ${agentId} setup updated successfully`);
-    return true;
   } catch (error) {
     console.error('Error in updateAgentSetup:', error);
     return false;
@@ -175,7 +158,7 @@ export const updateAgentSetup = async (agentId: string, setupData: any): Promise
 };
 
 /**
- * Get specific agent setup configuration
+ * Get specific agent setup configuration via backend API
  */
 export const getAgentSetup = async (agentId: string): Promise<any> => {
   try {
@@ -185,19 +168,18 @@ export const getAgentSetup = async (agentId: string): Promise<any> => {
       return null;
     }
 
-    const { data, error } = await supabase
-      .from('squidgy_agent_business_setup')
-      .select('setup_json')
-      .eq('firm_user_id', userIdResult.user_id)
-      .eq('agent_id', agentId)
-      .single();
+    console.log(`🔍 Getting agent ${agentId} setup configuration`);
 
-    if (error) {
-      console.error('Error fetching agent setup:', error);
-      return null;
+    // Get from backend API
+    const agent = await getAgentSetupFromBackend(userIdResult.user_id, agentId);
+
+    if (agent) {
+      console.log(`✅ Retrieved agent ${agentId} setup:`, agent.setup_json);
+      return agent.setup_json || {};
+    } else {
+      console.log(`ℹ️ No setup found for agent ${agentId}`);
+      return {};
     }
-
-    return data?.setup_json || {};
   } catch (error) {
     console.error('Error in getAgentSetup:', error);
     return null;
