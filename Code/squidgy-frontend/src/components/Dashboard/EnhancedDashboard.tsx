@@ -137,13 +137,15 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       console.log('SOL Agent in enabled agents:', enabledAgents.find(a => a.id === 'SOLAgent'));
       
       // Special debugging for your user ID
-      if (profile?.user_id === 'c41831a7-fa38-4489-8239-90ed70b76391') {
-        console.log('🎯 SPECIAL DEBUG for user c41831a7-fa38-4489-8239-90ed70b76391:');
+      if (profile?.user_id === '80b957fc-de1d-4f28-920c-41e0e2e28e5e') {
+        console.log('🎯 SPECIAL DEBUG for user 80b957fc-de1d-4f28-920c-41e0e2e28e5e:');
         console.log('- Total agents loaded:', allUserAgents.length);
         console.log('- Enabled agents count:', enabledAgents.length);
         console.log('- SOL Agent present in all:', !!allUserAgents.find(a => a.id === 'SOLAgent'));
         console.log('- SOL Agent enabled value:', allUserAgents.find(a => a.id === 'SOLAgent')?.enabled);
         console.log('- SOL Agent in enabled list:', !!enabledAgents.find(a => a.id === 'SOLAgent'));
+        console.log('- ALL AGENTS RAW DATA:', allUserAgents);
+        console.log('- ENABLED AGENTS RAW DATA:', enabledAgents);
       }
       
       setAllAgents(allUserAgents);
