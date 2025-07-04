@@ -43,8 +43,9 @@ const ChatSolarSetup: React.FC<ChatSolarSetupProps> = ({
             <label className="block text-gray-600 mb-1">Company Name</label>
             <input 
               type="text" 
-              className="w-full px-3 py-2 border rounded-md text-sm"
-              placeholder="Solar Solutions Inc."
+              className="w-full px-3 py-2 border rounded-md text-sm text-gray-900 bg-white"
+              defaultValue="Solar Solutions Inc."
+              placeholder="Enter company name"
             />
           </div>
           
@@ -52,7 +53,8 @@ const ChatSolarSetup: React.FC<ChatSolarSetupProps> = ({
             <label className="block text-gray-600 mb-1">Cost per Watt ($)</label>
             <input 
               type="number" 
-              className="w-full px-3 py-2 border rounded-md text-sm"
+              className="w-full px-3 py-2 border rounded-md text-sm text-gray-900 bg-white"
+              defaultValue="3.50"
               placeholder="3.50"
               step="0.01"
             />
@@ -60,12 +62,16 @@ const ChatSolarSetup: React.FC<ChatSolarSetupProps> = ({
           
           <div>
             <label className="block text-gray-600 mb-1">State/Region</label>
-            <select className="w-full px-3 py-2 border rounded-md text-sm">
-              <option>Select your state...</option>
-              <option value="CA">California</option>
+            <select className="w-full px-3 py-2 border rounded-md text-sm text-gray-900 bg-white">
+              <option value="">Select your state...</option>
+              <option value="CA" selected>California</option>
               <option value="TX">Texas</option>
               <option value="FL">Florida</option>
               <option value="NY">New York</option>
+              <option value="AZ">Arizona</option>
+              <option value="NV">Nevada</option>
+              <option value="NC">North Carolina</option>
+              <option value="NJ">New Jersey</option>
             </select>
           </div>
         </div>

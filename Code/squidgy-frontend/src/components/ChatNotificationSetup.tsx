@@ -15,8 +15,8 @@ const ChatNotificationSetup: React.FC<ChatNotificationSetupProps> = ({
   onSkip
 }) => {
   const [isConfiguring, setIsConfiguring] = useState(false);
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('contact@solarsolutions.com');
+  const [phone, setPhone] = useState('+1 (555) 123-4567');
 
   const handleStartConfiguration = () => {
     setIsConfiguring(true);
@@ -68,7 +68,8 @@ const ChatNotificationSetup: React.FC<ChatNotificationSetupProps> = ({
             <label className="block text-gray-600 mb-1">Email Address</label>
             <input 
               type="email" 
-              className="w-full px-3 py-2 border rounded-md text-sm"
+              className="w-full px-3 py-2 border rounded-md text-sm text-gray-900 bg-white"
+              defaultValue="contact@solarsolutions.com"
               placeholder="your-email@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -79,33 +80,34 @@ const ChatNotificationSetup: React.FC<ChatNotificationSetupProps> = ({
             <label className="block text-gray-600 mb-1">Phone Number (optional)</label>
             <input 
               type="tel" 
-              className="w-full px-3 py-2 border rounded-md text-sm"
+              className="w-full px-3 py-2 border rounded-md text-sm text-gray-900 bg-white"
+              defaultValue="+1 (555) 123-4567"
               placeholder="+1 (555) 123-4567"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
           </div>
           
-          <div className="bg-gray-50 p-3 rounded-md">
+          <div className="bg-purple-50 p-3 rounded-md border">
             <h4 className="font-medium text-gray-800 mb-2">Notification Types</h4>
             <div className="space-y-1">
-              <label className="flex items-center text-sm">
-                <input type="checkbox" className="mr-2" defaultChecked />
+              <label className="flex items-center text-sm text-gray-700">
+                <input type="checkbox" className="mr-2 text-purple-600" defaultChecked />
                 Appointment confirmations
               </label>
-              <label className="flex items-center text-sm">
-                <input type="checkbox" className="mr-2" defaultChecked />
-                Appointment reminders
+              <label className="flex items-center text-sm text-gray-700">
+                <input type="checkbox" className="mr-2 text-purple-600" defaultChecked />
+                Appointment reminders (24hrs before)
               </label>
-              <label className="flex items-center text-sm">
-                <input type="checkbox" className="mr-2" defaultChecked />
-                Cancellations & changes
+              <label className="flex items-center text-sm text-gray-700">
+                <input type="checkbox" className="mr-2 text-purple-600" defaultChecked />
+                Cancellations & reschedules
               </label>
             </div>
           </div>
           
-          <div className="text-xs text-gray-500">
-            <div className="flex items-center">
+          <div className="text-xs text-gray-600">
+            <div className="flex items-center bg-green-50 p-2 rounded">
               <Check className="w-3 h-3 text-green-500 mr-1" />
               Chat notifications always enabled
             </div>

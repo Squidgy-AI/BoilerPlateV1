@@ -67,14 +67,14 @@ const ChatCalendarSetup: React.FC<ChatCalendarSetupProps> = ({
             <label className="block text-gray-600 mb-1">Calendar Name</label>
             <input 
               type="text" 
-              className="w-full px-3 py-2 border rounded-md text-sm"
+              className="w-full px-3 py-2 border rounded-md text-sm text-gray-900 bg-white"
               defaultValue="Solar Consultations"
             />
           </div>
           
           <div>
             <label className="block text-gray-600 mb-1">Appointment Duration</label>
-            <select className="w-full px-3 py-2 border rounded-md text-sm">
+            <select className="w-full px-3 py-2 border rounded-md text-sm text-gray-900 bg-white">
               <option value="30">30 minutes</option>
               <option value="60" selected>60 minutes</option>
               <option value="90">90 minutes</option>
@@ -84,19 +84,25 @@ const ChatCalendarSetup: React.FC<ChatCalendarSetupProps> = ({
           
           <div>
             <label className="block text-gray-600 mb-1">Business Hours</label>
-            <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-              Monday - Friday: 9:00 AM - 5:00 PM
+            <div className="text-sm text-gray-700 bg-blue-50 p-3 rounded border">
+              <div className="font-medium mb-1">Default Schedule:</div>
+              <div>Monday - Friday: 9:00 AM - 5:00 PM</div>
+              <div className="text-xs text-gray-500 mt-1">Weekends: Closed</div>
             </div>
           </div>
           
           <div className="space-y-2">
-            <label className="flex items-center text-sm">
-              <input type="checkbox" className="mr-2" defaultChecked />
+            <label className="flex items-center text-sm text-gray-700">
+              <input type="checkbox" className="mr-2 text-blue-600" defaultChecked />
               Auto-confirm appointments
             </label>
-            <label className="flex items-center text-sm">
-              <input type="checkbox" className="mr-2" defaultChecked />
+            <label className="flex items-center text-sm text-gray-700">
+              <input type="checkbox" className="mr-2 text-blue-600" defaultChecked />
               Allow rescheduling
+            </label>
+            <label className="flex items-center text-sm text-gray-700">
+              <input type="checkbox" className="mr-2 text-blue-600" defaultChecked />
+              24-hour cancellation notice required
             </label>
           </div>
         </div>
