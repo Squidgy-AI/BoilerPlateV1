@@ -21,12 +21,15 @@ export interface AgentSetupRequest {
   agent_name: string;
   setup_data: any;
   is_enabled?: boolean;
+  setup_type: string;  // Required: 'SolarSetup', 'CalendarSetup', 'NotificationSetup'
+  session_id?: string;
 }
 
 export interface AgentStatusRequest {
   user_id: string;
   agent_id: string;
   is_enabled: boolean;
+  setup_type: string;  // Required: 'SolarSetup', 'CalendarSetup', 'NotificationSetup'
 }
 
 /**
@@ -64,11 +67,16 @@ export const getUserAgentsFromBackend = async (userId: string): Promise<BackendA
 /**
  * Get specific agent setup for a user from backend
  */
-export const getAgentSetupFromBackend = async (userId: string, agentId: string): Promise<BackendAgent | null> => {
+export const getAgentSetupFromBackend = async (userId: string, agentId: string, setupType?: string): Promise<BackendAgent | null> => {
   try {
-    console.log('🔍 Getting agent setup from backend:', { userId, agentId });
+    console.log('🔍 Getting agent setup from backend:', { userId, agentId, setupType });
     
-    const response = await fetch(`${BACKEND_URL}/api/agents/setup/${userId}/${agentId}`, {
+    let url = `${BACKEND_URL}/api/agents/setup/${userId}/${agentId}`;
+    if (setupType) {
+      url += `?setup_type=${encodeURIComponent(setupType)}`;
+    }
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

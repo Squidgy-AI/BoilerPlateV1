@@ -86,9 +86,9 @@ export const getEnabledAgents = async (): Promise<Agent[]> => {
 };
 
 /**
- * Enable/disable an agent for the current user via backend API
+ * Enable/disable a specific setup type for an agent via backend API
  */
-export const updateAgentEnabledStatus = async (agentId: string, enabled: boolean): Promise<boolean> => {
+export const updateAgentEnabledStatus = async (agentId: string, setupType: string, enabled: boolean): Promise<boolean> => {
   try {
     const userIdResult = await getUserId();
     if (!userIdResult.success || !userIdResult.user_id) {
@@ -96,17 +96,18 @@ export const updateAgentEnabledStatus = async (agentId: string, enabled: boolean
       return false;
     }
 
-    console.log(`🔄 Updating agent ${agentId} status to ${enabled ? 'enabled' : 'disabled'}`);
+    console.log(`🔄 Updating agent ${agentId} ${setupType} status to ${enabled ? 'enabled' : 'disabled'}`);
 
     // Update via backend API
     const result = await updateAgentStatusViaBackend({
       user_id: userIdResult.user_id,
       agent_id: agentId,
+      setup_type: setupType,
       is_enabled: enabled
     });
 
     if (result) {
-      console.log(`✅ Agent ${agentId} ${enabled ? 'enabled' : 'disabled'} successfully`);
+      console.log(`✅ Agent ${agentId} ${setupType} ${enabled ? 'enabled' : 'disabled'} successfully`);
       return true;
     } else {
       console.error('❌ Failed to update agent status');
@@ -121,7 +122,7 @@ export const updateAgentEnabledStatus = async (agentId: string, enabled: boolean
 /**
  * Update agent setup configuration via backend API
  */
-export const updateAgentSetup = async (agentId: string, setupData: any): Promise<boolean> => {
+export const updateAgentSetup = async (agentId: string, setupType: string, setupData: any, sessionId?: string): Promise<boolean> => {
   try {
     const userIdResult = await getUserId();
     if (!userIdResult.success || !userIdResult.user_id) {
@@ -129,7 +130,7 @@ export const updateAgentSetup = async (agentId: string, setupData: any): Promise
       return false;
     }
 
-    console.log(`🔄 Updating agent ${agentId} setup configuration`);
+    console.log(`🔄 Updating agent ${agentId} ${setupType} configuration`);
 
     // Get the agent name from defaults
     const defaultAgent = DEFAULT_AGENTS.find(a => a.id === agentId);
@@ -141,11 +142,13 @@ export const updateAgentSetup = async (agentId: string, setupData: any): Promise
       agent_id: agentId,
       agent_name: agentName,
       setup_data: setupData,
-      is_enabled: true  // Enable agent when setup is completed
+      setup_type: setupType,
+      session_id: sessionId,
+      is_enabled: true  // Enable setup when completed
     });
 
     if (result) {
-      console.log(`✅ Agent ${agentId} setup updated successfully`);
+      console.log(`✅ Agent ${agentId} ${setupType} setup updated successfully`);
       return true;
     } else {
       console.error('❌ Failed to update agent setup');
@@ -160,7 +163,7 @@ export const updateAgentSetup = async (agentId: string, setupData: any): Promise
 /**
  * Get specific agent setup configuration via backend API
  */
-export const getAgentSetup = async (agentId: string): Promise<any> => {
+export const getAgentSetup = async (agentId: string, setupType?: string): Promise<any> => {
   try {
     const userIdResult = await getUserId();
     if (!userIdResult.success || !userIdResult.user_id) {
@@ -168,16 +171,16 @@ export const getAgentSetup = async (agentId: string): Promise<any> => {
       return null;
     }
 
-    console.log(`🔍 Getting agent ${agentId} setup configuration`);
+    console.log(`🔍 Getting agent ${agentId} ${setupType || 'all'} setup configuration`);
 
     // Get from backend API
-    const agent = await getAgentSetupFromBackend(userIdResult.user_id, agentId);
+    const agent = await getAgentSetupFromBackend(userIdResult.user_id, agentId, setupType);
 
     if (agent) {
-      console.log(`✅ Retrieved agent ${agentId} setup:`, agent.setup_json);
+      console.log(`✅ Retrieved agent ${agentId} ${setupType || 'all'} setup:`, agent.setup_json);
       return agent.setup_json || {};
     } else {
-      console.log(`ℹ️ No setup found for agent ${agentId}`);
+      console.log(`ℹ️ No ${setupType || ''} setup found for agent ${agentId}`);
       return {};
     }
   } catch (error) {
@@ -187,48 +190,34 @@ export const getAgentSetup = async (agentId: string): Promise<any> => {
 };
 
 /**
- * Initialize default agents for a new user via backend API
+ * Check if user has completed progressive setup for an agent
  */
-export const initializeUserAgents = async (): Promise<boolean> => {
+export const checkAgentSetupProgress = async (agentId: string): Promise<{
+  solar_completed: boolean;
+  calendar_completed: boolean; 
+  notifications_completed: boolean;
+}> => {
   try {
     const userIdResult = await getUserId();
     if (!userIdResult.success || !userIdResult.user_id) {
       console.error('Failed to get user ID:', userIdResult.error);
-      return false;
+      return { solar_completed: false, calendar_completed: false, notifications_completed: false };
     }
 
-    console.log('🔄 Initializing default agents for user:', userIdResult.user_id);
+    // Check each setup type
+    const [solarSetup, calendarSetup, notificationSetup] = await Promise.all([
+      getAgentSetupFromBackend(userIdResult.user_id, agentId, 'SolarSetup'),
+      getAgentSetupFromBackend(userIdResult.user_id, agentId, 'CalendarSetup'), 
+      getAgentSetupFromBackend(userIdResult.user_id, agentId, 'NotificationSetup')
+    ]);
 
-    // Initialize default agents via backend API - ONLY if they don't exist
-    for (const defaultAgent of DEFAULT_AGENTS) {
-      try {
-        // First check if agent already exists
-        const existingAgent = await getAgentSetupFromBackend(userIdResult.user_id, defaultAgent.id);
-        
-        if (existingAgent) {
-          console.log(`ℹ️ Agent ${defaultAgent.id} already exists - SKIPPING to preserve user settings`);
-          continue; // Skip if agent exists - don't overwrite user's enabled status!
-        }
-        
-        // Only create if it doesn't exist
-        await createOrUpdateAgentSetup({
-          user_id: userIdResult.user_id,
-          agent_id: defaultAgent.id,
-          agent_name: defaultAgent.name,
-          setup_data: {},
-          is_enabled: defaultAgent.id === 'PersonalAssistant' // Only PersonalAssistant enabled by default
-        });
-        
-        console.log(`✅ Created new agent ${defaultAgent.id}`);
-      } catch (error) {
-        console.log(`ℹ️ Error with agent ${defaultAgent.id}:`, error);
-      }
-    }
-
-    console.log('✅ User agents initialized successfully');
-    return true;
+    return {
+      solar_completed: !!solarSetup,
+      calendar_completed: !!calendarSetup,
+      notifications_completed: !!notificationSetup
+    };
   } catch (error) {
-    console.error('Error in initializeUserAgents:', error);
-    return false;
+    console.error('Error checking agent setup progress:', error);
+    return { solar_completed: false, calendar_completed: false, notifications_completed: false };
   }
 };
