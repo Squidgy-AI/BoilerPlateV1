@@ -130,22 +130,44 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       ]);
       
       console.log('🔍 Agent loading debug:');
+      console.log('Current user:', profile?.user_id);
       console.log('All user agents:', allUserAgents.map(a => ({ id: a.id, name: a.name, enabled: a.enabled })));
       console.log('Enabled agents:', enabledAgents.map(a => ({ id: a.id, name: a.name, enabled: a.enabled })));
       console.log('SOL Agent in all agents:', allUserAgents.find(a => a.id === 'SOLAgent'));
       console.log('SOL Agent in enabled agents:', enabledAgents.find(a => a.id === 'SOLAgent'));
       
+      // Special debugging for your user ID
+      if (profile?.user_id === 'c41831a7-fa38-4489-8239-90ed70b76391') {
+        console.log('🎯 SPECIAL DEBUG for user c41831a7-fa38-4489-8239-90ed70b76391:');
+        console.log('- Total agents loaded:', allUserAgents.length);
+        console.log('- Enabled agents count:', enabledAgents.length);
+        console.log('- SOL Agent present in all:', !!allUserAgents.find(a => a.id === 'SOLAgent'));
+        console.log('- SOL Agent enabled value:', allUserAgents.find(a => a.id === 'SOLAgent')?.enabled);
+        console.log('- SOL Agent in enabled list:', !!enabledAgents.find(a => a.id === 'SOLAgent'));
+      }
+      
       setAllAgents(allUserAgents);
       
-      // Ensure PersonalAssistant is always available in enabled agents
+      // Ensure critical agents are always available
       let finalEnabledAgents = [...enabledAgents];
+      
+      // Always include PersonalAssistant
       const personalAssistant = allUserAgents.find(a => a.id === 'PersonalAssistant');
       if (personalAssistant && !finalEnabledAgents.find(a => a.id === 'PersonalAssistant')) {
         console.log('🔄 Adding PersonalAssistant to enabled agents (always available)');
         finalEnabledAgents.push(personalAssistant);
       }
       
+      // AGGRESSIVE FIX: Ensure SOL Agent appears if it's enabled in database
+      const solAgent = allUserAgents.find(a => a.id === 'SOLAgent');
+      if (solAgent && solAgent.enabled && !finalEnabledAgents.find(a => a.id === 'SOLAgent')) {
+        console.log('🔥 FORCING SOL Agent to appear - was missing from enabled list!');
+        console.log('SOL Agent data:', solAgent);
+        finalEnabledAgents.push(solAgent);
+      }
+      
       console.log('Final enabled agents:', finalEnabledAgents.map(a => ({ id: a.id, name: a.name, enabled: a.enabled })));
+      console.log('🎯 UI will show these agents:', finalEnabledAgents.map(a => a.id));
       setAgents(finalEnabledAgents);
       
       // Try to restore last selected agent from localStorage
