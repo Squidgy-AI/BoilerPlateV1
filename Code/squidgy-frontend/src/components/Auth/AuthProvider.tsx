@@ -94,9 +94,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) {
           console.error('Error getting session:', error);
           
-          // Handle refresh token errors specifically
-          if (error.message?.includes('Refresh Token') || error.message?.includes('Invalid')) {
-            console.warn('Invalid refresh token detected, clearing auth state');
+          // Only clear auth state for specific critical errors
+          if (error.message?.includes('Invalid Refresh Token') || 
+              error.message?.includes('refresh_token_not_found') ||
+              error.message?.includes('Token has expired')) {
+            console.warn('Critical auth error detected, clearing auth state:', error.message);
             await supabase.auth.signOut();
             setSession(null);
             setUser(null);
@@ -104,6 +106,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             clearTimeout(timeoutId);
             setIsLoading(false);
             return;
+          } else {
+            // For other errors, just log and continue - don't clear auth state
+            console.warn('Non-critical auth error, continuing with session check:', error.message);
           }
         }
         
@@ -149,9 +154,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           async (event, updatedSession) => {
             console.log('Auth state change:', event, updatedSession?.user?.id);
             
-            // Handle token refresh errors
+            // Handle token refresh errors more gracefully
             if (event === 'TOKEN_REFRESHED' && !updatedSession) {
-              console.warn('Token refresh failed, clearing auth state');
+              console.warn('Token refresh failed, but not clearing auth state immediately');
+              // Don't immediately clear - let the user stay logged in and try again later
+              return;
+            }
+            
+            // Handle sign out events
+            if (event === 'SIGNED_OUT') {
+              console.log('User signed out, clearing auth state');
               setSession(null);
               setUser(null);
               setProfile(null);

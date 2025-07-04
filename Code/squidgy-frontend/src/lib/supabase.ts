@@ -21,9 +21,12 @@ console.log('🔧 Supabase client configuration:', {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false
+    autoRefreshToken: true,     // ✅ Enable automatic token refresh
+    persistSession: true,       // ✅ Persist sessions across browser refreshes
+    detectSessionInUrl: true,   // ✅ Handle auth redirects from OAuth providers
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storageKey: 'supabase.auth.token',
+    flowType: 'pkce'
   },
   realtime: {
     headers: {
