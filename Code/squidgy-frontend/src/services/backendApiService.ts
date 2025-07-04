@@ -21,7 +21,7 @@ export interface AgentSetupRequest {
   agent_name: string;
   setup_data: any;
   is_enabled?: boolean;
-  setup_type: string;  // Required: 'SolarSetup', 'CalendarSetup', 'NotificationSetup'
+  setup_type?: string;  // Optional: defaults to 'agent_config' for PersonalAssistant
   session_id?: string;
 }
 
@@ -29,7 +29,7 @@ export interface AgentStatusRequest {
   user_id: string;
   agent_id: string;
   is_enabled: boolean;
-  setup_type: string;  // Required: 'SolarSetup', 'CalendarSetup', 'NotificationSetup'
+  setup_type?: string;  // Optional: defaults to 'agent_config' for PersonalAssistant
 }
 
 /**

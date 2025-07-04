@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, initializeUserAgents, getAgentSetup } from '@/services/agentService';
+import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, getAgentSetup, checkAgentSetupProgress, initializePersonalAssistant } from '@/services/agentService';
 import type { Agent } from '@/services/agentService';
 import { 
   User, 
@@ -120,8 +120,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
 
   const loadAgentsFromDatabase = async () => {
     try {
-      // Initialize user agents if needed
-      await initializeUserAgents();
+      // Initialize PersonalAssistant (always available)
+      await initializePersonalAssistant();
       
       // Load all agents and enabled agents
       const [allUserAgents, enabledAgents] = await Promise.all([

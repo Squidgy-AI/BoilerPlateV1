@@ -190,6 +190,53 @@ export const getAgentSetup = async (agentId: string, setupType?: string): Promis
 };
 
 /**
+ * Initialize PersonalAssistant for a user (always available)
+ */
+export const initializePersonalAssistant = async (): Promise<boolean> => {
+  try {
+    const userIdResult = await getUserId();
+    if (!userIdResult.success || !userIdResult.user_id) {
+      console.error('Failed to get user ID:', userIdResult.error);
+      return false;
+    }
+
+    console.log('🔄 Initializing PersonalAssistant for user:', userIdResult.user_id);
+
+    // Check if PersonalAssistant already exists
+    const existingAgent = await getAgentSetupFromBackend(userIdResult.user_id, 'PersonalAssistant', 'agent_config');
+    
+    if (existingAgent) {
+      console.log('ℹ️ PersonalAssistant already exists - SKIPPING');
+      return true;
+    }
+    
+    // Create PersonalAssistant
+    const result = await createOrUpdateAgentSetup({
+      user_id: userIdResult.user_id,
+      agent_id: 'PersonalAssistant',
+      agent_name: 'Personal Assistant Bot',
+      setup_data: {
+        description: 'Your general-purpose AI assistant',
+        capabilities: ['general_chat', 'help', 'information']
+      },
+      setup_type: 'agent_config', // Use agent_config for PersonalAssistant
+      is_enabled: true
+    });
+    
+    if (result) {
+      console.log('✅ PersonalAssistant initialized successfully');
+      return true;
+    } else {
+      console.error('❌ Failed to initialize PersonalAssistant');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error initializing PersonalAssistant:', error);
+    return false;
+  }
+};
+
+/**
  * Check if user has completed progressive setup for an agent
  */
 export const checkAgentSetupProgress = async (agentId: string): Promise<{
