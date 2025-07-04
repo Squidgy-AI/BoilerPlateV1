@@ -39,7 +39,7 @@ export const AGENT_CONFIG: Agent[] = [
     fallbackAvatar: '/avatars/leadgen-fallback.jpg', // Using existing fallback
     agent_name: 'SOLAgent',
     introMessage: "Hello! I'm your Solar Sales Specialist. I help customers find the perfect solar energy solutions, calculate savings, and guide them through the transition to renewable energy. How can I help you go solar today?",
-    is_enabled: false
+    is_enabled: true  // This should match database - but database is the source of truth
   }
   // Commenting out Social Media Manager and Lead Generation Specialist as requested
   /*
@@ -137,6 +137,10 @@ export const getValidatedAvatarId = (agentId: string): string => {
   return 'Thaddeus_ProfessionalLook_public';
 };
 
+// DEPRECATED: Use database-driven agent management from /services/agentService.ts instead
+// These functions are commented out to prevent conflicts with the database system
+
+/*
 // Helper function to get only enabled agents
 export const getEnabledAgents = (): Agent[] => {
   return AGENT_CONFIG.filter(agent => agent.is_enabled);
@@ -173,6 +177,7 @@ export const restoreAgentEnabledStatus = (): void => {
     }
   });
 };
+*/
 
 // Helper function to force disable an agent and clear localStorage
 export const forceDisableAgent = (agentId: string): boolean => {
