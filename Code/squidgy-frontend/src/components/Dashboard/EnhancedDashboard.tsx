@@ -36,7 +36,6 @@ import CompleteBusinessSetup from '../CompleteBusinessSetup';
 import SetupStatusIndicator from '../SetupStatusIndicator';
 import ChatHistory from '../ChatHistory';
 import SetupChatAssistant from '../SetupChatAssistant';
-import AgentDebugger from '../AgentDebugger';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { getUserId } from '@/utils/getUserId';
 
@@ -1911,12 +1910,6 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         />
       )}
       
-      {/* Temporary Agent Debugger - REMOVE AFTER TESTING */}
-      {profile?.user_id === '80b957fc-de1d-4f28-920c-41e0e2e28e5e' && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <AgentDebugger />
-        </div>
-      )}
     </div>
   );
 };
