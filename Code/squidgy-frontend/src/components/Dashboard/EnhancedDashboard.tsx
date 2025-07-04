@@ -132,9 +132,21 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       console.log('🔍 Agent loading debug:');
       console.log('All user agents:', allUserAgents.map(a => ({ id: a.id, name: a.name, enabled: a.enabled })));
       console.log('Enabled agents:', enabledAgents.map(a => ({ id: a.id, name: a.name, enabled: a.enabled })));
+      console.log('SOL Agent in all agents:', allUserAgents.find(a => a.id === 'SOLAgent'));
+      console.log('SOL Agent in enabled agents:', enabledAgents.find(a => a.id === 'SOLAgent'));
       
       setAllAgents(allUserAgents);
-      setAgents(enabledAgents);
+      
+      // Ensure PersonalAssistant is always available in enabled agents
+      let finalEnabledAgents = [...enabledAgents];
+      const personalAssistant = allUserAgents.find(a => a.id === 'PersonalAssistant');
+      if (personalAssistant && !finalEnabledAgents.find(a => a.id === 'PersonalAssistant')) {
+        console.log('🔄 Adding PersonalAssistant to enabled agents (always available)');
+        finalEnabledAgents.push(personalAssistant);
+      }
+      
+      console.log('Final enabled agents:', finalEnabledAgents.map(a => ({ id: a.id, name: a.name, enabled: a.enabled })));
+      setAgents(finalEnabledAgents);
       
       // Try to restore last selected agent from localStorage
       const lastSelectedAgentId = localStorage.getItem('selectedAgentId');
@@ -1019,17 +1031,23 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     const success = await updateAgentEnabledStatus(agentId, true);
     
     if (success) {
+      console.log('✅ Agent enabled in database, refreshing UI...');
+      
       // Hide the prompt and re-enable chat
       setShowEnableAgentPrompt({ show: false, agentId: '', agentName: '' });
       setChatDisabled(false);
       
+      // Add a small delay to ensure database update is committed
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Reload agents from database to reflect changes
+      console.log('🔄 Reloading agents from database...');
       await loadAgentsFromDatabase();
       
       // Force update trigger to refresh UI components
       setAgentUpdateTrigger(prev => prev + 1);
       
-      console.log('✅ Agent enabled successfully');
+      console.log('✅ Agent enabled successfully and UI refreshed');
       
       // Add welcome message to database for newly enabled agent
       if (profile?.user_id) {
