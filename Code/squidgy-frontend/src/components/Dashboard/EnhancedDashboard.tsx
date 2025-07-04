@@ -35,7 +35,7 @@ import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
 import SetupStatusIndicator from '../SetupStatusIndicator';
 import ChatHistory from '../ChatHistory';
-import SetupChatAssistant from '../SetupChatAssistant';
+import ProgressiveSOLSetup from '../ProgressiveSOLSetup';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { getUserId } from '@/utils/getUserId';
 
@@ -1152,16 +1152,24 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       console.log('🔍 Checking solar agent setup via backend API...');
       
       try {
-        const solarSetup = await getAgentSetup('SOLAgent');
+        // Check progressive setup progress
+        const savedProgress = localStorage.getItem('sol_agent_setup_progress');
         
-        console.log('🔍 Solar setup result:', solarSetup);
+        console.log('🔍 Progressive setup progress:', savedProgress);
         
-        if (solarSetup && solarSetup.completed) {
-          console.log('✅ Solar configuration exists and is completed:', solarSetup);
-          setShowSolarSetup(false);
-          setSolarConfigCompleted(true);
+        if (savedProgress) {
+          const progress = JSON.parse(savedProgress);
+          if (progress.solar_completed && progress.calendar_completed && progress.notifications_completed) {
+            console.log('✅ Progressive setup fully completed:', progress);
+            setShowSolarSetup(false);
+            setSolarConfigCompleted(true);
+          } else {
+            console.log('🔧 Progressive setup not completed, showing setup...');
+            setShowSolarSetup(true);
+            setSolarConfigCompleted(false);
+          }
         } else {
-          console.log('🔧 Solar configuration not completed, showing setup...');
+          console.log('🔧 No progressive setup found, showing setup...');
           setShowSolarSetup(true);
           setSolarConfigCompleted(false);
         }
@@ -1192,34 +1200,26 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     });
   };
 
-  // Handle setup chat assistant completion
-  const handleSetupChatComplete = () => {
-    console.log('🌞 Solar Sales Specialist setup completed via chat assistant');
+  // Handle progressive setup completion
+  const handleProgressiveSetupComplete = () => {
+    console.log('🌞 Progressive Solar Sales Specialist setup completed');
     setShowSolarSetup(false);
     setSolarConfigCompleted(true);
     
     // Reload agents to reflect the updated status
     loadAgentsFromDatabase();
     
-    // Add completion message
-    addMessage({
-      sender: 'agent',
-      text: `🎉 Excellent! Your Solar Sales Specialist is now fully configured and ready to help customers with solar consultations. I have all your business information and can provide accurate quotes and guidance!`,
-      timestamp: Date.now()
-    });
+    // The ProgressiveSOLSetup component handles its own completion messages
+    // No need to add an additional message here
   };
 
-  const handleSolarConfigSkip = () => {
-    console.log('🌞 Solar configuration skipped');
+  const handleProgressiveSetupSkip = () => {
+    console.log('🌞 Progressive setup skipped');
     setShowSolarSetup(false);
     setSolarConfigCompleted(true);
     
-    // Add a message about using default values
-    addMessage({
-      sender: 'agent',
-      text: `No problem! I'll use default solar industry values for now. You can always set up your business configuration later by saying "configure solar business" in our chat. How can I help you with solar sales today? 🌞`,
-      timestamp: Date.now()
-    });
+    // The ProgressiveSOLSetup component handles its own skip messages
+    // No need to add an additional message here
   };
 
   // Agent enabled status is now handled by database loading in loadAgentsFromDatabase
@@ -1577,17 +1577,17 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
-                    {/* Show Setup Chat Assistant if needed */}
-                    {console.log('🌞 Render check:', { 
+                    {/* Show Progressive SOL Setup if needed */}
+                    {console.log('🌞 Progressive setup render check:', { 
                       agentId: selectedAgent?.id, 
                       showSolarSetup, 
                       shouldShowSetup: selectedAgent?.id === 'SOLAgent' && showSolarSetup 
                     })}
                     {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
-                      <SetupChatAssistant
-                        agentId={selectedAgent.id}
-                        agentName={selectedAgent.name}
-                        onComplete={handleSetupChatComplete}
+                      <ProgressiveSOLSetup
+                        onComplete={handleProgressiveSetupComplete}
+                        onSkip={handleProgressiveSetupSkip}
+                        sessionId={currentSessionId}
                       />
                     )}
                     
@@ -1613,17 +1613,17 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
-                    {/* Show Setup Chat Assistant if needed */}
-                    {console.log('🌞 Render check:', { 
+                    {/* Show Progressive SOL Setup if needed */}
+                    {console.log('🌞 Progressive setup render check:', { 
                       agentId: selectedAgent?.id, 
                       showSolarSetup, 
                       shouldShowSetup: selectedAgent?.id === 'SOLAgent' && showSolarSetup 
                     })}
                     {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
-                      <SetupChatAssistant
-                        agentId={selectedAgent.id}
-                        agentName={selectedAgent.name}
-                        onComplete={handleSetupChatComplete}
+                      <ProgressiveSOLSetup
+                        onComplete={handleProgressiveSetupComplete}
+                        onSkip={handleProgressiveSetupSkip}
+                        sessionId={currentSessionId}
                       />
                     )}
                     
