@@ -97,6 +97,15 @@ const EnhancedDashboard: React.FC = () => {
   // Chat history functionality
   const [showChatHistory, setShowChatHistory] = useState(false);
   
+  // Website analysis loading states
+  const [websiteAnalysisLoading, setWebsiteAnalysisLoading] = useState({
+    detecting: false,
+    screenshot: false,
+    favicon: false,
+    analysis: false
+  });
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  
 // src/components/Dashboard/EnhancedDashboard.tsx
 const [agents, setAgents] = useState<Agent[]>([]);
 const [allAgents, setAllAgents] = useState<Agent[]>([]);
@@ -119,6 +128,10 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         getUserAgents(),
         getEnabledAgents()
       ]);
+      
+      console.log('🔍 Agent loading debug:');
+      console.log('All user agents:', allUserAgents.map(a => ({ id: a.id, name: a.name, enabled: a.enabled })));
+      console.log('Enabled agents:', enabledAgents.map(a => ({ id: a.id, name: a.name, enabled: a.enabled })));
       
       setAllAgents(allUserAgents);
       setAgents(enabledAgents);
@@ -412,6 +425,14 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       case 'agent_response':
         if (data.final) {
           setAgentThinking(null);
+          setIsSendingMessage(false);
+          // Clear website analysis loading states when response is complete
+          setWebsiteAnalysisLoading({
+            detecting: false,
+            screenshot: false,
+            favicon: false,
+            analysis: false
+          });
           
           // Check for agent switching scenario
           const responseAgentName = data.agent_name || data.agent; // Backend sends 'agent' field
@@ -816,10 +837,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   };
   
   const sendMessage = async () => {
-    if (!inputMessage.trim() || !websocket || !selectedAgent) {
-      console.log('Cannot send message:', { inputMessage: inputMessage.trim(), websocket: !!websocket, selectedAgent: !!selectedAgent });
+    if (!inputMessage.trim() || !websocket || !selectedAgent || isSendingMessage) {
+      console.log('Cannot send message:', { inputMessage: inputMessage.trim(), websocket: !!websocket, selectedAgent: !!selectedAgent, isSendingMessage });
       return;
     }
+    
+    setIsSendingMessage(true);
     
     // Use the agent's persistent session, or create one if it doesn't exist
     let sessionId = currentSessionId;
@@ -835,6 +858,52 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     
     const userMessage = inputMessage.trim();
     console.log('Sending message:', userMessage, 'Session ID:', sessionId);
+    
+    // Check if message contains a URL
+    const urlMatch = userMessage.match(/(https?:\/\/[^\s]+)/g);
+    if (urlMatch && urlMatch[0]) {
+      console.log('🔍 Website URL detected:', urlMatch[0]);
+      
+      // Show website analysis loading indicators
+      setWebsiteAnalysisLoading({
+        detecting: true,
+        screenshot: true,
+        favicon: true,
+        analysis: true
+      });
+      
+      // Add loading messages to chat
+      addMessage({ 
+        sender: 'system', 
+        text: '🔍 Website detected! Starting analysis...', 
+        timestamp: new Date().toISOString() 
+      });
+      
+      // Add progressive loading messages
+      setTimeout(() => {
+        addMessage({ 
+          sender: 'system', 
+          text: '📸 Working on website screenshot...', 
+          timestamp: new Date().toISOString() 
+        });
+      }, 500);
+      
+      setTimeout(() => {
+        addMessage({ 
+          sender: 'system', 
+          text: '🎨 Capturing website favicon...', 
+          timestamp: new Date().toISOString() 
+        });
+      }, 1000);
+      
+      setTimeout(() => {
+        addMessage({ 
+          sender: 'system', 
+          text: '🤖 Performing deep website analysis... This might take up to 1 minute.', 
+          timestamp: new Date().toISOString() 
+        });
+      }, 1500);
+    }
     
     // Add user message to UI and cache
     addMessage({ sender: 'user', text: userMessage, timestamp: new Date().toISOString() });
@@ -857,6 +926,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         message: `Failed to send message: ${error}`,
         data: error
       }]);
+      setIsSendingMessage(false);
+      return;
     }
     
     setInputMessage('');
@@ -955,6 +1026,9 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       // Reload agents from database to reflect changes
       await loadAgentsFromDatabase();
       
+      // Force update trigger to refresh UI components
+      setAgentUpdateTrigger(prev => prev + 1);
+      
       console.log('✅ Agent enabled successfully');
       
       // Add welcome message to database for newly enabled agent
@@ -976,24 +1050,14 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
               welcomeMessage = `Hello! I'm ${agentName} and I've been enabled. I'm ready to assist you!`;
             }
             
-            // Save to chat_history table
-            const { error } = await supabase
-              .from('chat_history')
-              .insert({
-                user_id: userIdResult.user_id,
-                session_id: sessionId,
-                agent_id: agentId,
-                sender: 'agent',
-                message: welcomeMessage,
-                timestamp: new Date().toISOString(),
-                agent_name: agentName
-              });
-              
-            if (error) {
-              console.error('Error saving agent enable message to database:', error);
-            } else {
-              console.log(`✅ Agent ${agentId} welcome message saved to chat history`);
-            }
+            // Add welcome message to UI chat (will be logged automatically)
+            addMessage({
+              sender: 'agent',
+              text: welcomeMessage,
+              timestamp: new Date().toISOString()
+            });
+            
+            console.log(`✅ Agent ${agentId} welcome message added to chat`);
           }
         } catch (error) {
           console.error('Error saving agent enable message:', error);
@@ -1596,10 +1660,14 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                   />
                   <button
                     onClick={sendMessage}
-                    disabled={!textEnabled || chatDisabled}
+                    disabled={!textEnabled || chatDisabled || isSendingMessage}
                     className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-r-lg transition-colors disabled:opacity-50 min-h-[42px] flex items-center border border-l-0 border-gray-600"
                   >
-                    <Send size={16} />
+                    {isSendingMessage ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    ) : (
+                      <Send size={16} />
+                    )}
                   </button>
                 </div>
               </div>
