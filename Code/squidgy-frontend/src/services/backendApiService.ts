@@ -1,9 +1,11 @@
 // src/services/backendApiService.ts
 // Service for making API calls to the Python backend
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+// Remove trailing slash to avoid double slashes in URLs
+const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '');
 
 console.log('🔧 Backend API Service configured with URL:', BACKEND_URL);
+console.log('🔧 Environment check - NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
 
 export interface BackendAgent {
   firm_user_id: string;
