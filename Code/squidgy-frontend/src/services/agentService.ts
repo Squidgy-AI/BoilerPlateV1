@@ -86,6 +86,75 @@ export const getEnabledAgents = async (): Promise<Agent[]> => {
 };
 
 /**
+ * Enable SOL Agent (if progressive setup is complete)
+ */
+export const enableSOLAgent = async (): Promise<boolean> => {
+  try {
+    const userIdResult = await getUserId();
+    if (!userIdResult.success || !userIdResult.user_id) {
+      console.error('Failed to get user ID:', userIdResult.error);
+      return false;
+    }
+
+    // Check if progressive setup is complete
+    const progress = await checkAgentSetupProgress('SOLAgent');
+    
+    if (!progress.solar_completed || !progress.calendar_completed || !progress.notifications_completed) {
+      console.error('❌ SOL Agent progressive setup not complete. Missing:', {
+        solar: !progress.solar_completed,
+        calendar: !progress.calendar_completed, 
+        notifications: !progress.notifications_completed
+      });
+      
+      // Provide helpful error message
+      const missing = [];
+      if (!progress.solar_completed) missing.push('Solar Setup');
+      if (!progress.calendar_completed) missing.push('Calendar Setup');
+      if (!progress.notifications_completed) missing.push('Notification Setup');
+      
+      console.error(`Please complete: ${missing.join(', ')} before enabling SOL Agent`);
+      return false;
+    }
+
+    // Enable all setup types for SOL Agent
+    const enablePromises = [
+      updateAgentStatusViaBackend({
+        user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        setup_type: 'SolarSetup',
+        is_enabled: true
+      }),
+      updateAgentStatusViaBackend({
+        user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        setup_type: 'CalendarSetup',
+        is_enabled: true
+      }),
+      updateAgentStatusViaBackend({
+        user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        setup_type: 'NotificationSetup',
+        is_enabled: true
+      })
+    ];
+
+    const results = await Promise.all(enablePromises);
+    const allSuccessful = results.every(result => !!result);
+
+    if (allSuccessful) {
+      console.log('✅ SOL Agent enabled successfully');
+      return true;
+    } else {
+      console.error('❌ Failed to enable some SOL Agent setup types');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error enabling SOL Agent:', error);
+    return false;
+  }
+};
+
+/**
  * Enable/disable a specific setup type for an agent via backend API
  */
 export const updateAgentEnabledStatus = async (agentId: string, setupType: string, enabled: boolean): Promise<boolean> => {

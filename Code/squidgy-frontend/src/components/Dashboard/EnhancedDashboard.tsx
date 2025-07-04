@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, getAgentSetup, checkAgentSetupProgress, initializePersonalAssistant } from '@/services/agentService';
+import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, getAgentSetup, checkAgentSetupProgress, initializePersonalAssistant, enableSOLAgent } from '@/services/agentService';
 import type { Agent } from '@/services/agentService';
 import { 
   User, 
@@ -1051,8 +1051,18 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   const handleEnableAgent = async (agentId: string) => {
     console.log(`🤖 Enabling agent: ${agentId}`);
     
-    // Update agent enabled status in database
-    const success = await updateAgentEnabledStatus(agentId, true);
+    let success = false;
+    
+    if (agentId === 'SOLAgent') {
+      // Use special SOL Agent enabling function
+      success = await enableSOLAgent();
+    } else if (agentId === 'PersonalAssistant') {
+      // For PersonalAssistant, use agent_config setup type
+      success = await updateAgentEnabledStatus(agentId, 'agent_config', true);
+    } else {
+      // For other agents, use agent_config as default
+      success = await updateAgentEnabledStatus(agentId, 'agent_config', true);
+    }
     
     if (success) {
       console.log('✅ Agent enabled in database, refreshing UI...');
