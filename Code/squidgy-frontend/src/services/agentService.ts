@@ -199,9 +199,18 @@ export const initializeUserAgents = async (): Promise<boolean> => {
 
     console.log('🔄 Initializing default agents for user:', userIdResult.user_id);
 
-    // Initialize default agents via backend API
+    // Initialize default agents via backend API - ONLY if they don't exist
     for (const defaultAgent of DEFAULT_AGENTS) {
       try {
+        // First check if agent already exists
+        const existingAgent = await getAgentSetupFromBackend(userIdResult.user_id, defaultAgent.id);
+        
+        if (existingAgent) {
+          console.log(`ℹ️ Agent ${defaultAgent.id} already exists - SKIPPING to preserve user settings`);
+          continue; // Skip if agent exists - don't overwrite user's enabled status!
+        }
+        
+        // Only create if it doesn't exist
         await createOrUpdateAgentSetup({
           user_id: userIdResult.user_id,
           agent_id: defaultAgent.id,
@@ -210,10 +219,9 @@ export const initializeUserAgents = async (): Promise<boolean> => {
           is_enabled: defaultAgent.id === 'PersonalAssistant' // Only PersonalAssistant enabled by default
         });
         
-        console.log(`✅ Initialized agent ${defaultAgent.id}`);
+        console.log(`✅ Created new agent ${defaultAgent.id}`);
       } catch (error) {
-        // Ignore errors if agent already exists
-        console.log(`ℹ️ Agent ${defaultAgent.id} may already exist`);
+        console.log(`ℹ️ Error with agent ${defaultAgent.id}:`, error);
       }
     }
 
