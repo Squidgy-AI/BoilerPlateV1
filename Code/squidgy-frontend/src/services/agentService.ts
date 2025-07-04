@@ -86,7 +86,7 @@ export const getEnabledAgents = async (): Promise<Agent[]> => {
 };
 
 /**
- * Enable SOL Agent (if progressive setup is complete)
+ * Enable SOL Agent - creates SOLAgent record with setup_type='SOLAgent' and is_enabled=true
  */
 export const enableSOLAgent = async (): Promise<boolean> => {
   try {
@@ -96,56 +96,38 @@ export const enableSOLAgent = async (): Promise<boolean> => {
       return false;
     }
 
-    // Check if progressive setup is complete
-    const progress = await checkAgentSetupProgress('SOLAgent');
+    console.log('🔄 Enabling SOL Agent for user:', userIdResult.user_id);
+
+    // Check if SOL Agent already exists
+    const existingAgent = await getAgentSetupFromBackend(userIdResult.user_id, 'SOLAgent', 'SOLAgent');
     
-    if (!progress.solar_completed || !progress.calendar_completed || !progress.notifications_completed) {
-      console.error('❌ SOL Agent progressive setup not complete. Missing:', {
-        solar: !progress.solar_completed,
-        calendar: !progress.calendar_completed, 
-        notifications: !progress.notifications_completed
+    if (existingAgent) {
+      console.log('ℹ️ SOL Agent already exists - enabling it');
+      // Just enable the existing agent
+      const result = await updateAgentStatusViaBackend({
+        user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        setup_type: 'SOLAgent',
+        is_enabled: true
       });
-      
-      // Provide helpful error message
-      const missing = [];
-      if (!progress.solar_completed) missing.push('Solar Setup');
-      if (!progress.calendar_completed) missing.push('Calendar Setup');
-      if (!progress.notifications_completed) missing.push('Notification Setup');
-      
-      console.error(`Please complete: ${missing.join(', ')} before enabling SOL Agent`);
-      return false;
+      return !!result;
     }
 
-    // Enable all setup types for SOL Agent
-    const enablePromises = [
-      updateAgentStatusViaBackend({
-        user_id: userIdResult.user_id,
-        agent_id: 'SOLAgent',
-        setup_type: 'SolarSetup',
-        is_enabled: true
-      }),
-      updateAgentStatusViaBackend({
-        user_id: userIdResult.user_id,
-        agent_id: 'SOLAgent',
-        setup_type: 'CalendarSetup',
-        is_enabled: true
-      }),
-      updateAgentStatusViaBackend({
-        user_id: userIdResult.user_id,
-        agent_id: 'SOLAgent',
-        setup_type: 'NotificationSetup',
-        is_enabled: true
-      })
-    ];
+    // Create new SOL Agent record with empty setup_json (to be filled later)
+    const result = await createOrUpdateAgentSetup({
+      user_id: userIdResult.user_id,
+      agent_id: 'SOLAgent',
+      agent_name: 'Solar Sales Specialist',
+      setup_data: {}, // Empty JSON - will be populated when user completes business setup
+      setup_type: 'SOLAgent',
+      is_enabled: true
+    });
 
-    const results = await Promise.all(enablePromises);
-    const allSuccessful = results.every(result => !!result);
-
-    if (allSuccessful) {
+    if (result) {
       console.log('✅ SOL Agent enabled successfully');
       return true;
     } else {
-      console.error('❌ Failed to enable some SOL Agent setup types');
+      console.error('❌ Failed to enable SOL Agent');
       return false;
     }
   } catch (error) {
@@ -306,34 +288,22 @@ export const initializePersonalAssistant = async (): Promise<boolean> => {
 };
 
 /**
- * Check if user has completed progressive setup for an agent
+ * Check if SOL Agent is enabled (simplified approach)
  */
-export const checkAgentSetupProgress = async (agentId: string): Promise<{
-  solar_completed: boolean;
-  calendar_completed: boolean; 
-  notifications_completed: boolean;
-}> => {
+export const checkSOLAgentEnabled = async (): Promise<boolean> => {
   try {
     const userIdResult = await getUserId();
     if (!userIdResult.success || !userIdResult.user_id) {
       console.error('Failed to get user ID:', userIdResult.error);
-      return { solar_completed: false, calendar_completed: false, notifications_completed: false };
+      return false;
     }
 
-    // Check each setup type
-    const [solarSetup, calendarSetup, notificationSetup] = await Promise.all([
-      getAgentSetupFromBackend(userIdResult.user_id, agentId, 'SolarSetup'),
-      getAgentSetupFromBackend(userIdResult.user_id, agentId, 'CalendarSetup'), 
-      getAgentSetupFromBackend(userIdResult.user_id, agentId, 'NotificationSetup')
-    ]);
-
-    return {
-      solar_completed: !!solarSetup,
-      calendar_completed: !!calendarSetup,
-      notifications_completed: !!notificationSetup
-    };
+    // Check if SOL Agent exists and is enabled
+    const solAgent = await getAgentSetupFromBackend(userIdResult.user_id, 'SOLAgent', 'SOLAgent');
+    
+    return !!solAgent;
   } catch (error) {
-    console.error('Error checking agent setup progress:', error);
-    return { solar_completed: false, calendar_completed: false, notifications_completed: false };
+    console.error('Error checking SOL Agent status:', error);
+    return false;
   }
 };

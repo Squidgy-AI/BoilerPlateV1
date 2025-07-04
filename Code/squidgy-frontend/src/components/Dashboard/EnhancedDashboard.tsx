@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, getAgentSetup, checkAgentSetupProgress, initializePersonalAssistant, enableSOLAgent } from '@/services/agentService';
+import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, getAgentSetup, checkSOLAgentEnabled, initializePersonalAssistant, enableSOLAgent } from '@/services/agentService';
 import type { Agent } from '@/services/agentService';
 import { 
   User, 
@@ -33,9 +33,7 @@ import SquidgyLogo from '../Auth/SquidgyLogo';
 import MessageContent from '../Chat/MessageContent';
 import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
-import SetupStatusIndicator from '../SetupStatusIndicator';
 import ChatHistory from '../ChatHistory';
-import ProgressiveSOLSetup from '../ProgressiveSOLSetup';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { getUserId } from '@/utils/getUserId';
 
@@ -90,9 +88,7 @@ const EnhancedDashboard: React.FC = () => {
   });
   const [chatDisabled, setChatDisabled] = useState(false);
   
-  // Solar Agent setup functionality
-  const [showSolarSetup, setShowSolarSetup] = useState(false);
-  const [solarConfigCompleted, setSolarConfigCompleted] = useState(false);
+  // SOL Agent now uses simple enable/disable - no progressive setup needed
   
   // Chat history functionality
   const [showChatHistory, setShowChatHistory] = useState(false);
@@ -900,45 +896,13 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     if (urlMatch && urlMatch[0]) {
       console.log('🔍 Website URL detected:', urlMatch[0]);
       
-      // Show website analysis loading indicators
+      // Show website analysis loading indicators (temporary - no chat messages)
       setWebsiteAnalysisLoading({
         detecting: true,
         screenshot: true,
         favicon: true,
         analysis: true
       });
-      
-      // Add loading messages to chat
-      addMessage({ 
-        sender: 'system', 
-        text: '🔍 Website detected! Starting analysis...', 
-        timestamp: new Date().toISOString() 
-      });
-      
-      // Add progressive loading messages
-      setTimeout(() => {
-        addMessage({ 
-          sender: 'system', 
-          text: '📸 Working on website screenshot...', 
-          timestamp: new Date().toISOString() 
-        });
-      }, 500);
-      
-      setTimeout(() => {
-        addMessage({ 
-          sender: 'system', 
-          text: '🎨 Capturing website favicon...', 
-          timestamp: new Date().toISOString() 
-        });
-      }, 1000);
-      
-      setTimeout(() => {
-        addMessage({ 
-          sender: 'system', 
-          text: '🤖 Performing deep website analysis... This might take up to 1 minute.', 
-          timestamp: new Date().toISOString() 
-        });
-      }, 1500);
     }
     
     // Add user message to UI and cache
@@ -1217,27 +1181,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     });
   };
 
-  // Handle progressive setup completion
-  const handleProgressiveSetupComplete = () => {
-    console.log('🌞 Progressive Solar Sales Specialist setup completed');
-    setShowSolarSetup(false);
-    setSolarConfigCompleted(true);
-    
-    // Reload agents to reflect the updated status
-    loadAgentsFromDatabase();
-    
-    // The ProgressiveSOLSetup component handles its own completion messages
-    // No need to add an additional message here
-  };
-
-  const handleProgressiveSetupSkip = () => {
-    console.log('🌞 Progressive setup skipped');
-    setShowSolarSetup(false);
-    setSolarConfigCompleted(true);
-    
-    // The ProgressiveSOLSetup component handles its own skip messages
-    // No need to add an additional message here
-  };
+  // Progressive setup handlers removed - SOL Agent now uses simple enable/disable
 
   // Agent enabled status is now handled by database loading in loadAgentsFromDatabase
   
@@ -1630,26 +1574,42 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
-                    {/* Show Progressive SOL Setup if needed */}
-                    {console.log('🌞 Progressive setup render check:', { 
-                      agentId: selectedAgent?.id, 
-                      showSolarSetup, 
-                      shouldShowSetup: selectedAgent?.id === 'SOLAgent' && showSolarSetup 
-                    })}
-                    {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
-                      <ProgressiveSOLSetup
-                        onComplete={handleProgressiveSetupComplete}
-                        onSkip={handleProgressiveSetupSkip}
-                        sessionId={currentSessionId}
-                      />
-                    )}
+                    {/* SOL Agent is now enabled directly - no progressive setup needed */}
                     
-                    {/* Show Setup Status Indicator when not showing setup */}
-                    {selectedAgent?.id === 'SOLAgent' && !showSolarSetup && (
-                      <SetupStatusIndicator
-                        agentId={selectedAgent.id}
-                        onViewHistory={() => setShowChatHistory(true)}
-                      />
+                    {/* Temporary Website Analysis Loading Indicator */}
+                    {(websiteAnalysisLoading.detecting || websiteAnalysisLoading.screenshot || websiteAnalysisLoading.favicon || websiteAnalysisLoading.analysis) && (
+                      <div className="p-4 mb-4 bg-blue-900 bg-opacity-20 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                          <span className="text-blue-400 font-medium">Analyzing website...</span>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {websiteAnalysisLoading.detecting && (
+                            <div className="flex items-center space-x-2 text-sm text-blue-300">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                              <span>Detecting website...</span>
+                            </div>
+                          )}
+                          {websiteAnalysisLoading.screenshot && (
+                            <div className="flex items-center space-x-2 text-sm text-blue-300">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                              <span>Taking screenshot...</span>
+                            </div>
+                          )}
+                          {websiteAnalysisLoading.favicon && (
+                            <div className="flex items-center space-x-2 text-sm text-blue-300">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                              <span>Getting favicon...</span>
+                            </div>
+                          )}
+                          {websiteAnalysisLoading.analysis && (
+                            <div className="flex items-center space-x-2 text-sm text-blue-300">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                              <span>Analyzing content...</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
                     
                     {messages.map((msg, index) => (
