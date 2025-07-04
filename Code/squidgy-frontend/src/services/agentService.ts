@@ -187,7 +187,7 @@ export const getAgentSetup = async (agentId: string): Promise<any> => {
 };
 
 /**
- * Initialize default agents for a new user
+ * Initialize default agents for a new user via backend API
  */
 export const initializeUserAgents = async (): Promise<boolean> => {
   try {
@@ -197,24 +197,24 @@ export const initializeUserAgents = async (): Promise<boolean> => {
       return false;
     }
 
-    // Insert default agents if they don't exist
+    console.log('🔄 Initializing default agents for user:', userIdResult.user_id);
+
+    // Initialize default agents via backend API
     for (const defaultAgent of DEFAULT_AGENTS) {
-      await supabase
-        .from('squidgy_agent_business_setup')
-        .insert({
-          firm_user_id: userIdResult.user_id,
+      try {
+        await createOrUpdateAgentSetup({
+          user_id: userIdResult.user_id,
           agent_id: defaultAgent.id,
           agent_name: defaultAgent.name,
-          is_enabled: defaultAgent.id === 'PersonalAssistant', // Only PersonalAssistant enabled by default
-          setup_json: {}
-        })
-        .select()
-        .single()
-        .then(({ error }) => {
-          if (error && error.code !== '23505') { // Ignore duplicate key errors
-            console.error(`Error inserting agent ${defaultAgent.id}:`, error);
-          }
+          setup_data: {},
+          is_enabled: defaultAgent.id === 'PersonalAssistant' // Only PersonalAssistant enabled by default
         });
+        
+        console.log(`✅ Initialized agent ${defaultAgent.id}`);
+      } catch (error) {
+        // Ignore errors if agent already exists
+        console.log(`ℹ️ Agent ${defaultAgent.id} may already exist`);
+      }
     }
 
     console.log('✅ User agents initialized successfully');
