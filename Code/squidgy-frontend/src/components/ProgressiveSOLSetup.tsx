@@ -3,9 +3,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, ArrowRight } from 'lucide-react';
-import ChatSolarSetup from './ChatSolarSetup';
-import ChatCalendarSetup from './ChatCalendarSetup';
-import ChatNotificationSetup from './ChatNotificationSetup';
+import EnhancedChatSolarSetup from './EnhancedChatSolarSetup';
+import EnhancedChatCalendarSetup from './EnhancedChatCalendarSetup';
+import EnhancedChatNotificationSetup from './EnhancedChatNotificationSetup';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { CalendarSetup as CalendarSetupType } from '@/config/calendarNotificationConfig';
 import { NotificationPreferences as NotificationPrefsType } from '@/config/calendarNotificationConfig';
@@ -57,13 +57,60 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         return;
       }
 
-      // Check localStorage for setup progress
+      console.log('🔍 Loading setup progress from database for user:', userIdResult.user_id);
+
+      // Check unified squidgy_agent_business_setup table for completion status
+      const [solarResult, calendarResult, notificationResult] = await Promise.all([
+        supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'SolarSetup').eq('is_enabled', true).single(),
+        supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'CalendarSetup').eq('is_enabled', true).single(),
+        supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'NotificationSetup').eq('is_enabled', true).single()
+      ]);
+
+      const solarCompleted = !solarResult.error && !!solarResult.data;
+      const calendarCompleted = !calendarResult.error && !!calendarResult.data;
+      const notificationsCompleted = !notificationResult.error && !!notificationResult.data;
+
+      console.log('📊 Database completion status:', {
+        solar: solarCompleted,
+        calendar: calendarCompleted,
+        notifications: notificationsCompleted
+      });
+
+      const progressFromDB = {
+        solar_completed: solarCompleted,
+        calendar_completed: calendarCompleted,
+        notifications_completed: notificationsCompleted,
+        solar_completed_at: solarResult.data?.created_at || '',
+        calendar_completed_at: calendarResult.data?.created_at || '',
+        notifications_completed_at: notificationResult.data?.created_at || ''
+      };
+
+      setProgress(progressFromDB);
+      
+      // Also save to localStorage for backup
+      localStorage.setItem('sol_agent_setup_progress', JSON.stringify(progressFromDB));
+      
+      // Determine current stage based on database status
+      if (!solarCompleted) {
+        setCurrentStage('solar');
+      } else if (!calendarCompleted) {
+        setCurrentStage('calendar');
+      } else if (!notificationsCompleted) {
+        setCurrentStage('notifications');
+      } else {
+        setCurrentStage('complete');
+      }
+
+      console.log('✅ Setup progress loaded from database');
+    } catch (error) {
+      console.error('Error loading setup progress:', error);
+      
+      // Fallback to localStorage if database fails
       const savedProgress = localStorage.getItem('sol_agent_setup_progress');
       if (savedProgress) {
         const parsedProgress = JSON.parse(savedProgress);
         setProgress(parsedProgress);
         
-        // Determine current stage based on progress
         if (!parsedProgress.solar_completed) {
           setCurrentStage('solar');
         } else if (!parsedProgress.calendar_completed) {
@@ -74,8 +121,6 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           setCurrentStage('complete');
         }
       }
-    } catch (error) {
-      console.error('Error loading setup progress:', error);
     } finally {
       setIsLoading(false);
     }
@@ -118,14 +163,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const handleSolarComplete = async (config: SolarBusinessConfig) => {
-    const completedAt = new Date().toISOString();
-    const updatedProgress = {
-      ...progress,
-      solar_completed: true,
-      solar_completed_at: completedAt
-    };
+    console.log('🌞 Solar setup completed, database save should have happened in component');
     
-    saveSetupProgress(updatedProgress);
+    // Reload progress from database to get latest status
+    await loadSetupProgress();
     
     // Add completion message to chat
     await addCompletionMessageToChat(
@@ -137,14 +178,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const handleCalendarComplete = async (setup: CalendarSetupType) => {
-    const completedAt = new Date().toISOString();
-    const updatedProgress = {
-      ...progress,
-      calendar_completed: true,
-      calendar_completed_at: completedAt
-    };
+    console.log('📅 Calendar setup completed, database save should have happened in component');
     
-    saveSetupProgress(updatedProgress);
+    // Reload progress from database to get latest status
+    await loadSetupProgress();
     
     // Add completion message to chat
     await addCompletionMessageToChat(
@@ -156,14 +193,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const handleNotificationsComplete = async (prefs: NotificationPrefsType) => {
-    const completedAt = new Date().toISOString();
-    const updatedProgress = {
-      ...progress,
-      notifications_completed: true,
-      notifications_completed_at: completedAt
-    };
+    console.log('🔔 Notification setup completed, database save should have happened in component');
     
-    saveSetupProgress(updatedProgress);
+    // Reload progress from database to get latest status
+    await loadSetupProgress();
     
     // Add completion message to chat
     await addCompletionMessageToChat(
@@ -270,23 +303,26 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       <ProgressIndicator />
       
       {currentStage === 'solar' && (
-        <ChatSolarSetup
+        <EnhancedChatSolarSetup
           onConfigurationComplete={handleSolarComplete}
           onSkip={handleSkipStage}
+          sessionId={sessionId}
         />
       )}
       
       {currentStage === 'calendar' && (
-        <ChatCalendarSetup
+        <EnhancedChatCalendarSetup
           onComplete={handleCalendarComplete}
           onSkip={handleSkipStage}
+          sessionId={sessionId}
         />
       )}
       
       {currentStage === 'notifications' && (
-        <ChatNotificationSetup
+        <EnhancedChatNotificationSetup
           onComplete={handleNotificationsComplete}
           onSkip={handleSkipStage}
+          sessionId={sessionId}
         />
       )}
     </div>

@@ -1152,24 +1152,31 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       console.log('🔍 Checking solar agent setup via backend API...');
       
       try {
-        // Check progressive setup progress
-        const savedProgress = localStorage.getItem('sol_agent_setup_progress');
+        // Check progressive setup progress from database
+        console.log('🔍 Checking progressive setup status in database...');
         
-        console.log('🔍 Progressive setup progress:', savedProgress);
+        const [solarResult, calendarResult, notificationResult] = await Promise.all([
+          supabase.from('solar_configurations').select('*').eq('user_id', userIdResult.user_id).eq('is_active', true).single(),
+          supabase.from('calendar_setups').select('*').eq('user_id', userIdResult.user_id).eq('is_active', true).single(),
+          supabase.from('notification_preferences').select('*').eq('user_id', userIdResult.user_id).eq('is_active', true).single()
+        ]);
+
+        const solarCompleted = !solarResult.error && !!solarResult.data;
+        const calendarCompleted = !calendarResult.error && !!calendarResult.data;
+        const notificationsCompleted = !notificationResult.error && !!notificationResult.data;
         
-        if (savedProgress) {
-          const progress = JSON.parse(savedProgress);
-          if (progress.solar_completed && progress.calendar_completed && progress.notifications_completed) {
-            console.log('✅ Progressive setup fully completed:', progress);
-            setShowSolarSetup(false);
-            setSolarConfigCompleted(true);
-          } else {
-            console.log('🔧 Progressive setup not completed, showing setup...');
-            setShowSolarSetup(true);
-            setSolarConfigCompleted(false);
-          }
+        console.log('📊 Database setup status:', {
+          solar: solarCompleted,
+          calendar: calendarCompleted,
+          notifications: notificationsCompleted
+        });
+        
+        if (solarCompleted && calendarCompleted && notificationsCompleted) {
+          console.log('✅ Progressive setup fully completed in database');
+          setShowSolarSetup(false);
+          setSolarConfigCompleted(true);
         } else {
-          console.log('🔧 No progressive setup found, showing setup...');
+          console.log('🔧 Progressive setup not completed, showing setup...');
           setShowSolarSetup(true);
           setSolarConfigCompleted(false);
         }
