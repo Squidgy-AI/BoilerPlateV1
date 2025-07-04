@@ -653,39 +653,12 @@ const lastSessionIdRef = useRef<string>('');
   const handleToolExecution = (data: any) => {
     console.log(`Tool execution started: ${data.tool} with ID ${data.executionId}`);
     
-    // Add specific loading messages for website analysis tools
+    // Update loading states for website analysis tools (no chat history messages)
     if (data.tool === 'capture_website_screenshot') {
-      setChatHistory(prevHistory => [
-        ...prevHistory, 
-        { 
-          sender: "System", 
-          message: "📸 Working on screenshot capture...", 
-          requestId: `${data.executionId}_screenshot`, 
-          status: 'complete' 
-        }
-      ]);
       setWebsiteAnalysisLoading(prev => ({ ...prev, screenshot: true }));
     } else if (data.tool === 'get_website_favicon') {
-      setChatHistory(prevHistory => [
-        ...prevHistory, 
-        { 
-          sender: "System", 
-          message: "🎭 Working on favicon extraction...", 
-          requestId: `${data.executionId}_favicon`, 
-          status: 'complete' 
-        }
-      ]);
       setWebsiteAnalysisLoading(prev => ({ ...prev, favicon: true }));
     } else if (data.tool === 'analyze_with_perplexity') {
-      setChatHistory(prevHistory => [
-        ...prevHistory, 
-        { 
-          sender: "System", 
-          message: "🧠 Working on website analysis...", 
-          requestId: `${data.executionId}_analysis`, 
-          status: 'complete' 
-        }
-      ]);
       setWebsiteAnalysisLoading(prev => ({ ...prev, analysis: true }));
     }
     
@@ -736,34 +709,11 @@ const lastSessionIdRef = useRef<string>('');
             screenshot: screenshotPath
           }));
           
-          // Add completion message and reset loading state
-          setChatHistory(prevHistory => [
-            ...prevHistory, 
-            { 
-              sender: "System", 
-              message: "✅ Screenshot captured successfully!", 
-              requestId: `${data.executionId}_screenshot_complete`, 
-              status: 'complete' 
-            }
-          ]);
+          // Reset loading state (no chat history messages)
           setWebsiteAnalysisLoading(prev => {
             const newState = { ...prev, screenshot: false };
             
-            // Check if all website analysis is complete
-            if (!newState.screenshot && !newState.favicon && !newState.analysis && !newState.detecting) {
-              // Add final completion message
-              setTimeout(() => {
-                setChatHistory(prevHistory => [
-                  ...prevHistory, 
-                  { 
-                    sender: "System", 
-                    message: "🎉 Complete website analysis finished! You can now ask questions about this website.", 
-                    requestId: `${data.executionId}_all_complete`, 
-                    status: 'complete' 
-                  }
-                ]);
-              }, 500);
-            }
+            // Website analysis complete (no chat messages - just loading state cleared)
             
             return newState;
           });
@@ -796,34 +746,11 @@ const lastSessionIdRef = useRef<string>('');
           favicon: faviconPath
         }));
         
-        // Add completion message and reset loading state
-        setChatHistory(prevHistory => [
-          ...prevHistory, 
-          { 
-            sender: "System", 
-            message: "✅ Favicon extracted successfully!", 
-            requestId: `${data.executionId}_favicon_complete`, 
-            status: 'complete' 
-          }
-        ]);
+        // Reset loading state (no chat history messages)
         setWebsiteAnalysisLoading(prev => {
           const newState = { ...prev, favicon: false };
           
-          // Check if all website analysis is complete
-          if (!newState.screenshot && !newState.favicon && !newState.analysis && !newState.detecting) {
-            // Add final completion message
-            setTimeout(() => {
-              setChatHistory(prevHistory => [
-                ...prevHistory, 
-                { 
-                  sender: "System", 
-                  message: "🎉 Complete website analysis finished! You can now ask questions about this website.", 
-                  requestId: `${data.executionId}_all_complete`, 
-                  status: 'complete' 
-                }
-              ]);
-            }, 500);
-          }
+          // Website analysis complete (no chat messages - just loading state cleared)
           
           return newState;
         });
@@ -857,21 +784,7 @@ const lastSessionIdRef = useRef<string>('');
           setWebsiteAnalysisLoading(prev => {
             const newState = { ...prev, analysis: false };
             
-            // Check if all website analysis is complete
-            if (!newState.screenshot && !newState.favicon && !newState.analysis && !newState.detecting) {
-              // Add final completion message
-              setTimeout(() => {
-                setChatHistory(prevHistory => [
-                  ...prevHistory, 
-                  { 
-                    sender: "System", 
-                    message: "🎉 Complete website analysis finished! You can now ask questions about this website.", 
-                    requestId: `${data.executionId}_all_complete`, 
-                    status: 'complete' 
-                  }
-                ]);
-              }, 500);
-            }
+            // Website analysis complete (no chat messages - just loading state cleared)
             
             return newState;
           });
@@ -940,7 +853,7 @@ const handleAgentResponse = (data: any) => {
     
     const urlMatch = userInput.match(/(https?:\/\/[^\s]+)/g);
     if (urlMatch && urlMatch[0]) {
-      // Set website analysis loading indicators
+      // Set website analysis loading indicators (temporary - not saved to history)
       setWebsiteAnalysisLoading({
         detecting: true,
         screenshot: true,
@@ -948,17 +861,7 @@ const handleAgentResponse = (data: any) => {
         analysis: true
       });
 
-      // Add loading message to chat
-      setChatHistory(prevHistory => [
-        ...prevHistory, 
-        { 
-          sender: "System", 
-          message: "🔍 Starting website analysis...", 
-          requestId: `${requestId}_analysis_start`, 
-          status: 'complete' 
-        }
-      ]);
-
+      // Store URL for analysis (no chat history messages for loading)
       setWebsiteData(prev => ({
         ...prev,
         url: urlMatch[0]
@@ -1447,6 +1350,37 @@ const handleAgentResponse = (data: any) => {
                         />
                       </div>
                     )}
+
+                    {/* Temporary Website Analysis Loading Indicator */}
+                    {(websiteAnalysisLoading.detecting || websiteAnalysisLoading.screenshot || websiteAnalysisLoading.favicon || websiteAnalysisLoading.analysis) && (
+                      <div className="p-4 border-b border-gray-700 bg-blue-900 bg-opacity-20">
+                        <div className="flex items-center space-x-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                          <span className="text-blue-400 font-medium">Analyzing website...</span>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {websiteAnalysisLoading.screenshot && (
+                            <div className="flex items-center space-x-2 text-sm text-gray-300">
+                              <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full"></div>
+                              <span>📸 Capturing screenshot</span>
+                            </div>
+                          )}
+                          {websiteAnalysisLoading.favicon && (
+                            <div className="flex items-center space-x-2 text-sm text-gray-300">
+                              <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full"></div>
+                              <span>🎭 Extracting favicon</span>
+                            </div>
+                          )}
+                          {websiteAnalysisLoading.analysis && (
+                            <div className="flex items-center space-x-2 text-sm text-gray-300">
+                              <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full"></div>
+                              <span>🧠 Analyzing content</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
 {chatHistory.map((msg, index) => {
   // Format message to extract images
   const { text, images } = formatMessageWithImages(msg.message);
