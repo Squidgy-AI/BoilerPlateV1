@@ -3,9 +3,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, ArrowRight } from 'lucide-react';
-import SolarAgentSetup from './SolarAgentSetup';
-import CalendarSetup from './CalendarSetup';
-import NotificationPreferences from './NotificationPreferences';
+import ChatSolarSetup from './ChatSolarSetup';
+import ChatCalendarSetup from './ChatCalendarSetup';
+import ChatNotificationSetup from './ChatNotificationSetup';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { CalendarSetup as CalendarSetupType } from '@/config/calendarNotificationConfig';
 import { NotificationPreferences as NotificationPrefsType } from '@/config/calendarNotificationConfig';
@@ -197,39 +197,45 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     );
   }
 
-  // Progress indicator
+  // Compact progress indicator for chat
   const ProgressIndicator = () => (
-    <div className="mb-8 bg-white rounded-xl p-6 shadow-sm border">
-      <h2 className="text-xl font-bold mb-4 text-center">Solar Sales Specialist Setup Progress</h2>
-      <div className="flex items-center justify-between mb-6">
-        <div className={`flex items-center ${progress.solar_completed ? 'text-green-600' : currentStage === 'solar' ? 'text-blue-600' : 'text-gray-400'}`}>
-          {progress.solar_completed ? <CheckCircle size={20} /> : <Clock size={20} />}
-          <span className="ml-2 font-medium">Solar Information</span>
+    <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-lg font-semibold text-gray-800">Setup Progress</h3>
+        <span className="text-sm text-gray-600">
+          Step {currentStage === 'solar' ? 1 : currentStage === 'calendar' ? 2 : currentStage === 'notifications' ? 3 : 3} of 3
+        </span>
+      </div>
+      
+      <div className="flex items-center space-x-2 mb-3">
+        <div className={`flex items-center text-sm ${progress.solar_completed ? 'text-green-600' : currentStage === 'solar' ? 'text-blue-600' : 'text-gray-400'}`}>
+          {progress.solar_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          <span className="ml-1 font-medium">Solar</span>
         </div>
         
-        <ArrowRight className="text-gray-300" size={16} />
+        <ArrowRight className="text-gray-300" size={14} />
         
-        <div className={`flex items-center ${progress.calendar_completed ? 'text-green-600' : currentStage === 'calendar' ? 'text-blue-600' : 'text-gray-400'}`}>
-          {progress.calendar_completed ? <CheckCircle size={20} /> : <Clock size={20} />}
-          <span className="ml-2 font-medium">Calendar Setup</span>
+        <div className={`flex items-center text-sm ${progress.calendar_completed ? 'text-green-600' : currentStage === 'calendar' ? 'text-blue-600' : 'text-gray-400'}`}>
+          {progress.calendar_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          <span className="ml-1 font-medium">Calendar</span>
         </div>
         
-        <ArrowRight className="text-gray-300" size={16} />
+        <ArrowRight className="text-gray-300" size={14} />
         
-        <div className={`flex items-center ${progress.notifications_completed ? 'text-green-600' : currentStage === 'notifications' ? 'text-blue-600' : 'text-gray-400'}`}>
-          {progress.notifications_completed ? <CheckCircle size={20} /> : <Clock size={20} />}
-          <span className="ml-2 font-medium">Notifications</span>
+        <div className={`flex items-center text-sm ${progress.notifications_completed ? 'text-green-600' : currentStage === 'notifications' ? 'text-blue-600' : 'text-gray-400'}`}>
+          {progress.notifications_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          <span className="ml-1 font-medium">Notifications</span>
         </div>
       </div>
       
       <div className="w-full bg-gray-200 rounded-full h-2">
         <div 
-          className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+          className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full transition-all duration-500"
           style={{ 
             width: `${
-              currentStage === 'solar' ? 0 :
-              currentStage === 'calendar' ? 33 :
-              currentStage === 'notifications' ? 66 :
+              currentStage === 'solar' ? 10 :
+              currentStage === 'calendar' ? 40 :
+              currentStage === 'notifications' ? 70 :
               100
             }%` 
           }}
@@ -240,17 +246,17 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
 
   if (currentStage === 'complete') {
     return (
-      <div className="text-center p-8">
+      <div className="max-w-md mx-auto p-4">
         <ProgressIndicator />
-        <div className="bg-green-50 border-2 border-green-200 rounded-xl p-8">
-          <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-green-800 mb-2">Setup Complete!</h2>
-          <p className="text-green-700 mb-4">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+          <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-green-800 mb-2">Setup Complete!</h3>
+          <p className="text-green-700 text-sm mb-4">
             Your Solar Sales Specialist is now fully configured and ready to assist your customers.
           </p>
           <button
             onClick={onComplete}
-            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
           >
             Start Using SOL Agent
           </button>
@@ -260,25 +266,25 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-md mx-auto p-4">
       <ProgressIndicator />
       
       {currentStage === 'solar' && (
-        <SolarAgentSetup
+        <ChatSolarSetup
           onConfigurationComplete={handleSolarComplete}
           onSkip={handleSkipStage}
         />
       )}
       
       {currentStage === 'calendar' && (
-        <CalendarSetup
+        <ChatCalendarSetup
           onComplete={handleCalendarComplete}
           onSkip={handleSkipStage}
         />
       )}
       
       {currentStage === 'notifications' && (
-        <NotificationPreferences
+        <ChatNotificationSetup
           onComplete={handleNotificationsComplete}
           onSkip={handleSkipStage}
         />
