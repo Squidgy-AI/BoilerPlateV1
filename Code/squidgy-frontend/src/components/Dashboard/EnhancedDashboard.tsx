@@ -34,6 +34,7 @@ import MessageContent from '../Chat/MessageContent';
 import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
 import ChatHistory from '../ChatHistory';
+import ProgressiveSOLSetup from '../ProgressiveSOLSetup';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { getUserId } from '@/utils/getUserId';
 
@@ -88,7 +89,8 @@ const EnhancedDashboard: React.FC = () => {
   });
   const [chatDisabled, setChatDisabled] = useState(false);
   
-  // SOL Agent now uses simple enable/disable - no progressive setup needed
+  // SOL Agent progressive setup state  
+  const [showSOLSetup, setShowSOLSetup] = useState(false);
   
   // Chat history functionality
   const [showChatHistory, setShowChatHistory] = useState(false);
@@ -1039,19 +1041,52 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
             // Create welcome message for the enabled agent
             let welcomeMessage = '';
             if (agentId === 'SOLAgent') {
-              welcomeMessage = `Hello! I'm your Solar Sales Specialist. I've been enabled and I'm ready to help customers find the perfect solar energy solutions, calculate savings, and guide them through the transition to renewable energy. You can now configure my settings or start using me right away! ☀️`;
+              welcomeMessage = `Hello! I'm your Solar Sales Specialist. I've been enabled and I'm ready to help customers find the perfect solar energy solutions, calculate savings, and guide them through the transition to renewable energy. 
+
+To get started, let's set up your solar business configuration step by step:
+1. 🌞 Solar Business Setup - Configure your pricing, financing options, and business details
+2. 📅 Calendar Integration - Connect your scheduling system 
+3. 🔔 Notification Preferences - Set up your alert preferences
+
+Let's begin with your Solar Business Setup! ☀️`;
             } else {
               welcomeMessage = `Hello! I'm ${agentName} and I've been enabled. I'm ready to assist you!`;
             }
             
-            // Add welcome message to UI chat (will be logged automatically)
-            addMessage({
-              sender: 'agent',
-              text: welcomeMessage,
-              timestamp: new Date().toISOString()
-            });
-            
-            console.log(`✅ Agent ${agentId} welcome message added to chat`);
+            // For SOL Agent, add welcome message to its own chat cache and switch to it
+            if (agentId === 'SOLAgent') {
+              const welcomeMsg = {
+                sender: 'agent',
+                text: welcomeMessage,
+                timestamp: new Date().toISOString()
+              };
+              
+              // Store welcome message in SOL Agent's chat cache
+              setAgentChatCache(prevCache => ({ 
+                ...prevCache, 
+                [agentId]: [welcomeMsg]
+              }));
+              
+              // Auto-switch to SOL Agent tab and show setup
+              const solAgent = allAgents.find(a => a.id === agentId);
+              if (solAgent) {
+                console.log('🔄 Auto-switching to SOL Agent tab...');
+                await handleAgentSelect(solAgent);
+                
+                // Show progressive setup
+                setShowSOLSetup(true);
+              }
+              
+              console.log(`✅ SOL Agent welcome message added to SOL Agent tab`);
+            } else {
+              // For other agents, add to current chat
+              addMessage({
+                sender: 'agent',
+                text: welcomeMessage,
+                timestamp: new Date().toISOString()
+              });
+              console.log(`✅ Agent ${agentId} welcome message added to current chat`);
+            }
           }
         } catch (error) {
           console.error('Error saving agent enable message:', error);
@@ -1089,7 +1124,34 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   
   // Solar agent setup function removed - now using simple enable/disable approach
 
-  // Legacy solar configuration handler removed - now using simple enable/disable
+  // Handle progressive setup completion
+  const handleProgressiveSetupComplete = () => {
+    console.log('🌞 Progressive Solar Sales Specialist setup completed');
+    setShowSOLSetup(false);
+    
+    // Add completion message to SOL Agent chat
+    if (selectedAgent?.id === 'SOLAgent') {
+      addMessage({
+        sender: 'agent',
+        text: '🎉 Perfect! Your solar business configuration is now complete. I\'m fully ready to help you with customer consultations, pricing calculations, and closing solar deals. You can always update these settings later. Let\'s start helping your customers go solar! ☀️',
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
+
+  const handleProgressiveSetupSkip = () => {
+    console.log('🌞 Progressive setup skipped');
+    setShowSOLSetup(false);
+    
+    // Add skip message to SOL Agent chat  
+    if (selectedAgent?.id === 'SOLAgent') {
+      addMessage({
+        sender: 'agent',
+        text: 'No problem! You can set up your solar business configuration later. I\'m still ready to help you with basic solar consultations. To access advanced features like custom pricing and financing calculations, you can complete the setup anytime through the settings.',
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
 
   // Progressive setup handlers removed - SOL Agent now uses simple enable/disable
 
@@ -1464,41 +1526,14 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
-                    {/* SOL Agent is now enabled directly - no progressive setup needed */}
-                    
-                    {/* Temporary Website Analysis Loading Indicator */}
-                    {(websiteAnalysisLoading.detecting || websiteAnalysisLoading.screenshot || websiteAnalysisLoading.favicon || websiteAnalysisLoading.analysis) && (
-                      <div className="p-4 mb-4 bg-blue-900 bg-opacity-20 rounded-lg">
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
-                          <span className="text-blue-400 font-medium">Analyzing website...</span>
-                        </div>
-                        <div className="mt-2 space-y-1">
-                          {websiteAnalysisLoading.detecting && (
-                            <div className="flex items-center space-x-2 text-sm text-blue-300">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                              <span>Detecting website...</span>
-                            </div>
-                          )}
-                          {websiteAnalysisLoading.screenshot && (
-                            <div className="flex items-center space-x-2 text-sm text-blue-300">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                              <span>Taking screenshot...</span>
-                            </div>
-                          )}
-                          {websiteAnalysisLoading.favicon && (
-                            <div className="flex items-center space-x-2 text-sm text-blue-300">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                              <span>Getting favicon...</span>
-                            </div>
-                          )}
-                          {websiteAnalysisLoading.analysis && (
-                            <div className="flex items-center space-x-2 text-sm text-blue-300">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                              <span>Analyzing content...</span>
-                            </div>
-                          )}
-                        </div>
+                    {/* Show Progressive SOL Setup in SOL Agent tab */}
+                    {selectedAgent?.id === 'SOLAgent' && showSOLSetup && (
+                      <div className="mb-4">
+                        <ProgressiveSOLSetup
+                          onComplete={handleProgressiveSetupComplete}
+                          onSkip={handleProgressiveSetupSkip}
+                          sessionId={currentSessionId}
+                        />
                       </div>
                     )}
                     
@@ -1524,6 +1559,44 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Website Analysis Loading Indicator - Shows after URL input */}
+                    {(websiteAnalysisLoading.detecting || websiteAnalysisLoading.screenshot || websiteAnalysisLoading.favicon || websiteAnalysisLoading.analysis) && (
+                      <div className="mb-4">
+                        <div className="bg-blue-900 bg-opacity-20 rounded-lg p-4">
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                            <span className="text-blue-400 font-medium">Analyzing website...</span>
+                          </div>
+                          <div className="mt-2 space-y-1">
+                            {websiteAnalysisLoading.detecting && (
+                              <div className="flex items-center space-x-2 text-sm text-blue-300">
+                                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                                <span>Detecting website...</span>
+                              </div>
+                            )}
+                            {websiteAnalysisLoading.screenshot && (
+                              <div className="flex items-center space-x-2 text-sm text-blue-300">
+                                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                                <span>Taking screenshot...</span>
+                              </div>
+                            )}
+                            {websiteAnalysisLoading.favicon && (
+                              <div className="flex items-center space-x-2 text-sm text-blue-300">
+                                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                                <span>Getting favicon...</span>
+                              </div>
+                            )}
+                            {websiteAnalysisLoading.analysis && (
+                              <div className="flex items-center space-x-2 text-sm text-blue-300">
+                                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                                <span>Analyzing content...</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     
                     {/* Show Enable Agent Prompt */}
                     {showEnableAgentPrompt.show && (
