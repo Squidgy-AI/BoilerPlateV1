@@ -202,28 +202,15 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     }
   }, [selectedAgent, selectedAvatarId]);
   
-  // Check for Solar Agent setup whenever selected agent changes (including initial load)
+  // SOL Agent now uses simple enable/disable - no progressive setup checking needed
   useEffect(() => {
-    console.log('🔍 Solar setup effect triggered:', {
+    console.log('🔍 Agent selection effect triggered:', {
       selectedAgentId: selectedAgent?.id,
-      selectedAgentName: selectedAgent?.name,
-      solarConfigCompleted,
-      showSolarSetup
+      selectedAgentName: selectedAgent?.name
     });
     
-    if (selectedAgent?.id === 'SOLAgent') {
-      console.log('🌞 Solar Sales Specialist detected on agent change, checking configuration...');
-      console.log('🔍 About to call checkSolarAgentSetup()');
-      checkSolarAgentSetup().catch(err => {
-        console.error('❌ checkSolarAgentSetup failed:', err);
-        setShowSolarSetup(true);
-        setSolarConfigCompleted(false);
-      });
-    } else {
-      console.log('🚫 Not Solar Agent, hiding setup');
-      setShowSolarSetup(false);
-    }
-  }, [selectedAgent, solarConfigCompleted]);
+    // No special setup handling needed - SOL Agent works like any other agent
+  }, [selectedAgent]);
   
   // Fetch people and groups
   useEffect(() => {
@@ -715,17 +702,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       console.log(`✅ Selected agent: ${agent.name}, Session: ${sessionId}`);
       
       // Check if this is the Solar Sales Specialist and show setup if needed
-      if (agent.id === 'SOLAgent') {
-        console.log('🌞 Solar Sales Specialist selected, checking configuration...');
-        console.log('🔍 About to call checkSolarAgentSetup() from handleAgentSelect');
-        checkSolarAgentSetup().catch(err => {
-          console.error('❌ checkSolarAgentSetup failed in handleAgentSelect:', err);
-          setShowSolarSetup(true);
-          setSolarConfigCompleted(false);
-        });
-      } else {
-        setShowSolarSetup(false);
-      }
+      // SOL Agent no longer needs special setup handling
+      console.log('🤖 Agent selected:', agent.name);
       
       // TODO: Uncomment when sessions table is available
       /*
@@ -1109,77 +1087,9 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     });
   };
   
-  // Check Solar Agent setup status from database
-  const checkSolarAgentSetup = async () => {
-    try {
-      const userIdResult = await getUserId();
-      if (!userIdResult.success || !userIdResult.user_id) {
-        console.log('❌ Failed to get user ID, forcing setup to show');
-        setShowSolarSetup(true);
-        setSolarConfigCompleted(false);
-        return;
-      }
+  // Solar agent setup function removed - now using simple enable/disable approach
 
-      console.log('🔍 Checking solar agent setup for user:', userIdResult.user_id);
-
-      // Check if Solar Agent has completed setup via backend API
-      console.log('🔍 Checking solar agent setup via backend API...');
-      
-      try {
-        // Check progressive setup progress from database
-        console.log('🔍 Checking progressive setup status in database...');
-        
-        const [solarResult, calendarResult, notificationResult] = await Promise.all([
-          supabase.from('solar_configurations').select('*').eq('user_id', userIdResult.user_id).eq('is_active', true).single(),
-          supabase.from('calendar_setups').select('*').eq('user_id', userIdResult.user_id).eq('is_active', true).single(),
-          supabase.from('notification_preferences').select('*').eq('user_id', userIdResult.user_id).eq('is_active', true).single()
-        ]);
-
-        const solarCompleted = !solarResult.error && !!solarResult.data;
-        const calendarCompleted = !calendarResult.error && !!calendarResult.data;
-        const notificationsCompleted = !notificationResult.error && !!notificationResult.data;
-        
-        console.log('📊 Database setup status:', {
-          solar: solarCompleted,
-          calendar: calendarCompleted,
-          notifications: notificationsCompleted
-        });
-        
-        if (solarCompleted && calendarCompleted && notificationsCompleted) {
-          console.log('✅ Progressive setup fully completed in database');
-          setShowSolarSetup(false);
-          setSolarConfigCompleted(true);
-        } else {
-          console.log('🔧 Progressive setup not completed, showing setup...');
-          setShowSolarSetup(true);
-          setSolarConfigCompleted(false);
-        }
-      } catch (setupError) {
-        console.error('❌ Error checking solar setup via backend:', setupError);
-        // Default to showing setup on error
-        setShowSolarSetup(true);
-        setSolarConfigCompleted(false);
-      }
-    } catch (error) {
-      console.error('Error checking solar agent setup:', error);
-      setShowSolarSetup(true);
-      setSolarConfigCompleted(false);
-    }
-  };
-
-  // Handle solar configuration completion (legacy handler)
-  const handleSolarConfigComplete = (config: SolarBusinessConfig) => {
-    console.log('🌞 Solar configuration completed:', config);
-    setShowSolarSetup(false);
-    setSolarConfigCompleted(true);
-    
-    // Add a welcome message from the Solar Sales Specialist
-    addMessage({
-      sender: 'agent',
-      text: `Perfect! Your solar business is now configured. I can now provide accurate pricing, financing options, and savings calculations based on your business parameters. Let's help you close more solar deals! 🌞⚡`,
-      timestamp: Date.now()
-    });
-  };
+  // Legacy solar configuration handler removed - now using simple enable/disable
 
   // Progressive setup handlers removed - SOL Agent now uses simple enable/disable
 
@@ -1538,27 +1448,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
                       />
                     )}
                     
-                    {/* Show Progressive SOL Setup if needed */}
-                    {console.log('🌞 Progressive setup render check:', { 
-                      agentId: selectedAgent?.id, 
-                      showSolarSetup, 
-                      shouldShowSetup: selectedAgent?.id === 'SOLAgent' && showSolarSetup 
-                    })}
-                    {selectedAgent?.id === 'SOLAgent' && showSolarSetup && (
-                      <ProgressiveSOLSetup
-                        onComplete={handleProgressiveSetupComplete}
-                        onSkip={handleProgressiveSetupSkip}
-                        sessionId={currentSessionId}
-                      />
-                    )}
-                    
-                    {/* Show Setup Status Indicator when not showing setup */}
-                    {selectedAgent?.id === 'SOLAgent' && !showSolarSetup && (
-                      <SetupStatusIndicator
-                        agentId={selectedAgent.id}
-                        onViewHistory={() => setShowChatHistory(true)}
-                      />
-                    )}
+                    {/* SOL Agent now uses simple enable/disable - no progressive setup needed */}
                     
                     <div className="text-center text-gray-400 mt-6">
                       Start a conversation...
