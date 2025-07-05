@@ -785,7 +785,9 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       
       if (cachedMessages && cachedMessages.length > 0) {
         console.log(`⚡ AGENT SELECT - Loading ${cachedMessages.length} cached messages for agent: ${agent.name}`);
+        console.log(`⚡ AGENT SELECT - About to call setMessages with:`, cachedMessages);
         setMessages(cachedMessages);
+        console.log(`⚡ AGENT SELECT - setMessages called successfully!`);
         
         // Still load from database in background to sync any new messages, but don't clear cache
         console.log(`🔄 AGENT SELECT - Loading database messages in background for sync...`);
@@ -1640,6 +1642,13 @@ Let's begin with your Solar Business Setup! ☀️`;
             <div className="w-96 bg-[#2D3B4F] flex flex-col">
               {/* Chat Messages Area */}
               <div className="flex-1 overflow-y-auto p-4">
+                {/* Debug messages state */}
+                {console.log('🎨 RENDERING - Messages state:', { 
+                  messagesLength: messages.length, 
+                  messages: messages,
+                  selectedAgent: selectedAgent?.name,
+                  selectedAgentId: selectedAgent?.id 
+                })}
                 {messages.length === 0 ? (
                   <div className="mt-4">
                     {selectedAgent && (
