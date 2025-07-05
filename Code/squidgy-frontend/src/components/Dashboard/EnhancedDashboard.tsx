@@ -98,7 +98,9 @@ const EnhancedDashboard: React.FC = () => {
   const [agentChatCache, setAgentChatCache] = useState<{[agentId: string]: any[]}>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('agentChatCache');
-      return saved ? JSON.parse(saved) : {};
+      const parsed = saved ? JSON.parse(saved) : {};
+      console.log('🔍 CACHE INIT - Loaded from localStorage:', Object.keys(parsed).map(key => `${key}: ${parsed[key].length} messages`));
+      return parsed;
     }
     return {};
   });
@@ -131,6 +133,7 @@ const EnhancedDashboard: React.FC = () => {
       const updated = updater(prev);
       if (typeof window !== 'undefined') {
         localStorage.setItem('agentChatCache', JSON.stringify(updated));
+        console.log('🔄 CACHE UPDATED - Saved to localStorage:', Object.keys(updated).map(key => `${key}: ${updated[key].length} messages`));
       }
       return updated;
     });
@@ -769,11 +772,15 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       setCurrentSessionId(sessionId);
       
       // Check if we have cached messages for this agent first (faster UX)
+      console.log('🔍 AGENT SELECT - Checking cache for agent:', agent.id, agent.name);
+      console.log('🔍 AGENT SELECT - Available cache keys:', Object.keys(agentChatCache));
+      console.log('🔍 AGENT SELECT - Cache for this agent:', agentChatCache[agent.id]?.length || 0, 'messages');
+      
       if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
-        console.log(`⚡ Loading ${agentChatCache[agent.id].length} cached messages for agent: ${agent.name}`);
+        console.log(`⚡ AGENT SELECT - Loading ${agentChatCache[agent.id].length} cached messages for agent: ${agent.name}`);
         setMessages(agentChatCache[agent.id]);
       } else {
-        console.log(`🔍 No cached messages found for agent: ${agent.name}, loading from database...`);
+        console.log(`🔍 AGENT SELECT - No cached messages found for agent: ${agent.name}, loading from database...`);
         // Clear messages immediately for better UX
         setMessages([]);
         // Load chat history from database for this specific agent session
@@ -916,16 +923,21 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   
   // Helper function to add a message and update cache
   const addMessage = (message: any) => {
-    console.log('Adding message:', message, 'for agent:', selectedAgent?.name);
+    console.log('📝 ADD MESSAGE - Adding message:', message);
+    console.log('📝 ADD MESSAGE - Current selectedAgent:', selectedAgent?.id, selectedAgent?.name);
+    console.log('📝 ADD MESSAGE - Current sessionId:', currentSessionId);
     setMessages(prev => {
       const newMessages = [...prev, message];
-      console.log('Messages after adding:', newMessages.length);
+      console.log('📝 ADD MESSAGE - Total messages after adding:', newMessages.length);
       // Update cache for current agent
       if (selectedAgent) {
+        console.log('📝 ADD MESSAGE - Updating cache for agent:', selectedAgent.id);
         updateAgentChatCache(prevCache => ({ 
           ...prevCache, 
           [selectedAgent.id]: newMessages 
         }));
+      } else {
+        console.warn('⚠️ ADD MESSAGE - No selectedAgent, cannot update cache');
       }
       return newMessages;
     });
@@ -941,14 +953,19 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     
     // Use the agent's persistent session, or create one if it doesn't exist
     let sessionId = currentSessionId;
+    console.log('💬 SEND MESSAGE - Current sessionId:', sessionId);
+    console.log('💬 SEND MESSAGE - Agent sessions:', agentSessions);
+    
     if (!sessionId) {
       sessionId = agentSessions[selectedAgent.id];
+      console.log('💬 SEND MESSAGE - Found existing session for agent:', sessionId);
       if (!sessionId) {
         sessionId = `${profile?.user_id}_${selectedAgent.id}_${Date.now()}`;
+        console.log('💬 SEND MESSAGE - Creating new session:', sessionId);
         updateAgentSessions(prev => ({ ...prev, [selectedAgent.id]: sessionId }));
       }
       setCurrentSessionId(sessionId);
-      console.log(`Using session for agent: ${selectedAgent.name}`);
+      console.log(`💬 SEND MESSAGE - Using session for agent: ${selectedAgent.name} - ${sessionId}`);
     }
     
     const userMessage = inputMessage.trim();
@@ -974,7 +991,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     
     // BACKUP: Save user message to database directly since backend saving isn't reliable
     try {
-      await supabase.from('chat_history').insert({
+      const dbRecord = {
         user_id: profile?.user_id,
         session_id: sessionId,
         agent_id: selectedAgent.id,
@@ -982,10 +999,18 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         sender: 'user',
         message: userMessage,
         timestamp: new Date().toISOString()
-      });
-      console.log('✅ User message saved to database as backup');
+      };
+      console.log('💾 DATABASE SAVE - Attempting to save:', dbRecord);
+      
+      const result = await supabase.from('chat_history').insert(dbRecord);
+      console.log('💾 DATABASE SAVE - Result:', result);
+      
+      if (result.error) {
+        throw result.error;
+      }
+      console.log('✅ DATABASE SAVE - User message saved to database as backup');
     } catch (dbError) {
-      console.warn('⚠️ Failed to save user message to database:', dbError);
+      console.error('❌ DATABASE SAVE - Failed to save user message to database:', dbError);
     }
     
     // Send via WebSocket
