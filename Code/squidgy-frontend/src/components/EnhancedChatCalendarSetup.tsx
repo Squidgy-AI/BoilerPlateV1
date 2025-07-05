@@ -184,28 +184,28 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
       </div>
       
       {Object.entries(setup.business_hours).map(([day, hours]) => (
-        <div key={day} className="flex items-center space-x-3 p-2 border rounded">
+        <div key={day} className="flex items-center space-x-2 p-3 border rounded-md bg-white">
           <input
             type="checkbox"
             checked={hours.enabled}
             onChange={(e) => handleDayChange(day as keyof typeof setup.business_hours, 'enabled', e.target.checked)}
             className="text-blue-600"
           />
-          <span className="w-20 capitalize text-sm font-medium">{day}</span>
+          <span className="w-20 capitalize text-sm font-medium text-gray-800">{day}</span>
           <input
             type="time"
             value={hours.start}
             onChange={(e) => handleDayChange(day as keyof typeof setup.business_hours, 'start', e.target.value)}
             disabled={!hours.enabled}
-            className="px-2 py-1 border rounded text-sm text-gray-900 bg-white disabled:opacity-50"
+            className="flex-1 px-2 py-1 border rounded text-sm text-gray-900 bg-white disabled:opacity-50 disabled:bg-gray-100"
           />
-          <span className="text-gray-500 text-sm">to</span>
+          <span className="text-gray-500 text-sm mx-1">to</span>
           <input
             type="time"
             value={hours.end}
             onChange={(e) => handleDayChange(day as keyof typeof setup.business_hours, 'end', e.target.value)}
             disabled={!hours.enabled}
-            className="px-2 py-1 border rounded text-sm text-gray-900 bg-white disabled:opacity-50"
+            className="flex-1 px-2 py-1 border rounded text-sm text-gray-900 bg-white disabled:opacity-50 disabled:bg-gray-100"
           />
         </div>
       ))}
@@ -236,7 +236,7 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
       </div>
       
       <div className="space-y-2">
-        <label className="flex items-center text-sm">
+        <label className="flex items-center text-sm text-gray-800">
           <input
             type="checkbox"
             checked={setup.auto_confirm}
@@ -245,7 +245,7 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
           />
           Auto-confirm appointments
         </label>
-        <label className="flex items-center text-sm">
+        <label className="flex items-center text-sm text-gray-800">
           <input
             type="checkbox"
             checked={setup.allow_reschedule}
@@ -254,7 +254,7 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
           />
           Allow rescheduling
         </label>
-        <label className="flex items-center text-sm">
+        <label className="flex items-center text-sm text-gray-800">
           <input
             type="checkbox"
             checked={setup.allow_cancellation}

@@ -274,7 +274,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
         <div className="bg-white p-3 rounded-md border">
           <h4 className="font-medium text-gray-800 mb-2">Notification Types</h4>
           <div className="space-y-2">
-            <label className="flex items-center text-sm">
+            <label className="flex items-center text-sm text-gray-800">
               <input 
                 type="checkbox" 
                 className="mr-2 text-purple-600" 
@@ -282,7 +282,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
               />
               Appointment confirmations
             </label>
-            <label className="flex items-center text-sm">
+            <label className="flex items-center text-sm text-gray-800">
               <input 
                 type="checkbox" 
                 className="mr-2 text-purple-600" 
@@ -290,7 +290,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
               />
               Appointment reminders (24hrs before)
             </label>
-            <label className="flex items-center text-sm">
+            <label className="flex items-center text-sm text-gray-800">
               <input 
                 type="checkbox" 
                 className="mr-2 text-purple-600" 

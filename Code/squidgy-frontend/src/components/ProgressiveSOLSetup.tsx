@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, ArrowRight } from 'lucide-react';
-import EnhancedChatSolarSetup from './EnhancedChatSolarSetup';
+import SolarChatConfig from './SolarChatConfig';
 import EnhancedChatCalendarSetup from './EnhancedChatCalendarSetup';
 import EnhancedChatNotificationSetup from './EnhancedChatNotificationSetup';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
@@ -163,10 +163,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const handleSolarComplete = async (config: SolarBusinessConfig) => {
-    console.log('🌞 Solar setup completed, database save should have happened in component');
+    console.log('🌞 Solar setup completed');
     
-    // Reload progress from database to get latest status
-    await loadSetupProgress();
+    // Update progress state immediately
+    setProgress(prev => ({ ...prev, solar_completed: true, solar_completed_at: new Date().toISOString() }));
     
     // Add completion message to chat
     await addCompletionMessageToChat(
@@ -178,10 +178,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const handleCalendarComplete = async (setup: CalendarSetupType) => {
-    console.log('📅 Calendar setup completed, database save should have happened in component');
+    console.log('📅 Calendar setup completed');
     
-    // Reload progress from database to get latest status
-    await loadSetupProgress();
+    // Update progress state immediately
+    setProgress(prev => ({ ...prev, calendar_completed: true, calendar_completed_at: new Date().toISOString() }));
     
     // Add completion message to chat
     await addCompletionMessageToChat(
@@ -193,10 +193,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const handleNotificationsComplete = async (prefs: NotificationPrefsType) => {
-    console.log('🔔 Notification setup completed, database save should have happened in component');
+    console.log('🔔 Notification setup completed');
     
-    // Reload progress from database to get latest status
-    await loadSetupProgress();
+    // Update progress state immediately
+    setProgress(prev => ({ ...prev, notifications_completed: true, notifications_completed_at: new Date().toISOString() }));
     
     // Add completion message to chat
     await addCompletionMessageToChat(
@@ -303,10 +303,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       <ProgressIndicator />
       
       {currentStage === 'solar' && (
-        <EnhancedChatSolarSetup
-          onConfigurationComplete={handleSolarComplete}
+        <SolarChatConfig
+          onComplete={handleSolarComplete}
           onSkip={handleSkipStage}
-          sessionId={sessionId}
         />
       )}
       
