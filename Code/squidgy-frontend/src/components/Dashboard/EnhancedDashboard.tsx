@@ -908,16 +908,31 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         setMessages(formattedMessages);
         // Cache the messages for this agent
         updateAgentChatCache(prev => ({ ...prev, [agent.id]: formattedMessages }));
-        console.log(`✅ Loaded ${chatHistory.length} messages for agent: ${agent.name} (${userMessages} user, ${agentMessages} agent)`);
+        console.log(`✅ LOAD DB - Loaded ${chatHistory.length} messages for agent: ${agent.name} (${userMessages} user, ${agentMessages} agent)`);
+      } else {
+        // No database messages found - this is normal for new sessions
+        console.log(`📭 LOAD DB - No previous messages found for agent: ${agent.name} session: ${sessionId}`);
+        
+        // Check if we have cached messages that should be displayed instead
+        if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
+          console.log(`⚡ LOAD DB - Using cached messages instead: ${agentChatCache[agent.id].length} messages`);
+          setMessages(agentChatCache[agent.id]);
+        } else {
+          setMessages([]);
+          updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
+        }
+      }
+    } catch (error) {
+      console.error('❌ LOAD DB - Error loading chat history:', error);
+      
+      // Fallback to cached messages if database fails
+      if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
+        console.log(`⚡ LOAD DB - Database failed, using cached messages: ${agentChatCache[agent.id].length} messages`);
+        setMessages(agentChatCache[agent.id]);
       } else {
         setMessages([]);
         updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
-        console.log(`No previous messages found for agent: ${agent.name} session: ${sessionId}`);
       }
-    } catch (error) {
-      console.error('Error loading chat history:', error);
-      setMessages([]);
-      setAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
     }
   };
   
@@ -989,29 +1004,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     const userMsg = { sender: 'user', text: userMessage, timestamp: new Date().toISOString() };
     addMessage(userMsg);
     
-    // BACKUP: Save user message to database directly since backend saving isn't reliable
-    try {
-      const dbRecord = {
-        user_id: profile?.user_id,
-        session_id: sessionId,
-        agent_id: selectedAgent.id,
-        agent_name: selectedAgent.name,
-        sender: 'user',
-        message: userMessage,
-        timestamp: new Date().toISOString()
-      };
-      console.log('💾 DATABASE SAVE - Attempting to save:', dbRecord);
-      
-      const result = await supabase.from('chat_history').insert(dbRecord);
-      console.log('💾 DATABASE SAVE - Result:', result);
-      
-      if (result.error) {
-        throw result.error;
-      }
-      console.log('✅ DATABASE SAVE - User message saved to database as backup');
-    } catch (dbError) {
-      console.error('❌ DATABASE SAVE - Failed to save user message to database:', dbError);
-    }
+    // Let backend handle database saving to avoid duplicate constraint violations
+    console.log('💾 DATABASE SAVE - Skipping frontend save, letting backend handle it via WebSocket');
     
     // Send via WebSocket
     console.log('WebSocket status:', websocket.getStatus(), 'Connection state:', connectionStatus);
