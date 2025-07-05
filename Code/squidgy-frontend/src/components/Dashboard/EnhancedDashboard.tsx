@@ -99,6 +99,8 @@ const EnhancedDashboard: React.FC = () => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('agentChatCache');
       const parsed = saved ? JSON.parse(saved) : {};
+      console.log('🔍 CACHE INIT - Raw localStorage value:', saved);
+      console.log('🔍 CACHE INIT - Parsed cache:', parsed);
       console.log('🔍 CACHE INIT - Loaded from localStorage:', Object.keys(parsed).map(key => `${key}: ${parsed[key].length} messages`));
       return parsed;
     }
@@ -777,6 +779,10 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       console.log('🔍 AGENT SELECT - Cache for this agent:', agentChatCache[agent.id]?.length || 0, 'messages');
       
       const cachedMessages = agentChatCache[agent.id];
+      console.log(`🔍 AGENT SELECT - agentChatCache state:`, agentChatCache);
+      console.log(`🔍 AGENT SELECT - Cached messages for ${agent.id}:`, cachedMessages);
+      console.log(`🔍 AGENT SELECT - Cached messages length:`, cachedMessages?.length || 0);
+      
       if (cachedMessages && cachedMessages.length > 0) {
         console.log(`⚡ AGENT SELECT - Loading ${cachedMessages.length} cached messages for agent: ${agent.name}`);
         setMessages(cachedMessages);
