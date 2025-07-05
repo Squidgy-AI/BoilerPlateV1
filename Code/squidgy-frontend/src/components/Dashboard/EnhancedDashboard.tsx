@@ -84,6 +84,15 @@ const EnhancedDashboard: React.FC = () => {
     }
     return {};
   });
+
+  // Store last 2 sessions per agent for session history
+  const [agentSessionHistory, setAgentSessionHistory] = useState<{[agentId: string]: string[]}>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('agentSessionHistory');
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
   
   // Cache chat history for each agent for faster switching - persist to localStorage
   const [agentChatCache, setAgentChatCache] = useState<{[agentId: string]: any[]}>(() => {
@@ -105,6 +114,17 @@ const EnhancedDashboard: React.FC = () => {
     });
   };
 
+  // Helper function to update agentSessionHistory and persist to localStorage
+  const updateAgentSessionHistory = (updater: (prev: {[agentId: string]: string[]}) => {[agentId: string]: string[]}) => {
+    setAgentSessionHistory(prev => {
+      const updated = updater(prev);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('agentSessionHistory', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
   // Helper function to update agentChatCache and persist to localStorage
   const updateAgentChatCache = (updater: (prev: {[agentId: string]: any[]}) => {[agentId: string]: any[]}) => {
     setAgentChatCache(prev => {
@@ -119,6 +139,17 @@ const EnhancedDashboard: React.FC = () => {
   // Function to start a new chat session (clear current and create fresh session)
   const startNewChat = () => {
     if (selectedAgent && profile?.user_id) {
+      // Save current session to history before creating new one
+      const currentSessionId = agentSessions[selectedAgent.id];
+      if (currentSessionId) {
+        updateAgentSessionHistory(prev => {
+          const currentHistory = prev[selectedAgent.id] || [];
+          // Keep only last 2 sessions (current becomes previous, new becomes current)
+          const newHistory = [currentSessionId, ...currentHistory].slice(0, 2);
+          return { ...prev, [selectedAgent.id]: newHistory };
+        });
+      }
+      
       // Create a new session ID with current timestamp
       const newSessionId = `${profile.user_id}_${selectedAgent.id}_${Date.now()}`;
       
@@ -131,6 +162,7 @@ const EnhancedDashboard: React.FC = () => {
       updateAgentChatCache(prev => ({ ...prev, [selectedAgent.id]: [] }));
       
       console.log(`🆕 Started new chat session: ${newSessionId} for agent: ${selectedAgent.name}`);
+      console.log(`📚 Session history for ${selectedAgent.name}:`, agentSessionHistory[selectedAgent.id] || []);
     }
   };
   
@@ -839,9 +871,13 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         .eq('agent_id', agent.id)
         .order('timestamp', { ascending: true });
       
-      // If we have a specific session ID, use it; otherwise get all sessions for this agent
+      // If we have a specific session ID, use it; otherwise get last 2 sessions for this agent
       if (sessionId) {
-        query = query.eq('session_id', sessionId);
+        const sessionHistory = agentSessionHistory[agent.id] || [];
+        const relevantSessions = [sessionId, ...sessionHistory].slice(0, 2);
+        if (relevantSessions.length > 0) {
+          query = query.in('session_id', relevantSessions);
+        }
       }
       
       const { data: chatHistory, error: historyError } = await query;
@@ -1586,6 +1622,36 @@ Let's begin with your Solar Business Setup! ☀️`;
                         agentId={selectedAgent.id} 
                         className="mb-4"
                       />
+                    )}
+
+                    {/* Session History for Current Agent */}
+                    {selectedAgent && agentSessionHistory[selectedAgent.id] && agentSessionHistory[selectedAgent.id].length > 0 && (
+                      <div className="mb-4 p-3 bg-gray-100 rounded-lg">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Chat History</h4>
+                        <div className="flex gap-2 text-xs">
+                          <button
+                            onClick={() => {
+                              // Load current session (already active)
+                              console.log('Current session already loaded');
+                            }}
+                            className="px-3 py-1 bg-blue-500 text-white rounded font-medium"
+                          >
+                            Current
+                          </button>
+                          {agentSessionHistory[selectedAgent.id].map((sessionId, index) => (
+                            <button
+                              key={sessionId}
+                              onClick={async () => {
+                                console.log(`Loading previous session: ${sessionId}`);
+                                await loadChatHistoryForAgent(selectedAgent, sessionId);
+                              }}
+                              className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+                            >
+                              Previous {index + 1}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
                     
                     {/* Show Progressive SOL Setup in SOL Agent tab */}
