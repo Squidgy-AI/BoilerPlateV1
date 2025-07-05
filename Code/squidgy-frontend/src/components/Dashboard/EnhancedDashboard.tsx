@@ -85,8 +85,14 @@ const EnhancedDashboard: React.FC = () => {
     return {};
   });
   
-  // Cache chat history for each agent for faster switching
-  const [agentChatCache, setAgentChatCache] = useState<{[agentId: string]: any[]}>({});
+  // Cache chat history for each agent for faster switching - persist to localStorage
+  const [agentChatCache, setAgentChatCache] = useState<{[agentId: string]: any[]}>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('agentChatCache');
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
 
   // Helper function to update agentSessions and persist to localStorage
   const updateAgentSessions = (updater: (prev: {[agentId: string]: string}) => {[agentId: string]: string}) => {
@@ -94,6 +100,17 @@ const EnhancedDashboard: React.FC = () => {
       const updated = updater(prev);
       if (typeof window !== 'undefined') {
         localStorage.setItem('agentSessions', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  // Helper function to update agentChatCache and persist to localStorage
+  const updateAgentChatCache = (updater: (prev: {[agentId: string]: any[]}) => {[agentId: string]: any[]}) => {
+    setAgentChatCache(prev => {
+      const updated = updater(prev);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('agentChatCache', JSON.stringify(updated));
       }
       return updated;
     });
@@ -111,7 +128,7 @@ const EnhancedDashboard: React.FC = () => {
       
       // Clear current messages and cache for this agent
       setMessages([]);
-      setAgentChatCache(prev => ({ ...prev, [selectedAgent.id]: [] }));
+      updateAgentChatCache(prev => ({ ...prev, [selectedAgent.id]: [] }));
       
       console.log(`🆕 Started new chat session: ${newSessionId} for agent: ${selectedAgent.name}`);
     }
@@ -458,7 +475,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
           // Save current messages to cache before switching
           if (selectedAgent && messages.length > 0) {
             console.log(`💾 Saving ${messages.length} messages to cache for agent: ${selectedAgent.name}`);
-            setAgentChatCache(prevCache => ({ 
+            updateAgentChatCache(prevCache => ({ 
               ...prevCache, 
               [selectedAgent.id]: [...messages] 
             }));
@@ -534,7 +551,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
               // Save current messages to cache before switching (excluding this response)
               if (selectedAgent && messages.length > 0) {
                 console.log(`💾 Saving ${messages.length} messages to cache for agent: ${selectedAgent.name}`);
-                setAgentChatCache(prevCache => ({ 
+                updateAgentChatCache(prevCache => ({ 
                   ...prevCache, 
                   [selectedAgent.id]: [...messages] 
                 }));
@@ -683,7 +700,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       // Cache current messages before switching
       if (selectedAgent && messages.length > 0) {
         console.log(`💾 Caching ${messages.length} messages for agent: ${selectedAgent.name}`);
-        setAgentChatCache(prev => ({ ...prev, [selectedAgent.id]: [...messages] }));
+        updateAgentChatCache(prev => ({ ...prev, [selectedAgent.id]: [...messages] }));
       }
       
       // Update states immediately to prevent race conditions
@@ -832,7 +849,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       if (historyError) {
         console.error('Error loading chat history:', historyError);
         setMessages([]);
-        setAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
+        updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
       } else if (chatHistory && chatHistory.length > 0) {
         const formattedMessages = chatHistory.map(msg => ({
           id: msg.id,
@@ -847,11 +864,11 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         
         setMessages(formattedMessages);
         // Cache the messages for this agent
-        setAgentChatCache(prev => ({ ...prev, [agent.id]: formattedMessages }));
+        updateAgentChatCache(prev => ({ ...prev, [agent.id]: formattedMessages }));
         console.log(`✅ Loaded ${chatHistory.length} messages for agent: ${agent.name} (${userMessages} user, ${agentMessages} agent)`);
       } else {
         setMessages([]);
-        setAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
+        updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
         console.log(`No previous messages found for agent: ${agent.name} session: ${sessionId}`);
       }
     } catch (error) {
@@ -869,7 +886,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       console.log('Messages after adding:', newMessages.length);
       // Update cache for current agent
       if (selectedAgent) {
-        setAgentChatCache(prevCache => ({ 
+        updateAgentChatCache(prevCache => ({ 
           ...prevCache, 
           [selectedAgent.id]: newMessages 
         }));
@@ -916,9 +933,24 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     }
     
     // Add user message to UI and cache
-    addMessage({ sender: 'user', text: userMessage, timestamp: new Date().toISOString() });
+    const userMsg = { sender: 'user', text: userMessage, timestamp: new Date().toISOString() };
+    addMessage(userMsg);
     
-    // User message will be saved by backend during WebSocket processing - no need to save here
+    // BACKUP: Save user message to database directly since backend saving isn't reliable
+    try {
+      await supabase.from('chat_history').insert({
+        user_id: profile?.user_id,
+        session_id: sessionId,
+        agent_id: selectedAgent.id,
+        agent_name: selectedAgent.name,
+        sender: 'user',
+        message: userMessage,
+        timestamp: new Date().toISOString()
+      });
+      console.log('✅ User message saved to database as backup');
+    } catch (dbError) {
+      console.warn('⚠️ Failed to save user message to database:', dbError);
+    }
     
     // Send via WebSocket
     console.log('WebSocket status:', websocket.getStatus(), 'Connection state:', connectionStatus);
@@ -1092,7 +1124,7 @@ Let's begin with your Solar Business Setup! ☀️`;
               };
               
               // Store welcome message in SOL Agent's chat cache
-              setAgentChatCache(prevCache => ({ 
+              updateAgentChatCache(prevCache => ({ 
                 ...prevCache, 
                 [agentId]: [welcomeMsg]
               }));
