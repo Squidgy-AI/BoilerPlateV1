@@ -76,10 +76,46 @@ const EnhancedDashboard: React.FC = () => {
   const avatarRef = React.useRef<StreamingAvatar | null>(null);
   
   // Store session IDs for each agent to maintain continuity
-  const [agentSessions, setAgentSessions] = useState<{[agentId: string]: string}>({});
+  // Initialize agentSessions from localStorage to persist across refreshes
+  const [agentSessions, setAgentSessions] = useState<{[agentId: string]: string}>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('agentSessions');
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
   
   // Cache chat history for each agent for faster switching
   const [agentChatCache, setAgentChatCache] = useState<{[agentId: string]: any[]}>({});
+
+  // Helper function to update agentSessions and persist to localStorage
+  const updateAgentSessions = (updater: (prev: {[agentId: string]: string}) => {[agentId: string]: string}) => {
+    setAgentSessions(prev => {
+      const updated = updater(prev);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('agentSessions', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  // Function to start a new chat session (clear current and create fresh session)
+  const startNewChat = () => {
+    if (selectedAgent && profile?.user_id) {
+      // Create a new session ID with current timestamp
+      const newSessionId = `${profile.user_id}_${selectedAgent.id}_${Date.now()}`;
+      
+      // Update the agent's session ID
+      updateAgentSessions(prev => ({ ...prev, [selectedAgent.id]: newSessionId }));
+      setCurrentSessionId(newSessionId);
+      
+      // Clear current messages and cache for this agent
+      setMessages([]);
+      setAgentChatCache(prev => ({ ...prev, [selectedAgent.id]: [] }));
+      
+      console.log(`🆕 Started new chat session: ${newSessionId} for agent: ${selectedAgent.name}`);
+    }
+  };
   
   // Agent enabling functionality
   const [showEnableAgentPrompt, setShowEnableAgentPrompt] = useState<{show: boolean, agentId: string, agentName: string}>({
@@ -240,7 +276,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         let sessionId = agentSessions[firstAgent.id];
         if (!sessionId) {
           sessionId = `${profile.user_id}_${firstAgent.id}_${Date.now()}`;
-          setAgentSessions(prev => ({ ...prev, [firstAgent.id]: sessionId }));
+          updateAgentSessions(prev => ({ ...prev, [firstAgent.id]: sessionId }));
         }
         
         // Load chat history for the default agent with specific session
@@ -609,16 +645,10 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   const handleNewSession = async () => {
     if (activeSection === 'agents' && selectedAgent) {
       try {
-        // Create new session with currently selected agent
-        const newSessionId = `${profile?.user_id}_${selectedAgent.id}_${Date.now()}`;
+        // Create new session with currently selected agent using our persistent startNewChat function
+        startNewChat();
         
-        // Update the agent's session ID to the new one
-        setAgentSessions(prev => ({ ...prev, [selectedAgent.id]: newSessionId }));
-        setCurrentSessionId(newSessionId);
         setIsGroupSession(false);
-        setMessages([]);
-        // Clear cache for this agent since it's a new session
-        setAgentChatCache(prev => ({ ...prev, [selectedAgent.id]: [] }));
         
         // Close any existing avatar streaming session
         if (websocket) {
@@ -685,7 +715,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       let sessionId = agentSessions[agent.id];
       if (!sessionId) {
         sessionId = `${profile?.user_id}_${agent.id}_${Date.now()}`;
-        setAgentSessions(prev => ({ ...prev, [agent.id]: sessionId }));
+        updateAgentSessions(prev => ({ ...prev, [agent.id]: sessionId }));
       }
       setCurrentSessionId(sessionId);
       
@@ -862,7 +892,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       sessionId = agentSessions[selectedAgent.id];
       if (!sessionId) {
         sessionId = `${profile?.user_id}_${selectedAgent.id}_${Date.now()}`;
-        setAgentSessions(prev => ({ ...prev, [selectedAgent.id]: sessionId }));
+        updateAgentSessions(prev => ({ ...prev, [selectedAgent.id]: sessionId }));
       }
       setCurrentSessionId(sessionId);
       console.log(`Using session for agent: ${selectedAgent.name}`);
