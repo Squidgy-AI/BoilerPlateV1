@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook OAuth Test with Server Callback</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .step.active {
+            border-color: #4CAF50;
+            background: #e8f5e8;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .success {
+            background: #e8f5e8;
+            border: 1px solid #4CAF50;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background: #e3f2fd;
+            border: 1px solid #2196F3;
+            color: #1565C0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .code-block {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        .log-entry {
+            background: #f8f8f8;
+            border-left: 3px solid #2196F3;
+            padding: 8px 12px;
+            margin: 4px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Facebook OAuth Test with Server Callback</h1>
+        <p>This test uses a server endpoint to catch OAuth responses from GoHighLevel.</p>
+        
+        <div class="info">
+            <strong>Server Setup:</strong><br>
+            Callback URL: <code>http://localhost:3001/oauth-callback</code><br>
+            Server Status: <span id="server-status">Checking...</span>
+        </div>
+
+        <!-- Step 1: Configuration -->
+        <div class="step active">
+            <h3>Step 1: Test OAuth with Server Callback</h3>
+            <p>This will open the OAuth flow but redirect to our server instead of expecting a postMessage.</p>
+            
+            <button onclick="testOAuthWithServer()">🚀 Test OAuth with Server Callback</button>
+            <button onclick="testOriginalOAuth()">📱 Test Original OAuth (postMessage)</button>
+            <button onclick="checkServerResponses()">📋 Check Server Responses</button>
+        </div>
+
+        <!-- Step 2: Results -->
+        <div class="step">
+            <h3>Step 2: OAuth Results</h3>
+            <div id="oauth-results">No OAuth attempts yet...</div>
+        </div>
+
+        <!-- Step 3: Server Responses -->
+        <div class="step">
+            <h3>Step 3: Server Captured Responses</h3>
+            <div id="server-responses">Click "Check Server Responses" to see captured OAuth data...</div>
+        </div>
+
+        <!-- Debug Log -->
+        <div class="step">
+            <h3>🐛 Debug Log</h3>
+            <div id="debug-log"></div>
+        </div>
+    </div>
+
+    <script>
+        const config = {
+            locationId: 'lBPqgBowX1CsjHay12LY',
+            userId: '2Qrex2UBhbp5j2bhOw7A',
+            serverCallback: 'http://localhost:3001/oauth-callback'
+        };
+        
+        const debugLog = [];
+        
+        function addDebugLog(message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            if (data) {
+                console.log(logEntry, data);
+                debugLog.push({ timestamp, message, data });
+            } else {
+                console.log(logEntry);
+                debugLog.push({ timestamp, message });
+            }
+            
+            updateDebugDisplay();
+        }
+        
+        function updateDebugDisplay() {
+            const logEl = document.getElementById('debug-log');
+            logEl.innerHTML = debugLog.slice(-10).map(entry => `
+                <div class="log-entry">
+                    [${entry.timestamp}] ${entry.message}
+                    ${entry.data ? '<br><small>' + JSON.stringify(entry.data, null, 2) + '</small>' : ''}
+                </div>
+            `).join('');
+        }
+        
+        // Check if server is running
+        async function checkServerStatus() {
+            try {
+                const response = await fetch('/api/oauth-responses');
+                if (response.ok) {
+                    document.getElementById('server-status').innerHTML = '<span style="color: green;">✅ Running</span>';
+                    return true;
+                }
+            } catch (error) {
+                document.getElementById('server-status').innerHTML = '<span style="color: red;">❌ Not running</span>';
+                return false;
+            }
+        }
+        
+        // Test OAuth with server callback
+        function testOAuthWithServer() {
+            addDebugLog('Starting OAuth test with server callback');
+            
+            // Build OAuth URL that redirects to our server
+            const baseUrl = 'https://services.leadconnectorhq.com';
+            const oauthUrl = `${baseUrl}/social-media-posting/oauth/facebook/start?locationId=${config.locationId}&userId=${config.userId}&redirect_uri=${encodeURIComponent(config.serverCallback)}`;
+            
+            addDebugLog('OAuth URL with server callback', { url: oauthUrl });
+            
+            // Open OAuth window
+            const popup = window.open(
+                oauthUrl,
+                'FacebookOAuth',
+                'width=600,height=700,toolbar=no,menubar=no,scrollbars=yes,resizable=yes'
+            );
+            
+            if (!popup) {
+                addDebugLog('Popup blocked');
+                document.getElementById('oauth-results').innerHTML = 
+                    '<div class="error">Popup blocked! Please allow popups and try again.</div>';
+                return;
+            }
+            
+            addDebugLog('OAuth popup opened');
+            document.getElementById('oauth-results').innerHTML = 
+                '<div class="info">OAuth popup opened. Complete the Facebook login and check server responses...</div>';
+            
+            // Monitor popup
+            const checkPopup = setInterval(() => {
+                if (popup.closed) {
+                    clearInterval(checkPopup);
+                    addDebugLog('OAuth popup closed');
+                    
+                    // Check server for responses after a short delay
+                    setTimeout(() => {
+                        checkServerResponses();
+                    }, 2000);
+                }
+            }, 1000);
+        }
+        
+        // Test original OAuth (expecting postMessage)
+        function testOriginalOAuth() {
+            addDebugLog('Starting original OAuth test');
+            
+            // Listen for postMessage
+            function handleMessage(event) {
+                addDebugLog('Received postMessage', {
+                    origin: event.origin,
+                    data: event.data
+                });
+                
+                document.getElementById('oauth-results').innerHTML = `
+                    <div class="success">
+                        <strong>PostMessage Received!</strong><br>
+                        Origin: ${event.origin}<br>
+                        Data: <code>${JSON.stringify(event.data, null, 2)}</code>
+                    </div>
+                `;
+                
+                window.removeEventListener('message', handleMessage);
+            }
+            
+            window.addEventListener('message', handleMessage);
+            
+            // Original OAuth URL
+            const baseUrl = 'https://services.leadconnectorhq.com';
+            const oauthUrl = `${baseUrl}/social-media-posting/oauth/facebook/start?locationId=${config.locationId}&userId=${config.userId}`;
+            
+            addDebugLog('Original OAuth URL', { url: oauthUrl });
+            
+            // Open OAuth window
+            const popup = window.open(
+                oauthUrl,
+                'FacebookOAuthOriginal',
+                'width=600,height=700,toolbar=no,menubar=no,scrollbars=yes,resizable=yes'
+            );
+            
+            if (!popup) {
+                addDebugLog('Popup blocked');
+                document.getElementById('oauth-results').innerHTML = 
+                    '<div class="error">Popup blocked! Please allow popups and try again.</div>';
+                return;
+            }
+            
+            addDebugLog('Original OAuth popup opened');
+            document.getElementById('oauth-results').innerHTML = 
+                '<div class="info">Original OAuth popup opened. Waiting for postMessage...</div>';
+            
+            // Monitor popup
+            const checkPopup = setInterval(() => {
+                if (popup.closed) {
+                    clearInterval(checkPopup);
+                    addDebugLog('Original OAuth popup closed');
+                    
+                    // If no message received
+                    setTimeout(() => {
+                        const results = document.getElementById('oauth-results');
+                        if (results.innerHTML.includes('Waiting for postMessage')) {
+                            results.innerHTML = 
+                                '<div class="error">No postMessage received after popup closed.</div>';
+                        }
+                    }, 3000);
+                }
+            }, 1000);
+        }
+        
+        // Check server responses
+        async function checkServerResponses() {
+            addDebugLog('Checking server responses');
+            
+            try {
+                const response = await fetch('/api/oauth-responses');
+                const data = await response.json();
+                
+                addDebugLog('Server responses received', data);
+                
+                const responseEl = document.getElementById('server-responses');
+                
+                if (data.length === 0) {
+                    responseEl.innerHTML = '<div class="info">No OAuth responses captured yet.</div>';
+                } else {
+                    responseEl.innerHTML = `
+                        <div class="success">
+                            <strong>Captured ${data.length} OAuth response(s):</strong>
+                        </div>
+                        ${data.map(item => `
+                            <div class="code-block">
+                                <strong>Response ID:</strong> ${item.id}<br>
+                                <strong>Timestamp:</strong> ${new Date(item.timestamp).toLocaleString()}<br>
+                                <strong>Code:</strong> ${item.code}<br>
+                                <strong>State:</strong> ${item.state}<br>
+                                <strong>Processed:</strong> ${item.processed}
+                            </div>
+                        `).join('')}
+                    `;
+                }
+                
+            } catch (error) {
+                addDebugLog('Error checking server responses', error);
+                document.getElementById('server-responses').innerHTML = 
+                    '<div class="error">Error checking server: ' + error.message + '</div>';
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            addDebugLog('Page loaded');
+            checkServerStatus();
+        });
+    </script>
+</body>
+</html>

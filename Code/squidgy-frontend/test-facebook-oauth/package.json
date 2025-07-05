@@ -1,0 +1,22 @@
+{
+  "name": "facebook-oauth-test-server",
+  "version": "1.0.0",
+  "description": "Test server to catch OAuth responses from GoHighLevel Facebook integration",
+  "main": "server-oauth-catcher.js",
+  "scripts": {
+    "start": "node server-oauth-catcher.js",
+    "dev": "nodemon server-oauth-catcher.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "facebook",
+    "oauth",
+    "gohighlevel",
+    "test"
+  ]
+}

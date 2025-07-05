@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect Your Facebook Business Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            padding: 48px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: #1877f2;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+        }
+        
+        h1 {
+            color: #1a1a1a;
+            font-size: 28px;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+        
+        .benefits {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+        
+        .benefits h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+        
+        .benefit-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        .benefit-item .icon {
+            color: #4caf50;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+        
+        .connect-button {
+            background: #1877f2;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);
+        }
+        
+        .connect-button:hover {
+            background: #166fe5;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(24, 119, 242, 0.4);
+        }
+        
+        .connect-button:active {
+            transform: translateY(0);
+        }
+        
+        .privacy-note {
+            margin-top: 24px;
+            font-size: 12px;
+            color: #999;
+            line-height: 1.5;
+        }
+        
+        .privacy-note a {
+            color: #1877f2;
+            text-decoration: none;
+        }
+        
+        .loading {
+            display: none;
+            margin-top: 32px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1877f2;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success-message {
+            display: none;
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            color: #2e7d32;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 24px;
+        }
+        
+        .success-message.active {
+            display: block;
+        }
+        
+        .error-message {
+            display: none;
+            background: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 24px;
+        }
+        
+        .error-message.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">f</div>
+        
+        <h1>Connect Your Facebook Page</h1>
+        <p class="subtitle">
+            Connect your Facebook business page to automatically capture and manage leads
+        </p>
+        
+        <div class="benefits">
+            <h3>What you'll get:</h3>
+            <div class="benefit-item">
+                <span class="icon">✓</span>
+                <span>Automatically capture leads from Facebook ads and forms</span>
+            </div>
+            <div class="benefit-item">
+                <span class="icon">✓</span>
+                <span>Instant notifications when new leads come in</span>
+            </div>
+            <div class="benefit-item">
+                <span class="icon">✓</span>
+                <span>Manage all your Facebook pages in one place</span>
+            </div>
+            <div class="benefit-item">
+                <span class="icon">✓</span>
+                <span>Track ad performance and ROI</span>
+            </div>
+        </div>
+        
+        <button class="connect-button" onclick="connectFacebook()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+            Connect with Facebook
+        </button>
+        
+        <p class="privacy-note">
+            We only access your business pages and ad accounts. 
+            Your personal information remains private. 
+            <a href="/privacy" target="_blank">Learn more</a>
+        </p>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Connecting to Facebook...</p>
+        </div>
+        
+        <div class="success-message" id="success">
+            ✅ Facebook connected successfully! You can now close this window.
+        </div>
+        
+        <div class="error-message" id="error">
+            ❌ <span id="error-text">Something went wrong. Please try again.</span>
+        </div>
+    </div>
+
+    <script>
+        // Configuration embedded in the page (set by your server)
+        const config = {
+            locationId: 'lBPqgBowX1CsjHay12LY',
+            userId: '2Qrex2UBhbp5j2bhOw7A',
+            // Your server endpoint that handles OAuth
+            callbackUrl: 'https://your-app.com/api/facebook-oauth-callback'
+        };
+        
+        function connectFacebook() {
+            const button = document.querySelector('.connect-button');
+            const loading = document.getElementById('loading');
+            const success = document.getElementById('success');
+            const error = document.getElementById('error');
+            
+            // Hide messages
+            success.classList.remove('active');
+            error.classList.remove('active');
+            
+            // Show loading
+            button.style.display = 'none';
+            loading.classList.add('active');
+            
+            // Build OAuth URL with your server as callback
+            const state = btoa(JSON.stringify({
+                locationId: config.locationId,
+                userId: config.userId,
+                timestamp: Date.now()
+            }));
+            
+            const params = new URLSearchParams({
+                client_id: '390181264778064', // GoHighLevel's Facebook App ID
+                redirect_uri: config.callbackUrl,
+                state: state,
+                scope: 'pages_show_list,pages_read_engagement,pages_manage_metadata,pages_read_user_content,pages_manage_ads,pages_manage_posts,pages_manage_engagement,leads_retrieval,business_management',
+                response_type: 'code',
+                auth_type: 'rerequest'
+            });
+            
+            const oauthUrl = `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`;
+            
+            // Open Facebook OAuth in popup
+            const width = 600;
+            const height = 700;
+            const left = (window.innerWidth - width) / 2;
+            const top = (window.innerHeight - height) / 2;
+            
+            const popup = window.open(
+                oauthUrl,
+                'FacebookConnect',
+                `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes`
+            );
+            
+            // Check if popup was blocked
+            if (!popup) {
+                loading.classList.remove('active');
+                button.style.display = 'inline-flex';
+                error.classList.add('active');
+                document.getElementById('error-text').textContent = 
+                    'Popup was blocked. Please allow popups and try again.';
+                return;
+            }
+            
+            // Listen for completion message from your server
+            window.addEventListener('message', function handleMessage(event) {
+                // Verify origin for security
+                if (event.origin !== window.location.origin) return;
+                
+                if (event.data.type === 'facebook-connected') {
+                    // Success!
+                    loading.classList.remove('active');
+                    success.classList.add('active');
+                    
+                    // Optional: Redirect or update UI
+                    setTimeout(() => {
+                        if (event.data.redirect) {
+                            window.location.href = event.data.redirect;
+                        }
+                    }, 2000);
+                    
+                    window.removeEventListener('message', handleMessage);
+                } else if (event.data.type === 'facebook-error') {
+                    // Error
+                    loading.classList.remove('active');
+                    button.style.display = 'inline-flex';
+                    error.classList.add('active');
+                    document.getElementById('error-text').textContent = 
+                        event.data.message || 'Connection failed. Please try again.';
+                    
+                    window.removeEventListener('message', handleMessage);
+                }
+            });
+            
+            // Also check if popup is closed without completing
+            const checkPopup = setInterval(() => {
+                if (popup.closed) {
+                    clearInterval(checkPopup);
+                    
+                    // If still loading, user closed the popup
+                    if (loading.classList.contains('active')) {
+                        loading.classList.remove('active');
+                        button.style.display = 'inline-flex';
+                    }
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
