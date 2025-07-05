@@ -64,91 +64,511 @@ class FacebookOAuthTest {
             }
             
             this.updateStepStatus('step-oauth', 'active');
-            this.updateStatus('oauth-status', 'Opening Facebook OAuth window...', 'info');
+            this.updateStatus('oauth-status', 'Getting redirect URL from GHL service...', 'info');
             
-            // Build the correct Facebook OAuth URL that redirects to /integrations/oauth/finish
-            const state = JSON.stringify({
-                locationId: this.config.locationId,
-                userId: this.config.userId,
-                type: 'facebook'
-            });
+            // Step 1: Get the redirect URL from GHL service using iframe method
+            const ghlUrl = `${this.config.baseUrl}/social-media-posting/oauth/facebook/start?locationId=${this.config.locationId}&userId=${this.config.userId}`;
             
-            const scopes = [
-                'pages_manage_ads',
-                'pages_read_engagement',
-                'pages_show_list',
-                'pages_read_user_content',
-                'pages_manage_metadata',
-                'pages_manage_posts',
-                'pages_manage_engagement',
-                'leads_retrieval',
-                'ads_read',
-                'pages_messaging',
-                'ads_management',
-                'instagram_basic',
-                'instagram_manage_messages',
-                'instagram_manage_comments',
-                'business_management',
-                'catalog_management',
-                'email'
-            ];
+            this.addDebugLog('Getting redirect URL from GHL service via iframe', { url: ghlUrl });
             
+            // First check if we have cached params
+            let extractedParams = this.getCachedParams();
+            
+            if (!extractedParams) {
+                // Use Python backend to extract params (no CORS issues)
+                this.updateStatus('oauth-status', 'Extracting parameters via backend...', 'info');
+                extractedParams = await this.extractParamsViaBackend();
+            } else {
+                this.addDebugLog('Using cached parameters', extractedParams);
+            }
+            
+            this.addDebugLog('Final extracted parameters', extractedParams);
+            
+            if (!extractedParams || !extractedParams.client_id) {
+                throw new Error('Failed to extract client_id from GHL service. Cannot proceed without the correct Facebook App ID.');
+            }
+            
+            // Step 3: Build OAuth URL using extracted params + our specific fixes
             const oauthParams = new URLSearchParams({
-                app_id: '390181264778064', // GoHighLevel's Facebook App ID
-                redirect_uri: 'https://services.leadconnectorhq.com/integrations/oauth/finish',
-                response_type: 'code',
-                scope: scopes.join(','),
-                state: state,
-                logger_id: 'a1530b75-6c07-4b80-87d9-bdad6ee2e5e9'
+                response_type: extractedParams?.response_type || 'code',
+                client_id: extractedParams?.client_id || 'MISSING_CLIENT_ID', // MUST extract from GHL
+                redirect_uri: 'https://services.leadconnectorhq.com/integrations/oauth/finish', // ALWAYS fix this
+                scope: this.buildFixedScope(extractedParams?.scope), // Merge GHL scope + our additions
+                state: JSON.stringify({
+                    locationId: this.config.locationId,
+                    userId: this.config.userId,
+                    type: 'facebook'
+                }), // ALWAYS fix state format
+                logger_id: extractedParams?.logger_id || this.generateLoggerId() // Use GHL's or generate
             });
             
-            const oauthUrl = `https://www.facebook.com/v18.0/dialog/oauth?${oauthParams.toString()}`;
+            const finalOAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?${oauthParams.toString()}`;
             
-            this.addDebugLog('Starting OAuth flow (HighLevel Method)', { url: oauthUrl });
+            this.addDebugLog('Built OAuth URL with extracted + fixed params', { 
+                url: finalOAuthUrl,
+                extracted: extractedParams,
+                fixes: {
+                    redirect_uri: 'Always fixed to /integrations/oauth/finish',
+                    scope: 'Merged GHL scope + missing permissions',
+                    state: 'Always fixed to JSON format',
+                    logger_id: extractedParams?.logger_id ? 'Used from GHL' : 'Generated new'
+                }
+            });
             
-            // Use window.open() as specified by HighLevel dev team
-            // NOT fetch() or regular HTTP calls
+            // Step 2: Open the corrected OAuth URL
+            this.updateStatus('oauth-status', 'Opening Facebook OAuth with corrected parameters...', 'info');
+            
             const target = 'FacebookOAuthWindow';
             const features = 'toolbar=no,menubar=no,scrollbars=yes,resizable=yes,location=no,directories=no,status=no,width=600,height=700';
             
-            this.addDebugLog('Opening OAuth window with window.open()', { 
-                url: oauthUrl, 
-                target, 
-                features 
-            });
-            
-            const popup = window.open(oauthUrl, target, features);
-            
-            if (!popup) {
-                throw new Error('Popup blocked! Please allow popups for this site.');
-            }
-            
-            this.updateStatus('oauth-status', '✅ OAuth window opened. Please complete Facebook login...', 'success');
-            this.addDebugLog('OAuth window opened successfully', { popup: !!popup });
-            
-            // Monitor popup as per HighLevel flow:
-            // 1. User logs into FB
-            // 2. Original window closes
-            // 3. New window opens with postMessage
-            const popupMonitor = setInterval(() => {
-                if (popup.closed) {
-                    clearInterval(popupMonitor);
-                    this.addDebugLog('OAuth popup closed - waiting for postMessage');
-                    if (!this.accountData) {
-                        // Don't show error immediately - postMessage might still come
-                        setTimeout(() => {
-                            if (!this.accountData) {
-                                this.updateStatus('oauth-status', '❌ OAuth cancelled or failed - no postMessage received', 'error');
-                            }
-                        }, 3000);
-                    }
-                }
-            }, 1000);
+            window.open(finalOAuthUrl, target, features);
             
         } catch (error) {
             this.addDebugLog('OAuth Error', error);
             this.updateStatus('oauth-status', `❌ Error: ${error.message}`, 'error');
         }
+    }
+    
+    extractParametersFromRedirect(url) {
+        try {
+            this.addDebugLog('Extracting parameters from URL', { url });
+            
+            let params = {};
+            
+            if (url.includes('facebook.com/privacy/consent/gdp')) {
+                // Extract from GDPR consent page (encoded parameters)
+                params = this.extractFromGDPRUrl(url);
+            } else if (url.includes('facebook.com/dialog/oauth')) {
+                // Extract from direct OAuth URL
+                const urlObj = new URL(url);
+                params.app_id = urlObj.searchParams.get('app_id') || urlObj.searchParams.get('client_id');
+                params.client_id = urlObj.searchParams.get('client_id');
+                params.redirect_uri = urlObj.searchParams.get('redirect_uri');
+                params.response_type = urlObj.searchParams.get('response_type');
+                params.scope = urlObj.searchParams.get('scope');
+                params.state = urlObj.searchParams.get('state');
+                params.logger_id = urlObj.searchParams.get('logger_id');
+            }
+            
+            // Log what we got vs what's missing
+            this.addDebugLog('Raw extracted parameters', params);
+            
+            const missing = [];
+            Object.keys(params).forEach(key => {
+                if (!params[key]) missing.push(key);
+            });
+            
+            if (missing.length > 0) {
+                this.addDebugLog('Missing parameters from GHL service', missing);
+            }
+            
+            return params;
+            
+        } catch (error) {
+            this.addDebugLog('Error extracting parameters', error);
+            return null;
+        }
+    }
+    
+    extractFromGDPRUrl(url) {
+        try {
+            const params = {};
+            
+            // Extract app_id
+            const appIdMatch = url.match(/params%5Bapp_id%5D=(\d+)/);
+            if (appIdMatch) {
+                params.app_id = appIdMatch[1];
+                params.client_id = appIdMatch[1];
+            }
+            
+            // Extract redirect_uri (URL encoded)
+            const redirectMatch = url.match(/params%5Bredirect_uri%5D=%22([^%]+(?:%[^%]+)*)/);
+            if (redirectMatch) {
+                params.redirect_uri = decodeURIComponent(redirectMatch[1].replace(/\\%2F/g, '/').replace(/\\/g, ''));
+            }
+            
+            // Extract scope (URL encoded array)
+            const scopeMatch = url.match(/params%5Bscope%5D=(%5B[^%]+(?:%[^%]+)*%5D)/);
+            if (scopeMatch) {
+                const scopeStr = decodeURIComponent(scopeMatch[1]);
+                const scopeArray = JSON.parse(scopeStr.replace(/\\/g, ''));
+                params.scope = scopeArray.join(',');
+            }
+            
+            // Extract state (URL encoded)
+            const stateMatch = url.match(/params%5Bstate%5D=%22([^%]+(?:%[^%]+)*)/);
+            if (stateMatch) {
+                params.state = decodeURIComponent(stateMatch[1].replace(/\\/g, ''));
+            }
+            
+            // Extract logger_id
+            const loggerMatch = url.match(/params%5Blogger_id%5D=%22([^%]+)/);
+            if (loggerMatch) {
+                params.logger_id = loggerMatch[1];
+            }
+            
+            // Default response_type
+            params.response_type = 'code';
+            
+            this.addDebugLog('Extracted from GDPR URL', params);
+            return params;
+            
+        } catch (error) {
+            this.addDebugLog('Error extracting from GDPR URL', error);
+            return {};
+        }
+    }
+    
+    fixParameters(params) {
+        const fixed = { ...params };
+        
+        // Fix 1: Change redirect_uri to match working UI
+        if (fixed.redirect_uri && fixed.redirect_uri.includes('/social-media-posting/oauth/facebook/finish')) {
+            fixed.redirect_uri = 'https://services.leadconnectorhq.com/integrations/oauth/finish';
+            this.addDebugLog('Fixed redirect_uri', { 
+                old: params.redirect_uri, 
+                new: fixed.redirect_uri 
+            });
+        }
+        
+        // Fix 2: Add missing scope permissions
+        const currentScopes = fixed.scope ? fixed.scope.split(',').map(s => s.trim()) : [];
+        const requiredScopes = [
+            'pages_manage_ads',
+            'pages_read_engagement',
+            'pages_show_list', 
+            'pages_read_user_content',
+            'pages_manage_metadata',
+            'pages_manage_posts',
+            'pages_manage_engagement',
+            'leads_retrieval',
+            'ads_read',
+            'pages_messaging',
+            'ads_management',
+            'instagram_basic',
+            'instagram_manage_messages',
+            'instagram_manage_comments',
+            'business_management',
+            'catalog_management',
+            'email'
+        ];
+        
+        // Merge current scopes with required ones
+        const allScopes = [...new Set([...currentScopes, ...requiredScopes])];
+        fixed.scope = allScopes.join(',');
+        this.addDebugLog('Fixed scope', { 
+            old: currentScopes.length, 
+            new: allScopes.length,
+            added: requiredScopes.filter(s => !currentScopes.includes(s))
+        });
+        
+        // Fix 3: Change state to proper JSON format
+        if (fixed.state && fixed.state.includes('undefined')) {
+            fixed.state = JSON.stringify({
+                locationId: this.config.locationId,
+                userId: this.config.userId,
+                type: 'facebook'
+            });
+            this.addDebugLog('Fixed state format', { 
+                old: params.state, 
+                new: fixed.state 
+            });
+        }
+        
+        // Fix 4: Add logger_id if missing
+        if (!fixed.logger_id) {
+            fixed.logger_id = this.generateLoggerId();
+            this.addDebugLog('Added missing logger_id', fixed.logger_id);
+        }
+        
+        // Use app_id instead of client_id for consistency
+        if (params.client_id && !fixed.app_id) {
+            fixed.app_id = params.client_id;
+            delete fixed.client_id;
+        }
+        
+        return fixed;
+    }
+    
+    buildFixedScope(ghlScope) {
+        // Get the scopes that GHL provides
+        const ghlScopes = ghlScope ? ghlScope.split(',').map(s => s.trim()) : [];
+        
+        // Required scopes for full functionality
+        const requiredScopes = [
+            'pages_manage_ads',
+            'pages_read_engagement', 
+            'pages_show_list',
+            'pages_read_user_content',
+            'pages_manage_metadata',
+            'pages_manage_posts',
+            'pages_manage_engagement',
+            'leads_retrieval',
+            'ads_read',
+            'pages_messaging',
+            'ads_management',
+            'instagram_basic',
+            'instagram_manage_messages',
+            'instagram_manage_comments',
+            'business_management',
+            'catalog_management',
+            'email',
+            'public_profile',
+            'read_insights'
+        ];
+        
+        // Merge scopes (GHL first, then add missing required ones)
+        const allScopes = [...ghlScopes];
+        requiredScopes.forEach(scope => {
+            if (!allScopes.includes(scope)) {
+                allScopes.push(scope);
+            }
+        });
+        
+        this.addDebugLog('Scope merging', {
+            fromGHL: ghlScopes,
+            required: requiredScopes,
+            missing: requiredScopes.filter(s => !ghlScopes.includes(s)),
+            final: allScopes
+        });
+        
+        return allScopes.join(',');
+    }
+    
+    getDefaultScopes() {
+        return [
+            'pages_manage_ads',
+            'pages_read_engagement', 
+            'pages_show_list',
+            'pages_read_user_content',
+            'pages_manage_metadata',
+            'pages_manage_posts',
+            'pages_manage_engagement',
+            'leads_retrieval',
+            'ads_read',
+            'pages_messaging',
+            'ads_management',
+            'instagram_basic',
+            'instagram_manage_messages',
+            'instagram_manage_comments',
+            'business_management',
+            'catalog_management',
+            'email'
+        ].join(',');
+    }
+    
+    async extractParamsViaPopup(url) {
+        return new Promise((resolve) => {
+            this.updateStatus('oauth-status', 'Opening popup to extract Facebook parameters...', 'info');
+            
+            // Open popup with GHL URL
+            const popup = window.open(url, 'ParamExtractor', 'width=600,height=700,scrollbars=yes');
+            
+            if (!popup) {
+                this.addDebugLog('Popup blocked');
+                resolve(null);
+                return;
+            }
+            
+            // Store reference for cleanup
+            let intervalId;
+            let resolved = false;
+            
+            // Monitor popup URL
+            intervalId = setInterval(() => {
+                try {
+                    if (popup.closed) {
+                        clearInterval(intervalId);
+                        if (!resolved) {
+                            resolved = true;
+                            this.addDebugLog('Popup closed without extracting parameters');
+                            resolve(null);
+                        }
+                        return;
+                    }
+                    
+                    // Try to read popup URL (will work if same origin or once redirected to Facebook)
+                    const popupUrl = popup.location.href;
+                    
+                    if (popupUrl && (popupUrl.includes('facebook.com/dialog/oauth') || popupUrl.includes('facebook.com/privacy/consent/gdp'))) {
+                        // Found Facebook OAuth URL - extract parameters
+                        const params = this.extractParametersFromRedirect(popupUrl);
+                        
+                        // Store in localStorage for future use
+                        localStorage.setItem('ghl_facebook_params', JSON.stringify({
+                            timestamp: Date.now(),
+                            locationId: this.config.locationId,
+                            params: params
+                        }));
+                        
+                        // Close popup and resolve
+                        popup.close();
+                        clearInterval(intervalId);
+                        
+                        if (!resolved) {
+                            resolved = true;
+                            this.addDebugLog('Successfully extracted params via popup', { popupUrl, params });
+                            resolve(params);
+                        }
+                    }
+                } catch (e) {
+                    // Cross-origin error - expected while navigating
+                    // Continue monitoring
+                }
+            }, 100);
+            
+            // Timeout after 30 seconds
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    clearInterval(intervalId);
+                    popup.close();
+                    
+                    // Try to use cached params from localStorage
+                    const cached = this.getCachedParams();
+                    if (cached) {
+                        this.addDebugLog('Using cached parameters from localStorage', cached);
+                        resolve(cached);
+                    } else {
+                        this.addDebugLog('Popup extraction timeout and no cached params');
+                        resolve(null);
+                    }
+                }
+            }, 30000);
+        });
+    }
+    
+    async extractParamsViaBackend() {
+        try {
+            // Make request to your Python backend
+            const backendUrl = 'http://localhost:8001'; // Test server port
+            const response = await fetch(`${backendUrl}/api/facebook/extract-oauth-params`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    locationId: this.config.locationId,
+                    userId: this.config.userId
+                })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Backend request failed: ${response.status} - ${errorText}`);
+            }
+            
+            const result = await response.json();
+            this.addDebugLog('Backend extraction result', result);
+            
+            if (result.success && result.params) {
+                // Cache the extracted params
+                localStorage.setItem('ghl_facebook_params', JSON.stringify({
+                    timestamp: Date.now(),
+                    locationId: this.config.locationId,
+                    params: result.params
+                }));
+                
+                return result.params;
+            } else {
+                throw new Error('Backend extraction failed');
+            }
+            
+        } catch (error) {
+            this.addDebugLog('Backend extraction error', error);
+            return null;
+        }
+    }
+    
+    getCachedParams() {
+        try {
+            const stored = localStorage.getItem('ghl_facebook_params');
+            if (!stored) return null;
+            
+            const data = JSON.parse(stored);
+            
+            // Check if cached data is for same location and not too old (1 hour)
+            if (data.locationId === this.config.locationId && 
+                (Date.now() - data.timestamp) < 3600000) {
+                return data.params;
+            }
+            
+            // Remove stale data
+            localStorage.removeItem('ghl_facebook_params');
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+    
+    generateLoggerId() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+    
+    extractOAuthParams(url) {
+        try {
+            // Decode the URL to extract parameters
+            const decodedUrl = decodeURIComponent(url);
+            
+            // Extract parameters from the GDPR consent URL
+            const params = {};
+            
+            // Extract app_id
+            const appIdMatch = decodedUrl.match(/app_id%5D=(\d+)/);
+            if (appIdMatch) params.app_id = appIdMatch[1];
+            
+            // Extract redirect_uri
+            const redirectUriMatch = decodedUrl.match(/redirect_uri%5D=%22([^%]+(?:%[^%]+)*)/);
+            if (redirectUriMatch) {
+                params.redirect_uri = decodeURIComponent(redirectUriMatch[1].replace(/\\%2F/g, '/'));
+            }
+            
+            // Extract scope
+            const scopeMatch = decodedUrl.match(/scope%5D=(%5B[^%]+(?:%[^%]+)*%5D)/);
+            if (scopeMatch) {
+                const scopeStr = decodeURIComponent(scopeMatch[1]);
+                params.scope = scopeStr.replace(/[\[\]"]/g, '').split(',');
+            }
+            
+            // Extract state
+            const stateMatch = decodedUrl.match(/state%5D=%22([^%]+(?:%[^%]+)*)/);
+            if (stateMatch) {
+                params.state = decodeURIComponent(stateMatch[1]);
+            }
+            
+            // Extract logger_id
+            const loggerIdMatch = decodedUrl.match(/logger_id%5D=%22([^%]+)/);
+            if (loggerIdMatch) {
+                params.logger_id = loggerIdMatch[1];
+            }
+            
+            this.addDebugLog('Extracted OAuth parameters', params);
+            return params;
+            
+        } catch (error) {
+            this.addDebugLog('Error extracting OAuth params', error);
+            return null;
+        }
+    }
+    
+    buildFinalOAuthUrl(params) {
+        const oauthParams = new URLSearchParams({
+            app_id: params.app_id,
+            redirect_uri: params.redirect_uri,
+            response_type: 'code',
+            scope: Array.isArray(params.scope) ? params.scope.join(',') : params.scope,
+            state: params.state,
+            logger_id: params.logger_id
+        });
+        
+        const finalUrl = `https://www.facebook.com/v18.0/dialog/oauth?${oauthParams.toString()}`;
+        this.addDebugLog('Built final OAuth URL', { url: finalUrl });
+        
+        return finalUrl;
     }
     
     handleOAuthMessage(event) {
