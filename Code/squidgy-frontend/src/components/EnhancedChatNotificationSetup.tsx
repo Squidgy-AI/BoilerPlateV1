@@ -231,8 +231,8 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
                   
                   {/* Disabled overlay */}
                   {!canToggle && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75 rounded-lg">
-                      <span className="text-xs text-gray-500 font-medium">Coming Soon</span>
+                    <div className="absolute inset-0 flex items-end justify-center bg-gray-100 bg-opacity-50 rounded-lg pointer-events-none">
+                      <span className="text-xs text-gray-600 font-semibold bg-gray-200 px-2 py-1 rounded mb-1">Coming Soon</span>
                     </div>
                   )}
                 </div>

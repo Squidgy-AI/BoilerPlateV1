@@ -183,32 +183,38 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
         <p className="text-sm text-gray-600">Set your availability for consultations</p>
       </div>
       
-      {Object.entries(setup.business_hours).map(([day, hours]) => (
-        <div key={day} className="flex items-center space-x-2 p-3 border rounded-md bg-white">
-          <input
-            type="checkbox"
-            checked={hours.enabled}
-            onChange={(e) => handleDayChange(day as keyof typeof setup.business_hours, 'enabled', e.target.checked)}
-            className="text-blue-600"
-          />
-          <span className="w-20 capitalize text-sm font-medium text-gray-800">{day}</span>
-          <input
-            type="time"
-            value={hours.start}
-            onChange={(e) => handleDayChange(day as keyof typeof setup.business_hours, 'start', e.target.value)}
-            disabled={!hours.enabled}
-            className="flex-1 px-2 py-1 border rounded text-sm text-gray-900 bg-white disabled:opacity-50 disabled:bg-gray-100"
-          />
-          <span className="text-gray-500 text-sm mx-1">to</span>
-          <input
-            type="time"
-            value={hours.end}
-            onChange={(e) => handleDayChange(day as keyof typeof setup.business_hours, 'end', e.target.value)}
-            disabled={!hours.enabled}
-            className="flex-1 px-2 py-1 border rounded text-sm text-gray-900 bg-white disabled:opacity-50 disabled:bg-gray-100"
-          />
-        </div>
-      ))}
+      <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto">
+        {Object.entries(setup.business_hours).map(([day, hours]) => (
+          <div key={day} className="border rounded-md bg-white p-4">
+            <div className="flex items-center mb-3">
+              <input
+                type="checkbox"
+                checked={hours.enabled}
+                onChange={(e) => handleDayChange(day as keyof typeof setup.business_hours, 'enabled', e.target.checked)}
+                className="text-blue-600 mr-2"
+              />
+              <span className="capitalize text-sm font-semibold text-gray-800">{day}</span>
+            </div>
+            <div className="space-y-2">
+              <input
+                type="time"
+                value={hours.start}
+                onChange={(e) => handleDayChange(day as keyof typeof setup.business_hours, 'start', e.target.value)}
+                disabled={!hours.enabled}
+                className="w-full px-2 py-1 border rounded text-sm text-gray-900 bg-white disabled:opacity-50 disabled:bg-gray-100"
+              />
+              <div className="text-center text-gray-500 text-xs">to</div>
+              <input
+                type="time"
+                value={hours.end}
+                onChange={(e) => handleDayChange(day as keyof typeof setup.business_hours, 'end', e.target.value)}
+                disabled={!hours.enabled}
+                className="w-full px-2 py-1 border rounded text-sm text-gray-900 bg-white disabled:opacity-50 disabled:bg-gray-100"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 
