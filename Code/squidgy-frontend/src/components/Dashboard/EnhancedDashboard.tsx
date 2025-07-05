@@ -332,7 +332,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         }
         
         // Load chat history for the default agent with specific session
-        await loadChatHistoryForAgent(firstAgent, sessionId);
+        await loadChatHistoryForAgent(firstAgent, sessionId, true);
       }
     } catch (error) {
       console.error('Error initializing agent sessions:', error);
@@ -776,15 +776,20 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       console.log('🔍 AGENT SELECT - Available cache keys:', Object.keys(agentChatCache));
       console.log('🔍 AGENT SELECT - Cache for this agent:', agentChatCache[agent.id]?.length || 0, 'messages');
       
-      if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
-        console.log(`⚡ AGENT SELECT - Loading ${agentChatCache[agent.id].length} cached messages for agent: ${agent.name}`);
-        setMessages(agentChatCache[agent.id]);
+      const cachedMessages = agentChatCache[agent.id];
+      if (cachedMessages && cachedMessages.length > 0) {
+        console.log(`⚡ AGENT SELECT - Loading ${cachedMessages.length} cached messages for agent: ${agent.name}`);
+        setMessages(cachedMessages);
+        
+        // Still load from database in background to sync any new messages, but don't clear cache
+        console.log(`🔄 AGENT SELECT - Loading database messages in background for sync...`);
+        loadChatHistoryForAgent(agent, sessionId, false); // false = don't clear messages if database is empty
       } else {
         console.log(`🔍 AGENT SELECT - No cached messages found for agent: ${agent.name}, loading from database...`);
-        // Clear messages immediately for better UX
+        // Only clear messages if we truly have no cache
         setMessages([]);
         // Load chat history from database for this specific agent session
-        await loadChatHistoryForAgent(agent, sessionId);
+        await loadChatHistoryForAgent(agent, sessionId, true); // true = clear messages if database is empty
       }
       
       console.log(`✅ Selected agent: ${agent.name}, Session: ${sessionId}`);
@@ -857,7 +862,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   // No need for frontend database saves to avoid duplicate 409 conflicts
   
   // Function to load chat history for a specific agent session from database
-  const loadChatHistoryForAgent = async (agent: any, sessionId?: string) => {
+  const loadChatHistoryForAgent = async (agent: any, sessionId?: string, clearIfEmpty: boolean = true) => {
     if (!profile?.user_id) return;
     
     try {
@@ -891,8 +896,10 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         
       if (historyError) {
         console.error('Error loading chat history:', historyError);
-        setMessages([]);
-        updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
+        if (clearIfEmpty) {
+          setMessages([]);
+          updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
+        }
       } else if (chatHistory && chatHistory.length > 0) {
         const formattedMessages = chatHistory.map(msg => ({
           id: msg.id,
@@ -913,25 +920,34 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         // No database messages found - this is normal for new sessions
         console.log(`📭 LOAD DB - No previous messages found for agent: ${agent.name} session: ${sessionId}`);
         
-        // Check if we have cached messages that should be displayed instead
-        if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
-          console.log(`⚡ LOAD DB - Using cached messages instead: ${agentChatCache[agent.id].length} messages`);
-          setMessages(agentChatCache[agent.id]);
+        // Only clear if explicitly requested (clearIfEmpty = true)
+        if (clearIfEmpty) {
+          // Check if we have cached messages that should be displayed instead
+          if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
+            console.log(`⚡ LOAD DB - Using cached messages instead: ${agentChatCache[agent.id].length} messages`);
+            setMessages(agentChatCache[agent.id]);
+          } else {
+            setMessages([]);
+            updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
+          }
         } else {
-          setMessages([]);
-          updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
+          console.log(`🔄 LOAD DB - Background sync: Database empty, keeping existing messages`);
         }
       }
     } catch (error) {
       console.error('❌ LOAD DB - Error loading chat history:', error);
       
       // Fallback to cached messages if database fails
-      if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
-        console.log(`⚡ LOAD DB - Database failed, using cached messages: ${agentChatCache[agent.id].length} messages`);
-        setMessages(agentChatCache[agent.id]);
+      if (clearIfEmpty) {
+        if (agentChatCache[agent.id] && agentChatCache[agent.id].length > 0) {
+          console.log(`⚡ LOAD DB - Database failed, using cached messages: ${agentChatCache[agent.id].length} messages`);
+          setMessages(agentChatCache[agent.id]);
+        } else {
+          setMessages([]);
+          updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
+        }
       } else {
-        setMessages([]);
-        updateAgentChatCache(prev => ({ ...prev, [agent.id]: [] }));
+        console.log(`🔄 LOAD DB - Database failed during background sync, keeping existing messages`);
       }
     }
   };
@@ -1662,7 +1678,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                               key={sessionId}
                               onClick={async () => {
                                 console.log(`Loading previous session: ${sessionId}`);
-                                await loadChatHistoryForAgent(selectedAgent, sessionId);
+                                await loadChatHistoryForAgent(selectedAgent, sessionId, true);
                               }}
                               className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
                             >
