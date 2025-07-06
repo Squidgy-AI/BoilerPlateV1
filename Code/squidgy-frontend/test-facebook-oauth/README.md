@@ -1,120 +1,174 @@
-# Facebook OAuth Integration Test
+# 🚀 Complete Facebook Pages Viewer for GoHighLevel
 
-This is a standalone test environment for the Facebook OAuth integration flow based on **official HighLevel dev team guidance**.
+**One-click solution for business users to view and manage Facebook page integrations with GoHighLevel**
 
-## ⚠️ **CRITICAL: HighLevel Dev Team Guidance**
+## 🎯 What This Does
 
-Based on support ticket #2861180, the HighLevel dev team confirmed:
+This automated script provides a complete Facebook integration analysis for your GoHighLevel account:
 
-> **"The API should not be called using fetch or regular http. It should be opened with Window.open() as mentioned in the API description."**
+- ✅ **Automatic Login**: Opens incognito browser and logs into GHL automatically
+- ✅ **JWT Token Extraction**: Captures authentication tokens from browser requests
+- ✅ **Facebook Connection Testing**: Tests all Facebook API endpoints
+- ✅ **Page Discovery**: Shows ALL your Facebook pages with detailed information
+- ✅ **Connection Status**: Displays which pages are connected to GHL
+- ✅ **Auto-Attachment**: Automatically connects unconnected pages
+- ✅ **Business Summary**: Provides clear, actionable insights
 
-### ✅ **Correct Implementation (Used in this test):**
-```javascript
-const url = `${config.baseUrl}/oauth/facebook/start?locationId=${locationId}&userId=${userId}`;
-const target = 'FacebookOAuthWindow';
-const features = 'toolbar=no,menubar=no,scrollbars=no,resizable=no,location=no,directories=no,status=no';
-window.open(url, target, features);
+## 🚀 Quick Start
+
+### 1. Setup (One Time)
+
+```bash
+# Install dependencies
+pip install playwright httpx asyncio
+
+# Install browser engines
+playwright install
 ```
 
-### ❌ **Incorrect Implementation (Don't use):**
-```javascript
-// DON'T DO THIS - Won't work!
-fetch(url, { headers: { Authorization: 'Bearer ...' } })
-```
+### 2. Configure Your Credentials
 
-### 🔄 **OAuth Flow (as per HighLevel):**
-1. `window.open()` opens Facebook OAuth
-2. User logs into Facebook and grants permissions  
-3. Original window closes
-4. **New window opens** with `opener.postMessage` containing account details
-5. Listen for the postMessage event with account data
+Open `complete_facebook_viewer.py` and update around line 110:
 
-## 🎯 Test Flow
-
-1. **Configuration**: Enter your Nestle sub-account credentials
-2. **OAuth**: Open Facebook OAuth popup and complete login
-3. **Account Data**: Receive account information via postMessage
-4. **Fetch Pages**: Retrieve available Facebook pages
-5. **Attach Pages**: Select and attach pages to your account
-
-## 🚀 How to Run
-
-1. **Open the test page**:
-   ```
-   file:///Users/somasekharaddakula/CascadeProjects/SquidgyFrontend/Code/squidgy-frontend/test-facebook-oauth/index.html
-   ```
-
-2. **Or use a local server** (recommended):
-   ```bash
-   cd /Users/somasekharaddakula/CascadeProjects/SquidgyFrontend/Code/squidgy-frontend/test-facebook-oauth
-   python3 -m http.server 8080
-   ```
-   Then open: `http://localhost:8080`
-
-## 🔧 Pre-filled Configuration
-
-The test is pre-configured with your Nestle sub-account credentials:
-
-- **Bearer Token**: `pit-98e16ccd-8c1e-4e6f-a96d-57ef6cb2cf62`
-- **Location ID**: `lBPqgBowX1CsjHay12LY`
-- **User ID**: `2Qrex2UBhbp5j2bhOw7A`
-
-## 📋 Testing Steps
-
-### Step 1: Start OAuth
-- Click "🚀 Start Facebook OAuth"
-- A popup window will open to Facebook
-- Complete the Facebook login and permissions
-
-### Step 2: Listen for OAuth Response
-The page will automatically listen for this message:
-```javascript
-{
-  actionType: "close",
-  page: "social-media-posting", 
-  platform: "facebook",
-  placement: "placement",
-  accountId: "658a9b6833b91e0ecb8f3958",
-  reconnectAccounts: ["658a9b6833b91e0ecb834acd"]
+```python
+self.credentials = {
+    'email': 'your-ghl-email@example.com',        # Your GoHighLevel email
+    'password': 'your-ghl-password'               # Your GoHighLevel password
 }
+
+self.location_id = "your-location-id-here"        # Your GHL Location ID
 ```
 
-### Step 3: Fetch Facebook Pages
-- Click "📄 Fetch Facebook Pages" 
-- This calls: `GET /social-media-posting/oauth/{locationId}/facebook/accounts/{accountId}`
+**How to find your Location ID:**
+1. Login to GoHighLevel
+2. Look at the URL: `app.gohighlevel.com/location/YOUR_LOCATION_ID/dashboard`
+3. Copy the location ID from the URL
 
-### Step 4: Select and Attach Pages
-- Select which Facebook pages you want to integrate
-- Click "✅ Attach Selected Pages"
-- This calls: `POST /social-media-posting/oauth/{locationId}/facebook/accounts/{accountId}`
+### 3. Run the Script
 
-## 🐛 Debug Features
+```bash
+python complete_facebook_viewer.py
+```
 
-- **Real-time logging**: See all API calls and responses
-- **Step-by-step progress**: Visual indicators for each stage
-- **Error handling**: Clear error messages for troubleshooting
-- **Console logs**: Detailed technical information
+That's it! The script will:
+- Start automatically after 3 seconds
+- Open an incognito browser window
+- Handle login and MFA (approve on mobile if prompted)
+- Show complete Facebook integration analysis
 
-## 📁 Files
+## 📊 What You'll See
 
-- `index.html`: Main test interface
-- `facebook-oauth-test.js`: Complete OAuth flow logic
-- `README.md`: This documentation
+### Step 1: Automatic Login
+- Browser opens in incognito mode
+- Credentials auto-filled
+- MFA handling (approve on mobile)
+- JWT token extraction
 
-## 🔗 API Endpoints Used
+### Step 2: Token Analysis
+- Token validity and expiration
+- User and company information
+- Available locations and permissions
 
-1. **Start OAuth**: `https://services.leadconnectorhq.com/social-media-posting/oauth/facebook/start`
-2. **Get Pages**: `https://services.leadconnectorhq.com/social-media-posting/oauth/{locationId}/facebook/accounts/{accountId}`
-3. **Attach Pages**: `https://services.leadconnectorhq.com/social-media-posting/oauth/{locationId}/facebook/accounts/{accountId}`
+### Step 3: Facebook Integration Testing
+- **Connection Status**: Whether Facebook is connected to GHL
+- **Available Pages**: All Facebook pages in your account
+- **Connected Pages**: Pages currently attached to GHL
+- **Auto-Attachment**: Connects any unconnected pages
 
-## ⚠️ Important Notes
+### Step 4: Detailed Logging
+- Complete JSON responses from all API calls
+- Response times and status codes
+- Detailed page information including IDs, names, URLs
+- Facebook permissions and scopes
 
-- This test environment is completely separate from your main application
-- No code changes will be pushed to your main repository
-- Use this to validate the OAuth flow before integration
-- Test with your actual Facebook account to verify permissions
+## 🎯 Business Value
 
-## 🎮 Ready to Test!
+- **🔍 Visibility**: Know exactly which Facebook pages you have
+- **📊 Status**: See which pages are connected to GHL for marketing
+- **✅ Verification**: Confirm your Facebook integration is working
+- **🚀 Automation**: No technical knowledge required
+- **💼 Efficiency**: One click shows everything you need
 
-Open this URL in your browser to start testing:
-**file:///Users/somasekharaddakula/CascadeProjects/SquidgyFrontend/Code/squidgy-frontend/test-facebook-oauth/index.html**
+## 🛠️ Technical Details
+
+- **Browser Automation**: Uses Playwright for reliable browser control
+- **Fresh Sessions**: Incognito mode ensures clean login every time
+- **JWT Extraction**: Captures Firebase authentication tokens automatically
+- **API Testing**: Tests 4 different Facebook endpoints comprehensively
+- **Error Handling**: Graceful handling of login issues and network problems
+
+## 📝 API Endpoints Tested
+
+1. **GET** `/integrations/facebook/{locationId}/connection` - Connection status
+2. **GET** `/integrations/facebook/{locationId}/allPages` - All available pages
+3. **GET** `/integrations/facebook/{locationId}/pages` - Currently connected pages
+4. **POST** `/integrations/facebook/{locationId}/pages` - Attach pages (if needed)
+
+## 🔧 Troubleshooting
+
+**Script fails to start:**
+- Ensure Playwright is installed: `playwright install`
+- Check internet connection
+- Verify credentials are updated in the script
+
+**Login issues:**
+- Approve MFA prompts quickly when they appear
+- Check that your GHL credentials are correct
+- Try running the script again (sometimes network timing issues occur)
+
+**No pages found:**
+- Verify you have Facebook pages in your Facebook account
+- Check that Facebook is connected in your GHL dashboard
+- Ensure your location ID is correct
+
+## 🚨 Security Notes
+
+- **Never commit credentials**: Always update credentials locally only
+- **Use environment variables**: For production use, load credentials from env vars
+- **Monitor access**: This script uses your actual GHL login credentials
+- **Incognito mode**: Sessions are isolated and cleaned automatically
+
+## 📁 File Structure
+
+```
+test-facebook-oauth/
+├── complete_facebook_viewer.py    # ⭐ Main script - run this
+├── README.md                      # This documentation
+├── business_user_login.py         # Alternative login-only script
+├── demo_business_login.py         # Demo version
+└── test_with_token.py             # Manual token testing
+```
+
+## 🎉 Success Output Example
+
+```
+✅ Facebook Connection: CONNECTED (15 scopes)
+✅ Available Pages: 1 page found
+   - "Testing Test Business" (ID: 736138742906375)
+✅ Connected Pages: 1 page connected to GHL
+✅ All tests passed - Facebook integration working perfectly!
+```
+
+## 👨‍💻 Developer Notes
+
+- Built with Python 3.7+
+- Uses async/await for concurrent operations
+- Comprehensive error handling and logging
+- Business-user friendly output formatting
+- Extensible design for additional endpoints
+
+## 📞 Support
+
+If you encounter issues:
+1. Check the troubleshooting section above
+2. Verify all dependencies are installed
+3. Ensure credentials and location ID are correct
+4. Try running the script multiple times (network issues can be transient)
+
+---
+
+**Author**: Claude Code Assistant  
+**Version**: 1.0  
+**Last Updated**: July 2025
+
+**🎯 Perfect for business users who want to understand and verify their Facebook integration with GoHighLevel without any technical complexity!**

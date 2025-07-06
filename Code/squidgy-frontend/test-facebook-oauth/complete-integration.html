@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Facebook OAuth Integration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .step.active {
+            border-color: #4CAF50;
+            background: #e8f5e8;
+        }
+        .step.completed {
+            border-color: #2196F3;
+            background: #e3f2fd;
+        }
+        .step.error {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .oauth-button {
+            background: #1877f2;
+            font-size: 18px;
+            padding: 15px 30px;
+        }
+        .oauth-button:hover {
+            background: #166fe5;
+        }
+        .error {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #e8f5e8;
+            border: 1px solid #4CAF50;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            background: #e3f2fd;
+            border: 1px solid #2196F3;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .page-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .page-card {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .page-card:hover {
+            border-color: #4CAF50;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .page-card.selected {
+            border-color: #4CAF50;
+            background: #e8f5e8;
+        }
+        .page-card img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 10px;
+        }
+        .page-card h4 {
+            margin: 10px 0 5px 0;
+            color: #333;
+        }
+        .page-card p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .debug-log {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 20px 0;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-pending { background: #ffc107; }
+        .status-active { background: #4CAF50; }
+        .status-completed { background: #2196F3; }
+        .status-error { background: #f44336; }
+        .credentials-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Complete Facebook OAuth Integration</h1>
+        <p>Complete end-to-end Facebook integration using reverse-engineered GHL backend APIs.</p>
+        
+        <!-- Credentials Section -->
+        <div class="credentials-section">
+            <h3>⚙️ Configuration</h3>
+            <div class="form-group">
+                <label for="locationId">Location ID:</label>
+                <input type="text" id="locationId" value="lBPqgBowX1CsjHay12LY" />
+            </div>
+            <div class="form-group">
+                <label for="userId">User ID:</label>
+                <input type="text" id="userId" value="aZ0n4etrNCEB29sona8M" />
+            </div>
+            <div class="form-group">
+                <label for="tokenId">GHL Token ID (JWT):</label>
+                <input type="text" id="tokenId" placeholder="Paste JWT token from network tab..." />
+                <small>Get this from browser dev tools > Network tab > Any GHL request > Headers > token-id</small>
+            </div>
+        </div>
+
+        <!-- Step 1: OAuth URL Generation -->
+        <div class="step active" id="step-oauth">
+            <h3>
+                <span class="status-indicator status-pending" id="oauth-status"></span>
+                Step 1: Generate Facebook OAuth URL
+            </h3>
+            <p>Generate the corrected Facebook OAuth URL with proper parameters.</p>
+            <button onclick="generateOAuthUrl()" id="generate-oauth-btn">🔄 Generate OAuth URL</button>
+            <div id="oauth-result"></div>
+        </div>
+
+        <!-- Step 2: Facebook Authentication -->
+        <div class="step" id="step-auth">
+            <h3>
+                <span class="status-indicator status-pending" id="auth-status"></span>
+                Step 2: Facebook Authentication
+            </h3>
+            <p>Authenticate with Facebook using the generated OAuth URL.</p>
+            <button onclick="openFacebookAuth()" id="facebook-auth-btn" class="oauth-button" disabled>
+                📘 Authenticate with Facebook
+            </button>
+            <div id="auth-result"></div>
+        </div>
+
+        <!-- Step 3: Check Connection -->
+        <div class="step" id="step-connection">
+            <h3>
+                <span class="status-indicator status-pending" id="connection-status"></span>
+                Step 3: Check Connection Status
+            </h3>
+            <p>Verify Facebook connection status in GHL backend.</p>
+            <button onclick="checkConnection()" id="check-connection-btn" disabled>🔍 Check Connection</button>
+            <div id="connection-result"></div>
+        </div>
+
+        <!-- Step 4: List Facebook Pages -->
+        <div class="step" id="step-pages">
+            <h3>
+                <span class="status-indicator status-pending" id="pages-status"></span>
+                Step 4: List Facebook Pages
+            </h3>
+            <p>Retrieve all available Facebook pages from your account.</p>
+            <button onclick="listFacebookPages()" id="list-pages-btn" disabled>📄 List Facebook Pages</button>
+            <div id="pages-result"></div>
+            <div id="pages-grid" class="page-grid"></div>
+        </div>
+
+        <!-- Step 5: Attach Pages -->
+        <div class="step" id="step-attach">
+            <h3>
+                <span class="status-indicator status-pending" id="attach-status"></span>
+                Step 5: Attach Selected Pages
+            </h3>
+            <p>Connect selected Facebook pages to your GHL account.</p>
+            <button onclick="attachSelectedPages()" id="attach-pages-btn" disabled>✅ Attach Selected Pages</button>
+            <div id="attach-result"></div>
+        </div>
+
+        <!-- Debug Log -->
+        <div class="step">
+            <h3>🐛 Debug Log</h3>
+            <div id="debug-log" class="debug-log">
+                Waiting for actions...
+            </div>
+            <button onclick="clearDebugLog()">🗑️ Clear Log</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8002';
+        let currentOAuthUrl = null;
+        let availablePages = [];
+        let selectedPages = [];
+        let debugLog = [];
+
+        function addDebugLog(message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            if (data) {
+                console.log(logEntry, data);
+                debugLog.push(`${logEntry}\n${JSON.stringify(data, null, 2)}`);
+            } else {
+                console.log(logEntry);
+                debugLog.push(logEntry);
+            }
+            
+            const debugElement = document.getElementById('debug-log');
+            debugElement.textContent = debugLog.slice(-20).join('\n\n');
+            debugElement.scrollTop = debugElement.scrollHeight;
+        }
+
+        function clearDebugLog() {
+            debugLog = [];
+            document.getElementById('debug-log').textContent = 'Debug log cleared...';
+        }
+
+        function updateStepStatus(stepId, status) {
+            const step = document.getElementById(stepId);
+            const indicator = step.querySelector('.status-indicator');
+            
+            step.classList.remove('active', 'completed', 'error');
+            indicator.classList.remove('status-pending', 'status-active', 'status-completed', 'status-error');
+            
+            if (status === 'active') {
+                step.classList.add('active');
+                indicator.classList.add('status-active');
+            } else if (status === 'completed') {
+                step.classList.add('completed');
+                indicator.classList.add('status-completed');
+            } else if (status === 'error') {
+                step.classList.add('error');
+                indicator.classList.add('status-error');
+            }
+        }
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            element.innerHTML = `<div class="${className}">${message}</div>`;
+        }
+
+        async function generateOAuthUrl() {
+            try {
+                updateStepStatus('step-oauth', 'active');
+                addDebugLog('Generating OAuth URL...');
+                
+                const locationId = document.getElementById('locationId').value;
+                const userId = document.getElementById('userId').value;
+                
+                if (!locationId || !userId) {
+                    throw new Error('Please fill in Location ID and User ID');
+                }
+                
+                const response = await fetch(`${API_BASE}/api/facebook/oauth-url`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ locationId, userId })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                addDebugLog('OAuth URL generated successfully', result);
+                
+                currentOAuthUrl = result.oauth_url;
+                
+                showResult('oauth-result', `
+                    <strong>✅ OAuth URL Generated!</strong><br>
+                    <small>Client ID: ${result.params.client_id}</small><br>
+                    <small>Redirect URI: ${result.params.redirect_uri}</small><br>
+                    <small>State Format: JSON ✓</small>
+                `, 'success');
+                
+                updateStepStatus('step-oauth', 'completed');
+                updateStepStatus('step-auth', 'active');
+                document.getElementById('facebook-auth-btn').disabled = false;
+                
+            } catch (error) {
+                addDebugLog('OAuth URL generation error', error);
+                showResult('oauth-result', `❌ Error: ${error.message}`, 'error');
+                updateStepStatus('step-oauth', 'error');
+            }
+        }
+
+        function openFacebookAuth() {
+            if (!currentOAuthUrl) {
+                showResult('auth-result', '❌ No OAuth URL available. Generate URL first.', 'error');
+                return;
+            }
+            
+            addDebugLog('Opening Facebook authentication window');
+            showResult('auth-result', 'Opening Facebook authentication window...', 'info');
+            
+            const authWindow = window.open(
+                currentOAuthUrl,
+                'FacebookAuth',
+                'width=600,height=700,scrollbars=yes,resizable=yes'
+            );
+            
+            // Listen for completion
+            window.addEventListener('message', (event) => {
+                if (event.data && event.data.page === 'social_media_posting') {
+                    addDebugLog('Facebook authentication completed', event.data);
+                    authWindow.close();
+                    
+                    showResult('auth-result', '✅ Facebook authentication completed!', 'success');
+                    updateStepStatus('step-auth', 'completed');
+                    updateStepStatus('step-connection', 'active');
+                    document.getElementById('check-connection-btn').disabled = false;
+                }
+            });
+            
+            // Monitor window
+            const monitor = setInterval(() => {
+                if (authWindow.closed) {
+                    clearInterval(monitor);
+                    addDebugLog('Authentication window closed');
+                }
+            }, 1000);
+        }
+
+        async function checkConnection() {
+            try {
+                updateStepStatus('step-connection', 'active');
+                addDebugLog('Checking Facebook connection status...');
+                
+                const locationId = document.getElementById('locationId').value;
+                const tokenId = document.getElementById('tokenId').value;
+                
+                if (!tokenId) {
+                    throw new Error('Please provide GHL Token ID');
+                }
+                
+                const response = await fetch(`${API_BASE}/api/facebook/connection/${locationId}?token_id=${encodeURIComponent(tokenId)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                addDebugLog('Connection status checked', result);
+                
+                if (result.connected) {
+                    showResult('connection-result', '✅ Facebook is connected!', 'success');
+                    updateStepStatus('step-connection', 'completed');
+                    updateStepStatus('step-pages', 'active');
+                    document.getElementById('list-pages-btn').disabled = false;
+                } else {
+                    showResult('connection-result', '❌ Facebook is not connected. Please complete authentication first.', 'error');
+                    updateStepStatus('step-connection', 'error');
+                }
+                
+            } catch (error) {
+                addDebugLog('Connection check error', error);
+                showResult('connection-result', `❌ Error: ${error.message}`, 'error');
+                updateStepStatus('step-connection', 'error');
+            }
+        }
+
+        async function listFacebookPages() {
+            try {
+                updateStepStatus('step-pages', 'active');
+                addDebugLog('Listing Facebook pages...');
+                
+                const locationId = document.getElementById('locationId').value;
+                const tokenId = document.getElementById('tokenId').value;
+                
+                const response = await fetch(`${API_BASE}/api/facebook/pages/${locationId}?token_id=${encodeURIComponent(tokenId)}&limit=20`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                addDebugLog('Facebook pages retrieved', result);
+                
+                availablePages = result.pages || [];
+                displayFacebookPages(availablePages);
+                
+                showResult('pages-result', `✅ Found ${availablePages.length} Facebook pages`, 'success');
+                updateStepStatus('step-pages', 'completed');
+                updateStepStatus('step-attach', 'active');
+                
+            } catch (error) {
+                addDebugLog('List pages error', error);
+                showResult('pages-result', `❌ Error: ${error.message}`, 'error');
+                updateStepStatus('step-pages', 'error');
+            }
+        }
+
+        function displayFacebookPages(pages) {
+            const grid = document.getElementById('pages-grid');
+            
+            if (pages.length === 0) {
+                grid.innerHTML = '<div class="error">No Facebook pages found</div>';
+                return;
+            }
+            
+            grid.innerHTML = pages.map(page => `
+                <div class="page-card" onclick="togglePageSelection('${page.id}')" id="page-${page.id}">
+                    <img src="${page.picture?.data?.url || 'https://via.placeholder.com/60'}" alt="${page.name}" />
+                    <h4>${page.name}</h4>
+                    <p>ID: ${page.id}</p>
+                    <p>Category: ${page.category || 'Unknown'}</p>
+                    <p>Tasks: ${page.tasks?.length || 0}</p>
+                </div>
+            `).join('');
+            
+            document.getElementById('attach-pages-btn').disabled = false;
+        }
+
+        function togglePageSelection(pageId) {
+            const pageCard = document.getElementById(`page-${pageId}`);
+            const isSelected = selectedPages.includes(pageId);
+            
+            if (isSelected) {
+                selectedPages = selectedPages.filter(id => id !== pageId);
+                pageCard.classList.remove('selected');
+            } else {
+                selectedPages.push(pageId);
+                pageCard.classList.add('selected');
+            }
+            
+            addDebugLog(`Page ${pageId} ${isSelected ? 'deselected' : 'selected'}. Total selected: ${selectedPages.length}`);
+        }
+
+        async function attachSelectedPages() {
+            try {
+                if (selectedPages.length === 0) {
+                    throw new Error('Please select at least one Facebook page');
+                }
+                
+                updateStepStatus('step-attach', 'active');
+                addDebugLog(`Attaching ${selectedPages.length} selected pages...`);
+                
+                const locationId = document.getElementById('locationId').value;
+                const tokenId = document.getElementById('tokenId').value;
+                
+                const pagesToAttach = availablePages.filter(page => selectedPages.includes(page.id));
+                
+                const response = await fetch(`${API_BASE}/api/facebook/attach-pages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        locationId,
+                        pages: pagesToAttach,
+                        token_id: tokenId
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const result = await response.json();
+                addDebugLog('Pages attached successfully', result);
+                
+                showResult('attach-result', `
+                    <strong>🎉 Integration Completed!</strong><br>
+                    Successfully attached ${result.count} Facebook page(s) to your GHL account.<br>
+                    <small>Check your GHL dashboard to see the connected pages.</small>
+                `, 'success');
+                
+                updateStepStatus('step-attach', 'completed');
+                
+            } catch (error) {
+                addDebugLog('Attach pages error', error);
+                showResult('attach-result', `❌ Error: ${error.message}`, 'error');
+                updateStepStatus('step-attach', 'error');
+            }
+        }
+
+        // Initialize
+        addDebugLog('Complete Facebook OAuth Integration loaded');
+        addDebugLog('Paste your GHL JWT token from browser dev tools to continue');
+    </script>
+</body>
+</html>
