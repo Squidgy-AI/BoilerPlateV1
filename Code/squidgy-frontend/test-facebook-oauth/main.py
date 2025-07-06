@@ -1,5 +1,73 @@
+#!/usr/bin/env python3
+"""
+🔐 FACEBOOK OAUTH BACKEND SERVER - WORKS WITH INDEX.HTML
+🎯 Python FastAPI server that extracts OAuth params for the frontend
+
+WHAT THIS DOES:
+==============
+1. 🌐 Runs FastAPI server on http://localhost:8001
+2. 📡 Receives requests from index.html JavaScript
+3. 🔍 Extracts Facebook OAuth parameters from GHL service (avoids CORS)
+4. 📤 Returns parameters to frontend for OAuth flow
+5. ✅ Enables the complete OAuth flow in index.html
+
+HOW IT WORKS WITH INDEX.HTML:
+============================
+1. User opens index.html in browser
+2. User clicks "🚀 Start Facebook OAuth" button
+3. JavaScript calls this server: POST /api/facebook/extract-oauth-params
+4. This server gets OAuth params from GHL service
+5. Returns params to JavaScript 
+6. JavaScript opens Facebook OAuth with correct params
+7. User completes OAuth, gets account data
+8. JavaScript fetches Facebook pages and attaches them
+
+HOW TO RUN:
+==========
+1. Install dependencies:
+   pip install fastapi uvicorn httpx
+
+2. Start the server:
+   python main.py
+
+3. Open index.html in browser:
+   file:///path/to/index.html
+   OR
+   python -m http.server 8000 (then open http://localhost:8000)
+
+4. Use the web interface:
+   - Enter your Bearer Token, Location ID, User ID
+   - Click "Start Facebook OAuth"
+   - Complete OAuth flow
+   - See your Facebook pages and attach them
+
+API ENDPOINTS:
+=============
+- GET  /          - Health check
+- POST /api/facebook/extract-oauth-params - Extract OAuth params 
+- GET  /test      - Test extraction with default values
+- GET  /docs      - API documentation
+
+CONFIGURATION:
+=============
+Update the test values around line 200:
+- locationId: Your GHL location ID
+- userId: Your GHL user ID
+
+TROUBLESHOOTING:
+===============
+- Server won't start: Check port 8001 is available
+- CORS errors: Ensure CORS is enabled (already configured)
+- OAuth fails: Check GHL service is accessible
+- No params: Verify location ID and user ID are correct
+
+AUTHOR: Claude Code Assistant
+VERSION: 1.0 - Facebook OAuth Backend Server
+LAST UPDATED: July 2025
+"""
+
 # Facebook OAuth Parameter Extraction Test Server
-# Minimal FastAPI server to test Facebook OAuth parameter extraction
+# This server extracts OAuth parameters and works with index.html frontend
 
 import json
 import re
@@ -31,11 +99,35 @@ class FacebookOAuthRequest(BaseModel):
 
 # Facebook OAuth Parameter Extraction Utility
 class FacebookOAuthExtractor:
-    """Utility class to extract Facebook OAuth parameters from GHL service"""
+    """
+    Utility class to extract Facebook OAuth parameters from GHL service
+    
+    This class handles the technical complexity of:
+    1. Making requests to GHL OAuth service 
+    2. Following redirects to Facebook
+    3. Parsing OAuth parameters from redirect URLs
+    4. Handling different URL formats (GDPR consent vs direct OAuth)
+    5. Returning structured parameter data for frontend use
+    """
     
     @staticmethod
     async def extract_params(location_id: str, user_id: str) -> dict:
-        """Extract OAuth parameters from GHL Facebook service"""
+        """
+        Extract OAuth parameters from GHL Facebook service
+        
+        This method:
+        1. Calls GHL OAuth start endpoint
+        2. Follows redirect to Facebook 
+        3. Parses OAuth parameters from redirect URL
+        4. Returns structured data for frontend OAuth flow
+        
+        Args:
+            location_id: GHL location ID 
+            user_id: GHL user ID
+            
+        Returns:
+            Dict containing OAuth parameters needed for Facebook OAuth flow
+        """
         
         ghl_url = f"https://services.leadconnectorhq.com/social-media-posting/oauth/facebook/start?locationId={location_id}&userId={user_id}"
         
