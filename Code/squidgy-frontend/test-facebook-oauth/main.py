@@ -251,7 +251,7 @@ async def test_extraction():
     """Test endpoint with your actual credentials"""
     test_request = FacebookOAuthRequest(
         locationId="lBPqgBowX1CsjHay12LY",
-        userId="aZ0n4etrNCEB29sona8M"
+        userId="6ZHPyo1FRlZNBGzH5szG"
     )
     return await extract_facebook_oauth_params(test_request)
 

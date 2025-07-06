@@ -114,14 +114,14 @@ class CompleteFacebookViewer:
         self.jwt_token = None
         
         # GHL Location ID (specific to user's account)
-        # TODO: IMPORTANT - Update this with YOUR actual GHL location ID
-        self.location_id = "YOUR_LOCATION_ID_HERE"
+        # Nestle LLC - SOMA TEST location
+        self.location_id = "lBPqgBowX1CsjHay12LY"
         
         # User credentials for automatic login
-        # TODO: IMPORTANT - Update these with YOUR actual GHL credentials
+        # Using Ovi Colton's credentials (User role)
         self.credentials = {
-            'email': 'YOUR_EMAIL@example.com',
-            'password': 'YOUR_PASSWORD_HERE'
+            'email': 'ovi.chand@gmail.com',
+            'password': 'Dummy@123'
         }
     
     def show_welcome(self):
@@ -469,12 +469,6 @@ class CompleteFacebookViewer:
                 "method": "GET",
                 "url": f"https://backend.leadconnectorhq.com/integrations/facebook/{self.location_id}/allPages?limit=20",
                 "description": "Get all Facebook pages from your Facebook account"
-            },
-            {
-                "name": "Currently Connected Pages",
-                "method": "GET",
-                "url": f"https://backend.leadconnectorhq.com/integrations/facebook/{self.location_id}/pages?getAll=true",
-                "description": "Pages currently attached/connected to this GHL location"
             }
         ]
         
@@ -589,92 +583,162 @@ class CompleteFacebookViewer:
             
             print()  # Add spacing between tests
         
-        # Step 4: Attach pages if available and not already connected
-        await self._handle_page_attachment(headers, all_available_pages, results)
-        
-        return results
-    
-    async def _handle_page_attachment(self, headers: dict, all_available_pages: list, results: dict):
-        """Handle attaching Facebook pages to GHL"""
-        
-        print(f"📡 TEST 4: FACEBOOK PAGE ATTACHMENT (POST)")
-        print(f"   📝 Purpose: Attach/connect available Facebook pages to GHL")
+        # Test 3: Attach Facebook pages to GHL
+        print(f"📡 TEST 3: ATTACH FACEBOOK PAGES TO GHL")
+        print(f"   📝 Purpose: Connect Facebook pages to your GHL location")
         print(f"   🌐 Method: POST")
         
-        # Check if we have pages to attach
-        currently_connected = results.get('Currently Connected Pages', {}).get('data', [])
-        if isinstance(currently_connected, dict):
-            currently_connected = currently_connected.get('pages', [])
+        if all_available_pages:
+            attach_url = f"https://backend.leadconnectorhq.com/integrations/facebook/{self.location_id}/pages"
+            
+            # Prepare the payload from your network capture
+            pages_to_attach = []
+            for page in all_available_pages:
+                pages_to_attach.append({
+                    "facebookPageId": page.get("facebookPageId"),
+                    "facebookPageName": page.get("facebookPageName"),
+                    "facebookIgnoreMessages": page.get("facebookIgnoreMessages", False),
+                    "isInstagramAvailable": page.get("isInstagramAvailable", False)
+                })
+            
+            attach_payload = {"pages": pages_to_attach}
+            
+            print(f"   🔗 URL: {attach_url}")
+            print(f"   📋 Payload: {json.dumps(attach_payload, indent=6)}")
+            print(f"   ⏳ Sending POST request to attach pages...", end="", flush=True)
+            
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        attach_url,
+                        headers=headers,
+                        json=attach_payload
+                    )
+                
+                print(f" Status: {response.status_code}")
+                print(f"   📊 Response Time: ~{response.elapsed.total_seconds():.2f}s")
+                print(f"   📏 Content Length: {len(response.content)} bytes")
+                
+                if response.status_code in [200, 201]:
+                    print(f"   ✅ ATTACHMENT SUCCESS")
+                    
+                    try:
+                        data = response.json()
+                        results["Attach Facebook Pages"] = {
+                            'success': True,
+                            'data': data,
+                            'response_size': len(response.content),
+                            'response_time': response.elapsed.total_seconds()
+                        }
+                        
+                        print(f"   📋 Attachment Response:")
+                        print(f"      {json.dumps(data, indent=6)}")
+                        
+                        print(f"\n   🎉 PAGES SUCCESSFULLY ATTACHED TO GHL!")
+                        print(f"   💡 Your Facebook pages are now connected for marketing")
+                        
+                    except json.JSONDecodeError:
+                        print(f"   📄 Non-JSON response: {response.text[:200]}...")
+                        results["Attach Facebook Pages"] = {'success': True, 'raw': True}
+                
+                else:
+                    print(f"   ❌ ATTACHMENT FAILED ({response.status_code})")
+                    print(f"   📋 Error Response: {response.text[:200]}...")
+                    results["Attach Facebook Pages"] = {
+                        'success': False,
+                        'error': response.status_code,
+                        'message': response.text
+                    }
+                    
+            except Exception as e:
+                print(f"   💥 ERROR: {str(e)[:100]}...")
+                results["Attach Facebook Pages"] = {
+                    'success': False,
+                    'error': str(e)
+                }
+        else:
+            print(f"   ⚠️  No Facebook pages available to attach")
+            results["Attach Facebook Pages"] = {
+                'success': False,
+                'error': 'No pages available'
+            }
         
-        connected_page_ids = [page.get('id') for page in currently_connected if page.get('id')]
+        print()
         
-        if not all_available_pages:
-            print(f"   ⚠️  No available pages found to attach")
-            return
-        
-        # Find pages that aren't connected yet
-        pages_to_attach = []
-        for page in all_available_pages:
-            page_id = page.get('id')
-            if page_id and page_id not in connected_page_ids:
-                pages_to_attach.append(page)
-        
-        if not pages_to_attach:
-            print(f"   ✅ All available pages are already connected")
-            return
-        
-        print(f"   📄 Found {len(pages_to_attach)} pages available for connection:")
-        for i, page in enumerate(pages_to_attach, 1):
-            name = page.get('name', 'Unknown')
-            page_id = page.get('id', 'Unknown')
-            print(f"      {i}. {name} (ID: {page_id})")
-        
-        # Prepare POST payload (based on your network data)
-        attachment_url = f"https://backend.leadconnectorhq.com/integrations/facebook/{self.location_id}/pages"
-        
-        # Create payload to attach pages
-        payload = {
-            "pages": pages_to_attach
-        }
-        
-        print(f"   🔗 URL: {attachment_url}")
-        print(f"   📋 Payload: {json.dumps(payload, indent=6)}")
-        print(f"   ⏳ Sending POST request to attach pages...", end="", flush=True)
+        # Test 4: Verify pages are now connected
+        print(f"📡 TEST 4: VERIFY PAGES ARE NOW CONNECTED")
+        print(f"   📝 Purpose: Confirm pages were successfully attached to GHL")
+        print(f"   🌐 Method: GET")
+        verify_url = f"https://backend.leadconnectorhq.com/integrations/facebook/{self.location_id}/pages?getAll=true"
+        print(f"   🔗 URL: {verify_url}")
+        print(f"   ⏳ Sending request to verify attachment...", end="", flush=True)
         
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    attachment_url, 
-                    headers=headers, 
-                    json=payload
-                )
+                response = await client.get(verify_url, headers=headers)
             
             print(f" Status: {response.status_code}")
             print(f"   📊 Response Time: ~{response.elapsed.total_seconds():.2f}s")
             print(f"   📏 Content Length: {len(response.content)} bytes")
             
-            if response.status_code in [200, 201]:
-                print(f"   ✅ ATTACHMENT SUCCESS")
+            if response.status_code == 200:
+                print(f"   ✅ SUCCESS")
                 
                 try:
                     data = response.json()
-                    print(f"   📋 Attachment Response:")
+                    results["Verify Connected Pages"] = {
+                        'success': True,
+                        'data': data,
+                        'response_size': len(response.content),
+                        'response_time': response.elapsed.total_seconds()
+                    }
+                    
+                    print(f"   📋 Raw JSON Response:")
                     print(f"      {json.dumps(data, indent=6)}")
                     
-                    print(f"\n   🎉 PAGES SUCCESSFULLY ATTACHED TO GHL!")
-                    print(f"   💡 You can now use these pages for marketing in GHL")
+                    print(f"\n   🔍 CONNECTED PAGES VERIFICATION:")
+                    pages = data.get('pages', data) if isinstance(data, dict) else data
                     
+                    if isinstance(pages, list):
+                        print(f"      🔗 Total Pages Connected to GHL: {len(pages)}")
+                        
+                        if len(pages) > 0:
+                            print(f"      ✅ PAGES NOW CONNECTED:")
+                            for j, page in enumerate(pages, 1):
+                                print(f"         PAGE {j}:")
+                                for key, value in page.items():
+                                    print(f"            {key}: {value}")
+                                print()
+                            print(f"      🎉 Facebook integration complete!")
+                        else:
+                            print(f"      ❌ No pages showing as connected")
+                            print(f"      💡 Check GHL dashboard or try again")
+                    else:
+                        print(f"      ⚠️  Unexpected data format: {type(pages)}")
+                
                 except json.JSONDecodeError:
-                    print(f"   📄 Non-JSON response: {response.text[:200]}...")
+                    print(f"   📄 Non-JSON response: {response.text[:500]}...")
+                    results["Verify Connected Pages"] = {'success': True, 'raw': True}
             
             else:
-                print(f"   ❌ ATTACHMENT FAILED ({response.status_code})")
-                print(f"   📋 Error Response: {response.text[:200]}...")
+                print(f"   ❌ VERIFICATION FAILED ({response.status_code})")
+                print(f"      Error: {response.text[:100]}...")
+                results["Verify Connected Pages"] = {
+                    'success': False,
+                    'error': response.status_code
+                }
                 
         except Exception as e:
             print(f"   💥 ERROR: {str(e)[:100]}...")
+            results["Verify Connected Pages"] = {
+                'success': False,
+                'error': str(e)
+            }
         
         print()
+        
+        return results
+    
     
     def show_final_summary(self, results: dict):
         """Show business user friendly summary"""

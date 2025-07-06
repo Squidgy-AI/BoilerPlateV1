@@ -1,0 +1,62 @@
+{
+  "location": {
+    "id": "lBPqgBowX1CsjHay12LY",
+    "companyId": "lp2p1q27DrdGta1qGDJd",
+    "name": "Nestle LLC - SOMA TEST",
+    "address": "4th fleet street",
+    "city": "New York",
+    "state": "Illinois",
+    "country": "US",
+    "postalCode": "567654",
+    "website": "https://yourwebsite.com",
+    "timezone": "US/Central",
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@mail.com",
+    "phone": "+1410039940",
+    "automaticMobileAppInvite": false,
+    "business": {
+      "name": "Nestle LLC - SOMA TEST",
+      "address": "4th fleet street",
+      "city": "New York",
+      "state": "Illinois",
+      "country": "US",
+      "postalCode": "567654",
+      "website": "https://yourwebsite.com",
+      "timezone": "US/Central"
+    },
+    "social": {
+      "facebookUrl": "https://www.facebook.com/",
+      "googlePlus": "https://www.googleplus.com/",
+      "linkedIn": "https://www.linkedIn.com/",
+      "foursquare": "https://www.foursquare.com/",
+      "twitter": "https://www.foutwitterrsquare.com/",
+      "yelp": "https://www.yelp.com/",
+      "instagram": "https://www.instagram.com/",
+      "youtube": "https://www.youtube.com/",
+      "pinterest": "https://www.pinterest.com/",
+      "blogRss": "https://www.blogRss.com/",
+      "googlePlacesId": "ChIJJGPdVbQTrjsRGUkefteUeFk"
+    },
+    "settings": {
+      "allowDuplicateContact": false,
+      "allowDuplicateOpportunity": false,
+      "allowFacebookNameMerge": false,
+      "disableContactTimezone": false,
+      "contactUniqueIdentifiers": [
+        "email",
+        "phone"
+      ],
+      "saasSettings": {
+        "saasMode": "not_activated",
+        "twilioRebilling": {
+          "markup": 10,
+          "enabled": false
+        }
+      }
+    },
+    "dateAdded": "2024-11-17T01:02:55.684Z",
+    "domain": ""
+  },
+  "traceId": "0abe8f22-bea9-4ed8-bc6f-0db6095801a1"
+}
