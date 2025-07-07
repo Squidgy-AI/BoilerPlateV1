@@ -730,6 +730,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   };
   
   const handleAgentSelect = async (agent: any) => {
+    console.log('🚀 handleAgentSelect CALLED with agent:', agent?.id, agent?.name);
+    
     try {
       // Prevent rapid switching by checking if we're already on this agent
       if (selectedAgent?.id === agent.id) {
