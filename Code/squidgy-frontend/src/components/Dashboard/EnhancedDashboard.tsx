@@ -181,6 +181,12 @@ const EnhancedDashboard: React.FC = () => {
   
   // SOL Agent progressive setup state  
   const [showSOLSetup, setShowSOLSetup] = useState(false);
+
+  // DEBUG: Monitor showSOLSetup state changes
+  useEffect(() => {
+    console.log('🔔 showSOLSetup state changed:', showSOLSetup);
+    console.log('🔔 Current selectedAgent:', selectedAgent?.id);
+  }, [showSOLSetup, selectedAgent?.id]);
   
   // Chat history functionality
   const [showChatHistory, setShowChatHistory] = useState(false);
@@ -1747,41 +1753,52 @@ Let's begin with your Solar Business Setup! ☀️`;
                       </div>
                     )}
 
-                    {/* Show Progressive SOL Setup in SOL Agent tab */}
-                    {(() => {
-                      console.log('🔍 DEBUG: Checking ProgressiveSOLSetup render conditions:');
-                      console.log('- selectedAgent?.id:', selectedAgent?.id);
-                      console.log('- selectedAgent object:', selectedAgent);
-                      console.log('- showSOLSetup:', showSOLSetup);
-                      console.log('- currentSessionId:', currentSessionId);
-                      console.log('- Will render:', selectedAgent?.id === 'SOLAgent' && showSOLSetup);
-                      console.log('- Condition breakdown:');
-                      console.log('  * selectedAgent?.id === "SOLAgent":', selectedAgent?.id === 'SOLAgent');
-                      console.log('  * showSOLSetup === true:', showSOLSetup === true);
-                      return null;
-                    })()}
-                    {selectedAgent?.id === 'SOLAgent' && showSOLSetup && (
+                    {/* AGGRESSIVE DEBUG: Always show for SOL Agent */}
+                    {selectedAgent?.id === 'SOLAgent' && (
                       <div className="mb-4">
-                        <ProgressiveSOLSetup
-                          onComplete={handleProgressiveSetupComplete}
-                          onSkip={handleProgressiveSetupSkip}
-                          sessionId={currentSessionId || `sol_session_${Date.now()}`}
-                        />
-                      </div>
-                    )}
-                    
-                    {/* DEBUGGING: Force render ProgressiveSOLSetup for SOL Agent */}
-                    {selectedAgent?.id === 'SOLAgent' && !showSOLSetup && (
-                      <div className="mb-4 bg-red-100 border border-red-400 p-4 rounded">
-                        <h3 className="text-red-700 font-bold">DEBUG: showSOLSetup is FALSE</h3>
-                        <p className="text-red-600">selectedAgent.id: {selectedAgent?.id}</p>
-                        <p className="text-red-600">showSOLSetup: {String(showSOLSetup)}</p>
-                        <button 
-                          onClick={() => setShowSOLSetup(true)}
-                          className="bg-red-500 text-white px-3 py-1 rounded mt-2"
-                        >
-                          Force Enable Setup
-                        </button>
+                        {(() => {
+                          console.log('🚨 AGGRESSIVE DEBUG: SOL Agent detected!');
+                          console.log('- selectedAgent?.id:', selectedAgent?.id);
+                          console.log('- selectedAgent object:', selectedAgent);
+                          console.log('- showSOLSetup:', showSOLSetup);
+                          console.log('- currentSessionId:', currentSessionId);
+                          console.log('- Will render setup?:', showSOLSetup);
+                          return null;
+                        })()}
+                        
+                        {showSOLSetup ? (
+                          <div className="border-2 border-green-500 p-4 rounded">
+                            <h3 className="text-green-700 font-bold mb-2">✅ SETUP SHOULD RENDER</h3>
+                            <ProgressiveSOLSetup
+                              onComplete={handleProgressiveSetupComplete}
+                              onSkip={handleProgressiveSetupSkip}
+                              sessionId={currentSessionId || `sol_session_${Date.now()}`}
+                            />
+                          </div>
+                        ) : (
+                          <div className="border-2 border-red-500 p-4 rounded bg-red-50">
+                            <h3 className="text-red-700 font-bold mb-2">❌ SETUP NOT SHOWING</h3>
+                            <p className="text-red-600 mb-2">showSOLSetup: {String(showSOLSetup)}</p>
+                            <p className="text-red-600 mb-2">selectedAgent.id: {selectedAgent?.id}</p>
+                            <button 
+                              onClick={() => {
+                                console.log('🔧 FORCE ENABLING showSOLSetup');
+                                setShowSOLSetup(true);
+                              }}
+                              className="bg-red-500 text-white px-4 py-2 rounded mr-2"
+                            >
+                              Force Enable Setup
+                            </button>
+                            <button 
+                              onClick={() => {
+                                console.log('🔧 Current state:', { selectedAgent, showSOLSetup, currentSessionId });
+                              }}
+                              className="bg-blue-500 text-white px-4 py-2 rounded"
+                            >
+                              Log State
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                     
