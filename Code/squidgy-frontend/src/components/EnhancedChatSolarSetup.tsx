@@ -59,6 +59,8 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
           is_enabled: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type'
         })
         .select()
         .single();
@@ -77,6 +79,8 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
   };
 
   const handleComplete = async () => {
+    if (saving) return; // Prevent multiple rapid submissions
+    
     try {
       setSaving(true);
       
