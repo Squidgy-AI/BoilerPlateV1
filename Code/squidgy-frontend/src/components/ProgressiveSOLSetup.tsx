@@ -66,6 +66,11 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'NotificationSetup').eq('is_enabled', true).single()
       ]);
 
+      // Log any API errors for debugging
+      if (solarResult.error) console.warn('🔴 Solar setup query error:', solarResult.error);
+      if (calendarResult.error) console.warn('🔴 Calendar setup query error:', calendarResult.error);
+      if (notificationResult.error) console.warn('🔴 Notification setup query error:', notificationResult.error);
+
       const solarCompleted = !solarResult.error && !!solarResult.data;
       const calendarCompleted = !calendarResult.error && !!calendarResult.data;
       const notificationsCompleted = !notificationResult.error && !!notificationResult.data;
@@ -103,7 +108,14 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
 
       console.log('✅ Setup progress loaded from database');
     } catch (error) {
-      console.error('Error loading setup progress:', error);
+      console.error('❌ Error loading setup progress:', error);
+      
+      // Check for specific RLS/permission errors
+      if (error && typeof error === 'object' && 'message' in error) {
+        if (error.message.includes('406') || error.message.includes('Not Acceptable')) {
+          console.warn('🚫 Database access denied (406) - possible RLS policy issue on squidgy_agent_business_setup table');
+        }
+      }
       
       // Fallback to localStorage if database fails
       const savedProgress = localStorage.getItem('sol_agent_setup_progress');
