@@ -252,26 +252,23 @@ export const getSolarConfigAsync = async (): Promise<SolarBusinessConfig> => {
       return getSolarConfig();
     }
 
-    // Use backend API to get setup data
-    const backendUrl = process.env.NEXT_PUBLIC_API_BASE?.startsWith('http') 
-      ? process.env.NEXT_PUBLIC_API_BASE 
-      : 'https://squidgy-back-919bc0659e35.herokuapp.com';
-    
-    const response = await fetch(`${backendUrl}/api/agents/setup?user_id=${userIdResult.user_id}&agent_id=SOLAgent&setup_type=SolarSetup`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    // Use direct Supabase with proper setup_type field
+    const { supabase } = await import('@/lib/supabase');
 
-    if (response.ok) {
-      const result = await response.json();
-      if (result.status === 'success' && result.data && result.data.setup_data) {
-        console.log('Solar config loaded from database');
-        // Also update localStorage for offline access
-        saveSolarConfig(result.data.setup_data);
-        return result.data.setup_data;
-      }
+    // Simple database read - get config by profile user_id, agent_id, and setup_type
+    const { data } = await supabase
+      .from('squidgy_agent_business_setup')
+      .select('setup_json')
+      .eq('firm_user_id', userIdResult.user_id)
+      .eq('agent_id', 'SOLAgent')
+      .eq('setup_type', 'SolarSetup')
+      .single();
+    
+    if (data && data.setup_json) {
+      console.log('Solar config loaded from database');
+      // Also update localStorage for offline access
+      saveSolarConfig(data.setup_json);
+      return data.setup_json;
     }
   } catch (error) {
     console.error('Error fetching config from database:', error);
@@ -300,59 +297,35 @@ export const saveSolarConfigAsync = async (config: SolarBusinessConfig): Promise
     console.log('Attempting to save solar config to database for profile user_id:', userIdResult.user_id);
     console.log('Config to save:', config);
     
-    // Use backend API instead of direct Supabase calls
-    const requestData = {
-      user_id: userIdResult.user_id,
-      agent_id: 'SOLAgent',
-      agent_name: 'Solar Sales Specialist',
-      setup_type: 'SolarSetup',
-      setup_data: config,
-      session_id: null,
-      is_enabled: true
-    };
+    // Use direct Supabase calls with proper setup_type field
+    const { supabase } = await import('@/lib/supabase');
     
-    console.log('🚀 REQUEST DATA BEING SENT TO BACKEND:');
-    console.log('- user_id:', requestData.user_id);
-    console.log('- agent_id:', requestData.agent_id);
-    console.log('- setup_type:', requestData.setup_type);
-    console.log('- setup_data keys:', Object.keys(requestData.setup_data));
-    console.log('- Full request data:', JSON.stringify(requestData, null, 2));
+    console.log('🚀 USING DIRECT SUPABASE INSERT WITH setup_type');
+    console.log('- user_id:', userIdResult.user_id);
+    console.log('- agent_id: SOLAgent');
+    console.log('- setup_type: SolarSetup');
+    console.log('- config keys:', Object.keys(config));
     
-    const backendUrl = process.env.NEXT_PUBLIC_API_BASE?.startsWith('http') 
-      ? process.env.NEXT_PUBLIC_API_BASE 
-      : 'https://squidgy-back-919bc0659e35.herokuapp.com';
+    // Insert into public schema table using profile.user_id
+    const { data, error } = await supabase
+      .from('squidgy_agent_business_setup')
+      .insert({
+        firm_id: null,
+        firm_user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        agent_name: 'Solar Sales Specialist',
+        setup_type: 'SolarSetup',  // This was missing in original code!
+        setup_json: config,
+        is_enabled: true
+      })
+      .select();
     
-    console.log('🌐 Backend URL:', backendUrl);
-    console.log('📡 Making POST request to:', `${backendUrl}/api/agents/setup`);
+    console.log('📥 Supabase operation result:', { data, error });
     
-    const response = await fetch(`${backendUrl}/api/agents/setup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData),
-    });
-
-    console.log('📥 Response status:', response.status, response.statusText);
-    console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Failed to save to database: HTTP', response.status, response.statusText);
-      console.error('❌ Error response body:', errorText);
+    if (error) {
+      console.error('❌ Failed to save to database:', error);
       return false;
     }
-
-    const result = await response.json();
-    console.log('📥 Backend response:', JSON.stringify(result, null, 2));
-    
-    if (result.status !== 'success') {
-      console.error('❌ Failed to save to database:', result.message || 'Unknown error from backend');
-      console.error('❌ Full error result:', result);
-      return false;
-    }
-    
-    const data = result.agent;
 
     console.log('✅ Solar config saved to database successfully!');
     console.log('✅ Record inserted:', data);
@@ -430,43 +403,30 @@ export const testDatabaseInsert = async (): Promise<boolean> => {
     // Test config
     const testConfig = DEFAULT_SOLAR_CONFIG;
 
-    // Use backend API for test insert
-    const requestData = {
-      user_id: userIdResult.user_id,
-      agent_id: 'SOLAgent',
-      agent_name: 'Solar Sales Specialist',
-      setup_type: 'SolarSetup',
-      setup_data: testConfig,
-      session_id: null,
-      is_enabled: true
-    };
-    
-    const backendUrl = process.env.NEXT_PUBLIC_API_BASE?.startsWith('http') 
-      ? process.env.NEXT_PUBLIC_API_BASE 
-      : 'https://squidgy-back-919bc0659e35.herokuapp.com';
-    
-    const response = await fetch(`${backendUrl}/api/agents/setup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData),
-    });
+    // Use direct Supabase for test insert
+    const { supabase } = await import('@/lib/supabase');
 
-    if (!response.ok) {
-      console.error('❌ Database insert test failed: HTTP', response.status, response.statusText);
+    // Insert into public schema table using profile.user_id with proper setup_type
+    const { data, error } = await supabase
+      .from('squidgy_agent_business_setup')
+      .insert({
+        firm_id: null,
+        firm_user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        agent_name: 'Solar Sales Specialist',
+        setup_type: 'SolarSetup',  // This was missing in original code!
+        setup_json: testConfig,
+        is_enabled: true
+      })
+      .select();
+
+    if (error) {
+      console.error('❌ Database insert test failed:', error);
       return false;
     }
 
-    const result = await response.json();
-    
-    if (result.status !== 'success') {
-      console.error('❌ Database insert test failed:', result.message || 'Unknown error from backend');
-      return false;
-    }
-
-    console.log('✅ Database insert test passed:', result.agent);
-    console.log('📊 Backend API working correctly for solar config saves');
+    console.log('✅ Database insert test passed:', data);
+    console.log('📊 Direct Supabase working correctly for solar config saves');
     
     return true;
   } catch (error) {

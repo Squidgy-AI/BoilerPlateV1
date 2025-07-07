@@ -75,40 +75,32 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
         throw new Error('Failed to get user ID');
       }
 
-      // Use backend API instead of direct Supabase calls
-      const requestData = {
-        user_id: userIdResult.user_id,
-        agent_id: 'SOLAgent',
-        agent_name: 'Solar Sales Specialist',
-        setup_type: 'CalendarSetup',
-        setup_data: calendarSetup,
-        session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-        is_enabled: true
-      };
+      // Use direct Supabase calls with proper setup_type field
+      const { supabase } = await import('@/lib/supabase');
       
-      const backendUrl = process.env.NEXT_PUBLIC_API_BASE?.startsWith('http') 
-        ? process.env.NEXT_PUBLIC_API_BASE 
-        : 'https://squidgy-back-919bc0659e35.herokuapp.com';
+      console.log('📅 CALENDAR SETUP - DIRECT SUPABASE INSERT');
+      console.log('📅 user_id:', userIdResult.user_id);
+      console.log('📅 setup_type: CalendarSetup');
+      console.log('📅 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
-      const response = await fetch(`${backendUrl}/api/agents/setup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
+      // Insert into public schema table using profile.user_id
+      const { data, error } = await supabase
+        .from('squidgy_agent_business_setup')
+        .insert({
+          firm_id: null,
+          firm_user_id: userIdResult.user_id,
+          agent_id: 'SOLAgent',
+          agent_name: 'Solar Sales Specialist',
+          setup_type: 'CalendarSetup',  // This is the key field that was missing!
+          setup_json: calendarSetup,
+          session_id: sessionId && sessionId.includes('_') ? null : sessionId,
+          is_enabled: true
+        })
+        .select();
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (error) {
+        throw new Error(`Database error: ${error.message}`);
       }
-
-      const result = await response.json();
-      
-      if (result.status !== 'success') {
-        throw new Error(result.message || 'Unknown error from backend');
-      }
-      
-      const data = result.agent;
 
       console.log('✅ Calendar setup saved to database:', data);
       return data;
