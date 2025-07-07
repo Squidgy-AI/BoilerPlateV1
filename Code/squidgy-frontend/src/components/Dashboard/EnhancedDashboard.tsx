@@ -1692,14 +1692,25 @@ Let's begin with your Solar Business Setup! ☀️`;
             <div className="w-96 bg-[#2D3B4F] flex flex-col">
               {/* Chat Messages Area */}
               <div className="flex-1 overflow-y-auto p-4">
+                {/* EMERGENCY DEBUG - SHOULD ALWAYS SHOW */}
+                <div style={{backgroundColor: 'red', color: 'white', padding: '10px', margin: '10px 0', border: '3px solid yellow', fontSize: '14px'}}>
+                  🚨 EMERGENCY DEBUG 🚨<br/>
+                  Agent: {selectedAgent?.id || 'NONE'}<br/>
+                  Name: {selectedAgent?.name || 'NONE'}<br/>
+                  SOLSetup: {String(showSOLSetup)}<br/>
+                  Messages: {messages.length}<br/>
+                  Timestamp: {new Date().toISOString()}
+                </div>
+                
                 {messages.length === 0 ? (
                   <div className="mt-4">
-                    {selectedAgent && (
+                    {/* TEMPORARILY DISABLED AgentGreeting */}
+                    {/* {selectedAgent && (
                       <AgentGreeting 
                         agentId={selectedAgent.id} 
                         className="mb-4"
                       />
-                    )}
+                    )} */}
                     
                     {/* SOL Agent now uses simple enable/disable - no progressive setup needed */}
                     
