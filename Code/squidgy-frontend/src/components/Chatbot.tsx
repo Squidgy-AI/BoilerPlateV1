@@ -1374,7 +1374,7 @@ const handleAgentResponse = (data: any) => {
                           {websiteAnalysisLoading.analysis && (
                             <div className="flex items-center space-x-2 text-sm text-gray-300">
                               <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full"></div>
-                              <span>🧠 Analyzing content</span>
+                              <span>🧠 Analyzing content (may take 1-2 minutes)...</span>
                             </div>
                           )}
                         </div>

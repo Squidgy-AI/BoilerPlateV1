@@ -1764,7 +1764,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                             {websiteAnalysisLoading.analysis && (
                               <div className="flex items-center space-x-2 text-sm text-blue-300">
                                 <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                                <span>Analyzing content...</span>
+                                <span>Analyzing content (may take 1-2 minutes)...</span>
                               </div>
                             )}
                           </div>
