@@ -1704,6 +1704,42 @@ Let's begin with your Solar Business Setup! ☀️`;
                 
                 {messages.length === 0 ? (
                   <div className="mt-4">
+                    {/* UNIVERSAL DEBUG: Show regardless of agent */}
+                    <div className="mb-4 border-2 border-blue-500 p-4 rounded bg-blue-50">
+                      <h3 className="text-blue-700 font-bold mb-2">🔍 UNIVERSAL DEBUG</h3>
+                      <div className="text-sm text-blue-600">
+                        <p>selectedAgent?.id: "{selectedAgent?.id}"</p>
+                        <p>selectedAgent?.name: "{selectedAgent?.name}"</p>
+                        <p>showSOLSetup: {String(showSOLSetup)}</p>
+                        <p>Is SOL Agent?: {selectedAgent?.id === 'SOLAgent' ? 'YES' : 'NO'}</p>
+                        <p>currentSessionId: {currentSessionId}</p>
+                        <button 
+                          onClick={() => {
+                            console.log('🔧 FULL DEBUG STATE:');
+                            console.log('- selectedAgent:', selectedAgent);
+                            console.log('- showSOLSetup:', showSOLSetup);
+                            console.log('- currentSessionId:', currentSessionId);
+                            setShowSOLSetup(true);
+                          }}
+                          className="bg-blue-500 text-white px-3 py-1 rounded text-sm mt-2"
+                        >
+                          Force Enable Setup & Log
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* SOL Agent Setup Rendering */}
+                    {selectedAgent?.id === 'SOLAgent' && showSOLSetup && (
+                      <div className="mb-4 border-2 border-green-500 p-4 rounded">
+                        <h3 className="text-green-700 font-bold mb-2">✅ SOL AGENT SETUP</h3>
+                        <ProgressiveSOLSetup
+                          onComplete={handleProgressiveSetupComplete}
+                          onSkip={handleProgressiveSetupSkip}
+                          sessionId={currentSessionId || `sol_session_${Date.now()}`}
+                        />
+                      </div>
+                    )}
+                    
                     {/* TEMPORARILY DISABLED AgentGreeting */}
                     {/* {selectedAgent && (
                       <AgentGreeting 
@@ -1711,8 +1747,6 @@ Let's begin with your Solar Business Setup! ☀️`;
                         className="mb-4"
                       />
                     )} */}
-                    
-                    {/* SOL Agent now uses simple enable/disable - no progressive setup needed */}
                     
                     <div className="text-center text-gray-400 mt-6">
                       Start a conversation...
