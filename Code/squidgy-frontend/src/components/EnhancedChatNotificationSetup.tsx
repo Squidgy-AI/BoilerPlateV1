@@ -120,28 +120,36 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
         throw new Error('Failed to get user ID');
       }
 
-      // Save to unified squidgy_agent_business_setup table
-      const { data, error } = await supabase
-        .from('squidgy_agent_business_setup')
-        .insert({
-          firm_id: null, // Explicitly set as null
-          firm_user_id: userIdResult.user_id,
-          agent_id: 'SOLAgent',
-          agent_name: 'Solar Sales Specialist',
-          setup_type: 'NotificationSetup',
-          setup_json: notificationPrefs,
-          session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          is_enabled: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
+      // Use backend API instead of direct Supabase calls
+      const requestData = {
+        user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        agent_name: 'Solar Sales Specialist',
+        setup_type: 'NotificationSetup',
+        setup_data: notificationPrefs,
+        session_id: sessionId && sessionId.includes('_') ? null : sessionId,
+        is_enabled: true
+      };
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'https://localhost:8000'}/api/agents/setup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
 
-      if (error) {
-        console.error('Database save error:', error);
-        throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+
+      const result = await response.json();
+      
+      if (result.status !== 'success') {
+        throw new Error(result.message || 'Unknown error from backend');
+      }
+      
+      const data = result.agent;
 
       console.log('✅ Notification preferences saved to database:', data);
       return data;

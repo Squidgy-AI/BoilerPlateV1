@@ -46,34 +46,40 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
         throw new Error('Failed to get user ID');
       }
 
-      // Save to unified squidgy_agent_business_setup table - FIXED v2
-      const insertData = {
-        firm_id: null, // Explicitly set as null
-        firm_user_id: userIdResult.user_id,
+      // Use backend API instead of direct Supabase calls - FIXED v3
+      const requestData = {
+        user_id: userIdResult.user_id,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
         setup_type: 'SolarSetup',
-        setup_json: solarConfig,
+        setup_data: solarConfig,
         session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-        is_enabled: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        is_enabled: true
       };
       
-      console.log('🔧 SOLAR INSERT DATA:', insertData);
-      console.log('🔧 setup_type value:', insertData.setup_type);
-      console.log('🔧 session_id value:', insertData.session_id);
+      console.log('🔧 SOLAR API REQUEST DATA:', requestData);
+      console.log('🔧 setup_type value:', requestData.setup_type);
+      console.log('🔧 session_id value:', requestData.session_id);
       
-      const { data, error } = await supabase
-        .from('squidgy_agent_business_setup')
-        .insert(insertData)
-        .select()
-        .single();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'https://localhost:8000'}/api/agents/setup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
 
-      if (error) {
-        console.error('Database save error:', error);
-        throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+
+      const result = await response.json();
+      
+      if (result.status !== 'success') {
+        throw new Error(result.message || 'Unknown error from backend');
+      }
+      
+      const data = result.agent;
 
       console.log('✅ Solar configuration saved to database:', data);
       return data;
