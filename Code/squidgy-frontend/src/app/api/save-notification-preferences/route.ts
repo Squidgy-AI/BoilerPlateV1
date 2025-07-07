@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get request body
-    const notificationPrefs: NotificationPreferences = await request.json();
+    const requestBody = await request.json();
+    const { agent_id, ...notificationPrefs }: { agent_id: string } & NotificationPreferences = requestBody;
 
     // Validate contact info when channels are enabled
     if (notificationPrefs.email_enabled && !notificationPrefs.email_address) {
@@ -41,6 +42,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!agent_id) {
+      return NextResponse.json(
+        { error: 'Agent ID is required' },
+        { status: 400 }
+      );
+    }
+
     const firm_user_id = userIdResult.user_id;
 
     // Ensure Facebook Messenger is always enabled
@@ -48,15 +56,16 @@ export async function POST(request: NextRequest) {
     // Ensure GHL App is always disabled for now
     notificationPrefs.ghl_app_enabled = false;
 
-    // Upsert notification preferences (insert or update if exists)
+    // Upsert notification preferences (insert or update if exists) - now includes agent_id
     const { data, error } = await supabase
       .from('business_notification_preferences')
       .upsert({
         firm_user_id,
+        agent_id,
         ...notificationPrefs,
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'firm_user_id'
+        onConflict: 'firm_user_id,agent_id'
       })
       .select()
       .single();

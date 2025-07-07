@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get request body
-    const calendarSetup: CalendarSetup = await request.json();
+    const requestBody = await request.json();
+    const { agent_id, ...calendarSetup }: { agent_id: string } & CalendarSetup = requestBody;
 
     // Validate required fields
     if (!calendarSetup.calendar_name) {
@@ -27,17 +28,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!agent_id) {
+      return NextResponse.json(
+        { error: 'Agent ID is required' },
+        { status: 400 }
+      );
+    }
+
     const firm_user_id = userIdResult.user_id;
 
-    // Upsert calendar setup (insert or update if exists)
+    // Upsert calendar setup (insert or update if exists) - now includes agent_id
     const { data, error } = await supabase
       .from('business_calendar_setup')
       .upsert({
         firm_user_id,
+        agent_id,
         ...calendarSetup,
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'firm_user_id'
+        onConflict: 'firm_user_id,agent_id'
       })
       .select()
       .single();
