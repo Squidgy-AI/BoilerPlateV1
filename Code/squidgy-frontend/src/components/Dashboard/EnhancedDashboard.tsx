@@ -1751,9 +1751,13 @@ Let's begin with your Solar Business Setup! ☀️`;
                     {(() => {
                       console.log('🔍 DEBUG: Checking ProgressiveSOLSetup render conditions:');
                       console.log('- selectedAgent?.id:', selectedAgent?.id);
+                      console.log('- selectedAgent object:', selectedAgent);
                       console.log('- showSOLSetup:', showSOLSetup);
                       console.log('- currentSessionId:', currentSessionId);
                       console.log('- Will render:', selectedAgent?.id === 'SOLAgent' && showSOLSetup);
+                      console.log('- Condition breakdown:');
+                      console.log('  * selectedAgent?.id === "SOLAgent":', selectedAgent?.id === 'SOLAgent');
+                      console.log('  * showSOLSetup === true:', showSOLSetup === true);
                       return null;
                     })()}
                     {selectedAgent?.id === 'SOLAgent' && showSOLSetup && (
@@ -1763,6 +1767,21 @@ Let's begin with your Solar Business Setup! ☀️`;
                           onSkip={handleProgressiveSetupSkip}
                           sessionId={currentSessionId || `sol_session_${Date.now()}`}
                         />
+                      </div>
+                    )}
+                    
+                    {/* DEBUGGING: Force render ProgressiveSOLSetup for SOL Agent */}
+                    {selectedAgent?.id === 'SOLAgent' && !showSOLSetup && (
+                      <div className="mb-4 bg-red-100 border border-red-400 p-4 rounded">
+                        <h3 className="text-red-700 font-bold">DEBUG: showSOLSetup is FALSE</h3>
+                        <p className="text-red-600">selectedAgent.id: {selectedAgent?.id}</p>
+                        <p className="text-red-600">showSOLSetup: {String(showSOLSetup)}</p>
+                        <button 
+                          onClick={() => setShowSOLSetup(true)}
+                          className="bg-red-500 text-white px-3 py-1 rounded mt-2"
+                        >
+                          Force Enable Setup
+                        </button>
                       </div>
                     )}
                     
