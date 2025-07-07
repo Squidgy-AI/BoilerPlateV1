@@ -78,7 +78,8 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
       // Save to unified squidgy_agent_business_setup table
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .upsert({
+        .insert({
+          firm_id: null, // Explicitly set as null
           firm_user_id: userIdResult.user_id,
           agent_id: 'SOLAgent',
           agent_name: 'Solar Sales Specialist',
@@ -88,8 +89,6 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
           is_enabled: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'firm_user_id,agent_id,setup_type'
         })
         .select()
         .single();
