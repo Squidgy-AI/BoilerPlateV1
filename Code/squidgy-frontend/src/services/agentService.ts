@@ -99,7 +99,7 @@ export const enableSOLAgent = async (): Promise<boolean> => {
     console.log('🔄 Enabling SOL Agent for user:', userIdResult.user_id);
 
     // Check if SOL Agent already exists
-    const existingAgent = await getAgentSetupFromBackend(userIdResult.user_id, 'SOLAgent', 'SOLAgent');
+    const existingAgent = await getAgentSetupFromBackend(userIdResult.user_id, 'SOLAgent', 'agent_config');
     
     if (existingAgent) {
       console.log('ℹ️ SOL Agent already exists - enabling it');
@@ -107,7 +107,7 @@ export const enableSOLAgent = async (): Promise<boolean> => {
       const result = await updateAgentStatusViaBackend({
         user_id: userIdResult.user_id,
         agent_id: 'SOLAgent',
-        setup_type: 'SOLAgent',
+        setup_type: 'agent_config',
         is_enabled: true
       });
       return !!result;

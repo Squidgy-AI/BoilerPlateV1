@@ -1206,17 +1206,22 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       if (agentId === 'SOLAgent') {
         // Wait for state to update and ensure proper session creation
         setTimeout(async () => {
+          console.log('🌞 SOL Agent auto-switch timer triggered');
           const agents = await getEnabledAgents();
           const solAgent = agents.find(a => a.id === 'SOLAgent');
+          console.log('🔍 Found SOL Agent in enabled agents:', solAgent);
+          
           if (solAgent) {
             console.log('🔄 Auto-switching to SOL Agent tab...');
             await handleAgentSelect(solAgent);
             
-            // Ensure session is created before showing setup
+            // Ensure setup is shown after agent selection
             setTimeout(() => {
-              console.log('🔧 Force setting showSOLSetup to true after agent selection');
+              console.log('🔧 Setting showSOLSetup to true after agent selection');
               setShowSOLSetup(true);
             }, 500);
+          } else {
+            console.error('❌ SOL Agent not found in enabled agents list');
           }
         }, 1500);
       }
