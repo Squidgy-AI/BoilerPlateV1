@@ -43,18 +43,24 @@ ADD COLUMN IF NOT EXISTS agent_name character varying(255);
 -- 3. DISABLE ALL RLS POLICIES
 -- ==========================================
 
--- Drop ALL existing RLS policies on squidgy_agent_business_setup
+-- Drop ALL existing RLS policies on squidgy_agent_business_setup (public schema)
 DROP POLICY IF EXISTS "Users can view their own agent setups" ON public.squidgy_agent_business_setup;
 DROP POLICY IF EXISTS "Users can manage their own agent setups" ON public.squidgy_agent_business_setup;
 DROP POLICY IF EXISTS "Users can manage their own solar configs" ON public.squidgy_agent_business_setup;
+
+-- Drop ALL existing RLS policies on squidgy_agent_business_setup (sq_business_data schema)
+DROP POLICY IF EXISTS "Users can manage their own solar configs" ON sq_business_data.squidgy_agent_business_setup;
 
 -- Drop ALL existing RLS policies on chat_history  
 DROP POLICY IF EXISTS "Users can view their own chat history" ON public.chat_history;
 DROP POLICY IF EXISTS "Users can manage their own chat history" ON public.chat_history;
 
--- DISABLE RLS completely on both tables
+-- DISABLE RLS completely on all tables
 ALTER TABLE public.squidgy_agent_business_setup DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_history DISABLE ROW LEVEL SECURITY;
+
+-- Also disable RLS on sq_business_data schema table if it exists
+ALTER TABLE sq_business_data.squidgy_agent_business_setup DISABLE ROW LEVEL SECURITY;
 
 -- ==========================================
 -- 4. VERIFICATION QUERIES
