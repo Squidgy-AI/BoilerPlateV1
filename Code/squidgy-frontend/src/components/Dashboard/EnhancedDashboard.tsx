@@ -878,6 +878,13 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         console.log('🌞 SOL Agent selected, checking setup status...');
         console.log('🔧 Setting showSOLSetup to true');
         setShowSOLSetup(true);
+        
+        // Also ensure we have a valid session for the setup
+        if (!currentSessionId) {
+          console.log('🔧 No current session, creating one for SOL Agent...');
+          const newSessionId = `sol_session_${Date.now()}`;
+          setCurrentSessionId(newSessionId);
+        }
       } else {
         console.log('🔧 Setting showSOLSetup to false for agent:', agent.id);
         setShowSOLSetup(false);
@@ -1191,16 +1198,21 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       
       // For SOL Agent, auto-switch and show setup after agents are reloaded
       if (agentId === 'SOLAgent') {
-        // Wait for state to update
+        // Wait for state to update and ensure proper session creation
         setTimeout(async () => {
           const agents = await getEnabledAgents();
           const solAgent = agents.find(a => a.id === 'SOLAgent');
           if (solAgent) {
             console.log('🔄 Auto-switching to SOL Agent tab...');
             await handleAgentSelect(solAgent);
-            setShowSOLSetup(true);
+            
+            // Ensure session is created before showing setup
+            setTimeout(() => {
+              console.log('🔧 Force setting showSOLSetup to true after agent selection');
+              setShowSOLSetup(true);
+            }, 500);
           }
-        }, 1000);
+        }, 1500);
       }
       
       // Add welcome message to database for newly enabled agent
@@ -1740,6 +1752,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                       console.log('🔍 DEBUG: Checking ProgressiveSOLSetup render conditions:');
                       console.log('- selectedAgent?.id:', selectedAgent?.id);
                       console.log('- showSOLSetup:', showSOLSetup);
+                      console.log('- currentSessionId:', currentSessionId);
                       console.log('- Will render:', selectedAgent?.id === 'SOLAgent' && showSOLSetup);
                       return null;
                     })()}
@@ -1748,7 +1761,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                         <ProgressiveSOLSetup
                           onComplete={handleProgressiveSetupComplete}
                           onSkip={handleProgressiveSetupSkip}
-                          sessionId={currentSessionId}
+                          sessionId={currentSessionId || `sol_session_${Date.now()}`}
                         />
                       </div>
                     )}

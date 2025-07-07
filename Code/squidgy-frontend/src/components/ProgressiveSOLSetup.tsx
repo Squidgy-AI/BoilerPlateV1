@@ -43,6 +43,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     notifications_completed: false
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   // Load existing progress on mount
   useEffect(() => {
@@ -52,10 +53,13 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const loadSetupProgress = async () => {
     try {
       setIsLoading(true);
+      setHasError(false);
       
       const userIdResult = await getUserId();
       if (!userIdResult.success || !userIdResult.user_id) {
         console.error('Failed to get user ID:', userIdResult.error);
+        setHasError(true);
+        setIsLoading(false);
         return;
       }
 
@@ -324,6 +328,29 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   console.log('- Will show solar?', currentStage === 'solar');
   console.log('- Will show calendar?', currentStage === 'calendar');
   console.log('- Will show notifications?', currentStage === 'notifications');
+
+  // Early return for error state
+  if (hasError && !isLoading) {
+    return (
+      <div className="max-w-md mx-auto p-4">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+          <h3 className="text-lg font-semibold text-yellow-800 mb-2">Setup Available</h3>
+          <p className="text-yellow-700 mb-3">
+            Let's configure your Solar Sales Specialist! Click below to start with the first component.
+          </p>
+          <button 
+            onClick={() => {
+              setHasError(false);
+              setCurrentStage('solar');
+            }}
+            className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 transition-colors"
+          >
+            Start Solar Setup
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto p-4">
