@@ -1709,6 +1709,11 @@ Let's begin with your Solar Business Setup! ☀️`;
                   </div>
                 ) : (
                   <>
+                    {/* CRITICAL DEBUG: This should ALWAYS render */}
+                    <div className="mb-4 bg-yellow-400 text-black p-2 rounded">
+                      <strong>CRITICAL DEBUG:</strong> Agent={selectedAgent?.id || 'none'}, SOLSetup={String(showSOLSetup)}, Timestamp={Date.now()}
+                    </div>
+                    
                     {/* Show agent greeting as first message */}
                     {selectedAgent && (
                       <AgentGreeting 
