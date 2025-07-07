@@ -34,6 +34,8 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   onSkip,
   sessionId
 }) => {
+  console.log('🚀 ProgressiveSOLSetup component MOUNTED!', { sessionId });
+  
   const [currentStage, setCurrentStage] = useState<SetupStage>('solar');
   const [progress, setProgress] = useState<SetupProgress>({
     solar_completed: false,
@@ -233,7 +235,14 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     onSkip();
   };
 
+  console.log('🔍 ProgressiveSOLSetup RENDER DEBUG:');
+  console.log('- isLoading:', isLoading);
+  console.log('- currentStage:', currentStage);
+  console.log('- progress:', progress);
+  console.log('- sessionId:', sessionId);
+
   if (isLoading) {
+    console.log('🔄 ProgressiveSOLSetup showing loading state...');
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
@@ -309,6 +318,12 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       </div>
     );
   }
+
+  console.log('🎯 ProgressiveSOLSetup ABOUT TO RENDER:');
+  console.log('- currentStage:', currentStage);
+  console.log('- Will show solar?', currentStage === 'solar');
+  console.log('- Will show calendar?', currentStage === 'calendar');
+  console.log('- Will show notifications?', currentStage === 'notifications');
 
   return (
     <div className="max-w-md mx-auto p-4">
