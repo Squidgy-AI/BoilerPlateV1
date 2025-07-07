@@ -53,7 +53,7 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
           firm_user_id: userIdResult.user_id,
           agent_id: 'SOLAgent',
           agent_name: 'Solar Sales Specialist',
-          setup_type: 'SolarSetup',
+          setup_type: 'SOLSolar',
           setup_json: solarConfig,
           session_id: sessionId || null,
           is_enabled: true,

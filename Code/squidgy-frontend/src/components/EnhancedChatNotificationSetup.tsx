@@ -127,12 +127,14 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
           firm_user_id: userIdResult.user_id,
           agent_id: 'SOLAgent',
           agent_name: 'Solar Sales Specialist',
-          setup_type: 'NotificationSetup',
+          setup_type: 'SOLNotification',
           setup_json: notificationPrefs,
           session_id: sessionId || null,
           is_enabled: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type'
         })
         .select()
         .single();

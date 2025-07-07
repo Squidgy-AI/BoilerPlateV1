@@ -82,12 +82,14 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
           firm_user_id: userIdResult.user_id,
           agent_id: 'SOLAgent',
           agent_name: 'Solar Sales Specialist',
-          setup_type: 'CalendarSetup',
+          setup_type: 'SOLCalendar',
           setup_json: calendarSetup,
           session_id: sessionId || null,
           is_enabled: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type'
         })
         .select()
         .single();
