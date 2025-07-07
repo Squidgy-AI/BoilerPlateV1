@@ -51,11 +51,23 @@ export const getUserAgents = async (): Promise<Agent[]> => {
 
     console.log('🔍 getUserAgents: Fetching from backend for user:', userIdResult.user_id);
 
-    // Get agents from backend API
+    // Get all setup records from backend API
     const backendAgents = await getUserAgentsFromBackend(userIdResult.user_id);
+    
+    console.log('📊 Total backend records:', backendAgents.length);
 
-    // Map backend records to Agent interface
-    const agents: Agent[] = backendAgents.map((record: BackendAgent) => {
+    // FILTER: Only include actual agents with setup_type = 'agent_config'
+    // Exclude setup data records like 'SolarSetup', 'CalendarSetup', 'NotificationSetup'
+    const agentRecords = backendAgents.filter((record: any) => {
+      const hasSetupType = record.setup_type === 'agent_config';
+      console.log(`🔍 Record ${record.agent_id}: setup_type=${record.setup_type}, filtered=${hasSetupType ? 'INCLUDE' : 'EXCLUDE'}`);
+      return hasSetupType;
+    });
+
+    console.log('🎯 Filtered to actual agents only:', agentRecords.length);
+
+    // Map filtered backend records to Agent interface
+    const agents: Agent[] = agentRecords.map((record: BackendAgent) => {
       const defaultAgent = DEFAULT_AGENTS.find(a => a.id === record.agent_id);
       return {
         id: record.agent_id,
