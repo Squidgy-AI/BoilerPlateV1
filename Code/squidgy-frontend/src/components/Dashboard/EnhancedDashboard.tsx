@@ -868,8 +868,10 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       // For SOL Agent, check if setup is incomplete and show ProgressiveSOLSetup
       if (agent.id === 'SOLAgent') {
         console.log('🌞 SOL Agent selected, checking setup status...');
+        console.log('🔧 Setting showSOLSetup to true');
         setShowSOLSetup(true);
       } else {
+        console.log('🔧 Setting showSOLSetup to false for agent:', agent.id);
         setShowSOLSetup(false);
       }
     } catch (error) {
@@ -1714,7 +1716,25 @@ Let's begin with your Solar Business Setup! ☀️`;
                       </div>
                     )}
                     
+                    {/* DEBUG: Show current state */}
+                    {selectedAgent?.id === 'SOLAgent' && (
+                      <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded text-sm">
+                        <strong>🔍 DEBUG INFO:</strong><br/>
+                        • selectedAgent.id: {selectedAgent?.id}<br/>
+                        • showSOLSetup: {showSOLSetup ? 'true' : 'false'}<br/>
+                        • Will render ProgressiveSOLSetup: {selectedAgent?.id === 'SOLAgent' && showSOLSetup ? 'YES' : 'NO'}<br/>
+                        • currentSessionId: {currentSessionId}
+                      </div>
+                    )}
+
                     {/* Show Progressive SOL Setup in SOL Agent tab */}
+                    {(() => {
+                      console.log('🔍 DEBUG: Checking ProgressiveSOLSetup render conditions:');
+                      console.log('- selectedAgent?.id:', selectedAgent?.id);
+                      console.log('- showSOLSetup:', showSOLSetup);
+                      console.log('- Will render:', selectedAgent?.id === 'SOLAgent' && showSOLSetup);
+                      return null;
+                    })()}
                     {selectedAgent?.id === 'SOLAgent' && showSOLSetup && (
                       <div className="mb-4">
                         <ProgressiveSOLSetup

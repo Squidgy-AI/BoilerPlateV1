@@ -22,6 +22,10 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
   onComplete,
   onSkip
 }) => {
+  console.log('🔥 SolarChatConfig COMPONENT RENDERED!');
+  console.log('- onComplete:', typeof onComplete);
+  console.log('- onSkip:', typeof onSkip);
+  
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [config, setConfig] = useState<SolarBusinessConfig>(getSolarConfig());
   const [isCompleted, setIsCompleted] = useState(false);
