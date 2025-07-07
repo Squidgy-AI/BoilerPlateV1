@@ -311,9 +311,19 @@ export const saveSolarConfigAsync = async (config: SolarBusinessConfig): Promise
       is_enabled: true
     };
     
+    console.log('🚀 REQUEST DATA BEING SENT TO BACKEND:');
+    console.log('- user_id:', requestData.user_id);
+    console.log('- agent_id:', requestData.agent_id);
+    console.log('- setup_type:', requestData.setup_type);
+    console.log('- setup_data keys:', Object.keys(requestData.setup_data));
+    console.log('- Full request data:', JSON.stringify(requestData, null, 2));
+    
     const backendUrl = process.env.NEXT_PUBLIC_API_BASE?.startsWith('http') 
       ? process.env.NEXT_PUBLIC_API_BASE 
       : 'https://squidgy-back-919bc0659e35.herokuapp.com';
+    
+    console.log('🌐 Backend URL:', backendUrl);
+    console.log('📡 Making POST request to:', `${backendUrl}/api/agents/setup`);
     
     const response = await fetch(`${backendUrl}/api/agents/setup`, {
       method: 'POST',
@@ -323,15 +333,22 @@ export const saveSolarConfigAsync = async (config: SolarBusinessConfig): Promise
       body: JSON.stringify(requestData),
     });
 
+    console.log('📥 Response status:', response.status, response.statusText);
+    console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
+      const errorText = await response.text();
       console.error('❌ Failed to save to database: HTTP', response.status, response.statusText);
+      console.error('❌ Error response body:', errorText);
       return false;
     }
 
     const result = await response.json();
+    console.log('📥 Backend response:', JSON.stringify(result, null, 2));
     
     if (result.status !== 'success') {
       console.error('❌ Failed to save to database:', result.message || 'Unknown error from backend');
+      console.error('❌ Full error result:', result);
       return false;
     }
     
