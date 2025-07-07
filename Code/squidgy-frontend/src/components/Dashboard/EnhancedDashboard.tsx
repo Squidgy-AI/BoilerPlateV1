@@ -864,6 +864,14 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         console.log(`No existing session for agent: ${agent.name}`);
       }
       */
+      
+      // For SOL Agent, check if setup is incomplete and show ProgressiveSOLSetup
+      if (agent.id === 'SOLAgent') {
+        console.log('🌞 SOL Agent selected, checking setup status...');
+        setShowSOLSetup(true);
+      } else {
+        setShowSOLSetup(false);
+      }
     } catch (error) {
       console.error('Error in handleAgentSelect:', error);
     }
@@ -1171,6 +1179,20 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       
       console.log('✅ Agent enabled successfully and UI refreshed');
       
+      // For SOL Agent, auto-switch and show setup after agents are reloaded
+      if (agentId === 'SOLAgent') {
+        // Wait for state to update
+        setTimeout(async () => {
+          const agents = await getEnabledAgents();
+          const solAgent = agents.find(a => a.id === 'SOLAgent');
+          if (solAgent) {
+            console.log('🔄 Auto-switching to SOL Agent tab...');
+            await handleAgentSelect(solAgent);
+            setShowSOLSetup(true);
+          }
+        }, 1000);
+      }
+      
       // Add welcome message to database for newly enabled agent
       if (profile?.user_id) {
         try {
@@ -1211,15 +1233,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                 [agentId]: [welcomeMsg]
               }));
               
-              // Auto-switch to SOL Agent tab and show setup
-              const solAgent = allAgents.find(a => a.id === agentId);
-              if (solAgent) {
-                console.log('🔄 Auto-switching to SOL Agent tab...');
-                await handleAgentSelect(solAgent);
-                
-                // Show progressive setup
-                setShowSOLSetup(true);
-              }
+              // Auto-switch will be handled by the new logic above after agents are reloaded
               
               console.log(`✅ SOL Agent welcome message added to SOL Agent tab`);
             } else {
