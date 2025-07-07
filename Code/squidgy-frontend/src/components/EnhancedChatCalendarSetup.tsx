@@ -86,7 +86,11 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
         is_enabled: true
       };
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'https://localhost:8000'}/api/agents/setup`, {
+      const backendUrl = process.env.NEXT_PUBLIC_API_BASE?.startsWith('http') 
+        ? process.env.NEXT_PUBLIC_API_BASE 
+        : 'https://squidgy-back-919bc0659e35.herokuapp.com';
+      
+      const response = await fetch(`${backendUrl}/api/agents/setup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

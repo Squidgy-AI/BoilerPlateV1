@@ -61,7 +61,11 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
       console.log('🔧 setup_type value:', requestData.setup_type);
       console.log('🔧 session_id value:', requestData.session_id);
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || 'https://localhost:8000'}/api/agents/setup`, {
+      const backendUrl = process.env.NEXT_PUBLIC_API_BASE?.startsWith('http') 
+        ? process.env.NEXT_PUBLIC_API_BASE 
+        : 'https://squidgy-back-919bc0659e35.herokuapp.com';
+      
+      const response = await fetch(`${backendUrl}/api/agents/setup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
