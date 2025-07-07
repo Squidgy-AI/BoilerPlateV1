@@ -734,6 +734,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       // Prevent rapid switching by checking if we're already on this agent
       if (selectedAgent?.id === agent.id) {
         console.log(`🔄 Already on agent ${agent.id}, skipping switch`);
+        
+        // Special case: If SOL Agent is already selected, ensure setup is shown
+        if (agent.id === 'SOLAgent') {
+          console.log('🌞 SOL Agent already selected, ensuring setup is shown...');
+          setShowSOLSetup(true);
+        }
         return;
       }
       
