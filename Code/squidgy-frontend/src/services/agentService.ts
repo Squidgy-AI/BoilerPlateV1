@@ -119,7 +119,7 @@ export const enableSOLAgent = async (): Promise<boolean> => {
       agent_id: 'SOLAgent',
       agent_name: 'Solar Sales Specialist',
       setup_data: {}, // Empty JSON - will be populated when user completes business setup
-      setup_type: 'SOLAgent',
+      setup_type: 'agent_config',
       is_enabled: true
     });
 
