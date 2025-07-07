@@ -130,7 +130,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
           agent_name: 'Solar Sales Specialist',
           setup_type: 'NotificationSetup',
           setup_json: notificationPrefs,
-          session_id: sessionId || null,
+          session_id: sessionId && sessionId.includes('_') ? null : sessionId,
           is_enabled: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()

@@ -85,7 +85,7 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
           agent_name: 'Solar Sales Specialist',
           setup_type: 'CalendarSetup',
           setup_json: calendarSetup,
-          session_id: sessionId || null,
+          session_id: sessionId && sessionId.includes('_') ? null : sessionId,
           is_enabled: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()

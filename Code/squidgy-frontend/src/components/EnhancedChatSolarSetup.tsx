@@ -46,21 +46,27 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
         throw new Error('Failed to get user ID');
       }
 
-      // Save to unified squidgy_agent_business_setup table
+      // Save to unified squidgy_agent_business_setup table - FIXED v2
+      const insertData = {
+        firm_id: null, // Explicitly set as null
+        firm_user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        agent_name: 'Solar Sales Specialist',
+        setup_type: 'SolarSetup',
+        setup_json: solarConfig,
+        session_id: sessionId && sessionId.includes('_') ? null : sessionId,
+        is_enabled: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('🔧 SOLAR INSERT DATA:', insertData);
+      console.log('🔧 setup_type value:', insertData.setup_type);
+      console.log('🔧 session_id value:', insertData.session_id);
+      
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .insert({
-          firm_id: null, // Explicitly set as null
-          firm_user_id: userIdResult.user_id,
-          agent_id: 'SOLAgent',
-          agent_name: 'Solar Sales Specialist',
-          setup_type: 'SolarSetup',
-          setup_json: solarConfig,
-          session_id: sessionId || null,
-          is_enabled: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+        .insert(insertData)
         .select()
         .single();
 
