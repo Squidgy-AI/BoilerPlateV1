@@ -1,0 +1,58 @@
+{
+  "created_at": "2025-07-07T15:02:13.845489",
+  "subaccount_name": "SomaAdda_SOL_Clone_SB",
+  "location_id": "Uj6rX6zAK5BHpgWInsME",
+  "snapshot_used": "7oAH6Cmto5ZcWAaEsrrq",
+  "api_response": {
+    "id": "Uj6rX6zAK5BHpgWInsME",
+    "companyId": "lp2p1q27DrdGta1qGDJd",
+    "name": "SomaAdda_SOL_Clone_SB",
+    "address": "123 Demo Solar Street",
+    "city": "Demo City",
+    "state": "NY",
+    "country": "US",
+    "postalCode": "14201",
+    "website": "https://soma-sol-demo.com",
+    "timezone": "America/New_York",
+    "firstName": "Soma",
+    "lastName": "Demo",
+    "email": "soma@sol-demo.com",
+    "phone": "+17166044029",
+    "business": {
+      "name": "SomaAdda_SOL_Clone_SB",
+      "address": "123 Demo Solar Street",
+      "city": "Demo City",
+      "state": "NY",
+      "country": "US",
+      "postalCode": "14201",
+      "website": "https://soma-sol-demo.com",
+      "timezone": "America/New_York"
+    },
+    "social": {
+      "facebookUrl": "https://www.facebook.com/somaSolDemo",
+      "googlePlus": "",
+      "linkedIn": "https://www.linkedin.com/company/soma-sol-demo",
+      "foursquare": "",
+      "twitter": "",
+      "yelp": "",
+      "instagram": "https://www.instagram.com/somaSolDemo",
+      "youtube": "",
+      "pinterest": "",
+      "blogRss": "",
+      "googlePlacesId": ""
+    },
+    "settings": {
+      "allowDuplicateContact": false,
+      "allowDuplicateOpportunity": false,
+      "allowFacebookNameMerge": false,
+      "disableContactTimezone": false,
+      "contactUniqueIdentifiers": [
+        "email",
+        "phone"
+      ]
+    },
+    "dateAdded": "2025-07-07T15:02:12.948Z",
+    "domain": "",
+    "traceId": "e68f178a-c47a-4df3-b386-1afa18a476dc"
+  }
+}

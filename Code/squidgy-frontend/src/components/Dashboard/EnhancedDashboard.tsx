@@ -35,8 +35,10 @@ import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
 import ChatHistory from '../ChatHistory';
 import ProgressiveSOLSetup from '../ProgressiveSOLSetup';
+import OnboardingResetButton from '../OnboardingResetButton';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { getUserId } from '@/utils/getUserId';
+import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 
 const EnhancedDashboard: React.FC = () => {
   type WebSocketLog = {
@@ -182,6 +184,9 @@ const EnhancedDashboard: React.FC = () => {
   // SOL Agent progressive setup state  
   const [showSOLSetup, setShowSOLSetup] = useState(false);
   
+  // Onboarding status hook
+  const { hasCompletedOnboarding, markOnboardingComplete } = useOnboardingStatus(profile?.id);
+  
   // Chat history functionality
   const [showChatHistory, setShowChatHistory] = useState(false);
   
@@ -306,6 +311,26 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     
     // No special setup handling needed - SOL Agent works like any other agent
   }, [selectedAgent]);
+  
+  // Check for first-time users and show onboarding automatically
+  useEffect(() => {
+    if (!profile || hasCompletedOnboarding === null) return;
+    
+    // If user hasn't completed onboarding, automatically show SOL setup
+    if (hasCompletedOnboarding === false) {
+      console.log('🎯 New user detected - showing automatic onboarding');
+      
+      // Find SOL agent and auto-select it
+      const solAgent = allAgents.find(a => a.id === 'SOLAgent');
+      if (solAgent) {
+        handleAgentSelect(solAgent).then(() => {
+          // Show onboarding after SOL agent is selected
+          setShowSOLSetup(true);
+          console.log('✅ Automatic onboarding initiated for new user');
+        });
+      }
+    }
+  }, [profile, hasCompletedOnboarding, allAgents]);
   
   // Fetch people and groups
   useEffect(() => {
@@ -1271,6 +1296,10 @@ Let's begin with your Solar Business Setup! ☀️`;
     console.log('🌞 Progressive Solar Sales Specialist setup completed');
     setShowSOLSetup(false);
     
+    // Mark onboarding as complete
+    markOnboardingComplete();
+    console.log('✅ Onboarding marked as complete');
+    
     // Add completion message to SOL Agent chat
     if (selectedAgent?.id === 'SOLAgent') {
       addMessage({
@@ -2021,6 +2050,9 @@ Let's begin with your Solar Business Setup! ☀️`;
           agentId={selectedAgent?.id}
         />
       )}
+      
+      {/* Development helper for testing onboarding */}
+      <OnboardingResetButton />
       
     </div>
   );
