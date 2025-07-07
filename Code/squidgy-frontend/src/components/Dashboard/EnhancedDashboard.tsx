@@ -1692,46 +1692,19 @@ Let's begin with your Solar Business Setup! ☀️`;
             <div className="w-96 bg-[#2D3B4F] flex flex-col">
               {/* Chat Messages Area */}
               <div className="flex-1 overflow-y-auto p-4">
-                {/* EMERGENCY DEBUG - SHOULD ALWAYS SHOW - CACHE BUST v2 */}
-                <div style={{backgroundColor: 'purple', color: 'white', padding: '10px', margin: '10px 0', border: '3px solid orange', fontSize: '14px'}}>
-                  🚨 EMERGENCY DEBUG v2 - {Date.now()} 🚨<br/>
-                  Agent: {selectedAgent?.id || 'NONE'}<br/>
-                  Name: {selectedAgent?.name || 'NONE'}<br/>
-                  SOLSetup: {String(showSOLSetup)}<br/>
-                  Messages: {messages.length}<br/>
-                  Timestamp: {new Date().toISOString()}
-                </div>
-                
                 {messages.length === 0 ? (
                   <div className="mt-4">
-                    {/* UNIVERSAL DEBUG: Show regardless of agent */}
-                    <div className="mb-4 border-2 border-blue-500 p-4 rounded bg-blue-50">
-                      <h3 className="text-blue-700 font-bold mb-2">🔍 UNIVERSAL DEBUG</h3>
-                      <div className="text-sm text-blue-600">
-                        <p>selectedAgent?.id: "{selectedAgent?.id}"</p>
-                        <p>selectedAgent?.name: "{selectedAgent?.name}"</p>
-                        <p>showSOLSetup: {String(showSOLSetup)}</p>
-                        <p>Is SOL Agent?: {selectedAgent?.id === 'SOLAgent' ? 'YES' : 'NO'}</p>
-                        <p>currentSessionId: {currentSessionId}</p>
-                        <button 
-                          onClick={() => {
-                            console.log('🔧 FULL DEBUG STATE:');
-                            console.log('- selectedAgent:', selectedAgent);
-                            console.log('- showSOLSetup:', showSOLSetup);
-                            console.log('- currentSessionId:', currentSessionId);
-                            setShowSOLSetup(true);
-                          }}
-                          className="bg-blue-500 text-white px-3 py-1 rounded text-sm mt-2"
-                        >
-                          Force Enable Setup & Log
-                        </button>
-                      </div>
-                    </div>
+                    {/* Show agent greeting as first message */}
+                    {selectedAgent && (
+                      <AgentGreeting 
+                        agentId={selectedAgent.id} 
+                        className="mb-4"
+                      />
+                    )}
                     
-                    {/* SOL Agent Setup Rendering */}
+                    {/* SOL Agent Progressive Setup */}
                     {selectedAgent?.id === 'SOLAgent' && showSOLSetup && (
-                      <div className="mb-4 border-2 border-green-500 p-4 rounded">
-                        <h3 className="text-green-700 font-bold mb-2">✅ SOL AGENT SETUP</h3>
+                      <div className="mb-4">
                         <ProgressiveSOLSetup
                           onComplete={handleProgressiveSetupComplete}
                           onSkip={handleProgressiveSetupSkip}
@@ -1739,14 +1712,6 @@ Let's begin with your Solar Business Setup! ☀️`;
                         />
                       </div>
                     )}
-                    
-                    {/* TEMPORARILY DISABLED AgentGreeting */}
-                    {/* {selectedAgent && (
-                      <AgentGreeting 
-                        agentId={selectedAgent.id} 
-                        className="mb-4"
-                      />
-                    )} */}
                     
                     <div className="text-center text-gray-400 mt-6">
                       Start a conversation...
@@ -1754,54 +1719,13 @@ Let's begin with your Solar Business Setup! ☀️`;
                   </div>
                 ) : (
                   <>
-                    {/* CRITICAL DEBUG: This should ALWAYS render */}
-                    <div className="mb-4 bg-yellow-400 text-black p-2 rounded">
-                      <strong>CRITICAL DEBUG:</strong> Agent={selectedAgent?.id || 'none'}, SOLSetup={String(showSOLSetup)}, Timestamp={Date.now()}
-                    </div>
-                    
-                    {/* UNIVERSAL DEBUG: Show regardless of agent */}
-                    <div className="mb-4 border-2 border-blue-500 p-4 rounded bg-blue-50">
-                      <h3 className="text-blue-700 font-bold mb-2">🔍 UNIVERSAL DEBUG</h3>
-                      <div className="text-sm text-blue-600">
-                        <p>selectedAgent?.id: "{selectedAgent?.id}"</p>
-                        <p>selectedAgent?.name: "{selectedAgent?.name}"</p>
-                        <p>showSOLSetup: {String(showSOLSetup)}</p>
-                        <p>Is SOL Agent?: {selectedAgent?.id === 'SOLAgent' ? 'YES' : 'NO'}</p>
-                        <p>currentSessionId: {currentSessionId}</p>
-                        <button 
-                          onClick={() => {
-                            console.log('🔧 FULL DEBUG STATE:');
-                            console.log('- selectedAgent:', selectedAgent);
-                            console.log('- showSOLSetup:', showSOLSetup);
-                            console.log('- currentSessionId:', currentSessionId);
-                            setShowSOLSetup(true);
-                          }}
-                          className="bg-blue-500 text-white px-3 py-1 rounded text-sm mt-2"
-                        >
-                          Force Enable Setup & Log
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* SOL Agent Setup Rendering */}
-                    {selectedAgent?.id === 'SOLAgent' && showSOLSetup && (
-                      <div className="mb-4 border-2 border-green-500 p-4 rounded">
-                        <h3 className="text-green-700 font-bold mb-2">✅ SOL AGENT SETUP</h3>
-                        <ProgressiveSOLSetup
-                          onComplete={handleProgressiveSetupComplete}
-                          onSkip={handleProgressiveSetupSkip}
-                          sessionId={currentSessionId || `sol_session_${Date.now()}`}
-                        />
-                      </div>
-                    )}
-                    
-                    {/* Show agent greeting as first message - TEMPORARILY DISABLED FOR DEBUGGING */}
-                    {/* {selectedAgent && (
+                    {/* Show agent greeting as first message */}
+                    {selectedAgent && (
                       <AgentGreeting 
                         agentId={selectedAgent.id} 
                         className="mb-4"
                       />
-                    )} */}
+                    )}
 
                     {/* Session History for Current Agent */}
                     {selectedAgent && agentSessionHistory[selectedAgent.id] && agentSessionHistory[selectedAgent.id].length > 0 && (
