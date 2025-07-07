@@ -1,0 +1,109 @@
+{
+  "snapshots": [
+    {
+      "_id": "24o1XQZcg0PSD5YX1W3J",
+      "dateAdded": "2025-07-04T20:57:09.408Z",
+      "dateUpdated": "2025-07-04T20:57:10.792Z",
+      "name": "App to Consult ",
+      "type": "imported",
+      "version": 2
+    },
+    {
+      "_id": "jTDuX7Po285dxQYoWLpZ",
+      "dateAdded": "2025-04-18T16:06:05.127Z",
+      "dateUpdated": "2025-04-18T16:06:07.111Z",
+      "name": "GHLM - Core 4 AI v3.1.4 Snapshot (Agency)  - August 15th, 2024",
+      "type": "imported",
+      "version": 2
+    },
+    {
+      "_id": "KJawYDaNxrHMGN228OOZ",
+      "dateAdded": "2025-04-18T15:07:19.210Z",
+      "dateUpdated": "2025-04-18T15:07:21.025Z",
+      "name": "GHL Mastery - Core 4 AI Snapshot 2.0",
+      "type": "imported",
+      "version": 2
+    },
+    {
+      "_id": "7oAH6Cmto5ZcWAaEsrrq",
+      "dateAdded": "2024-11-04T17:20:49.681Z",
+      "dateUpdated": "2024-11-04T17:21:02.145Z",
+      "dehydrationStatus": {
+        "completed": 26,
+        "state": "completed",
+        "total": 26
+      },
+      "locationId": "JUTFTny8EXQOSB5NcvAA",
+      "name": "SOL - Solar Assistant",
+      "type": "own",
+      "version": 2
+    },
+    {
+      "_id": "dPQCn84TbHFRoDeUXzco",
+      "dateAdded": "2024-10-28T22:01:24.014Z",
+      "dateUpdated": "2024-10-28T22:01:44.251Z",
+      "dehydrationStatus": {
+        "completed": 26,
+        "state": "completed",
+        "total": 26
+      },
+      "locationId": "It3DySZY02aBkIz01hD2",
+      "name": "Ai Team - Warmup Bot",
+      "type": "own",
+      "version": 2
+    },
+    {
+      "_id": "Tse4D6rdZiQ2fySR5iSi",
+      "dateAdded": "2024-10-16T17:57:14.204Z",
+      "dateUpdated": "2024-10-16T17:57:15.312Z",
+      "name": "myCRMSIM Snapshot",
+      "type": "imported",
+      "version": 2
+    },
+    {
+      "_id": "86xfuWRqtFS3jBj8AgJO",
+      "dateAdded": "2024-10-08T12:55:04.693Z",
+      "dateUpdated": "2024-10-08T12:59:32.418Z",
+      "name": "Sleeping Beauty Template v2 Oct",
+      "type": "imported",
+      "version": 2
+    },
+    {
+      "_id": "jnzVoI6xb6HSwnX125uP",
+      "dateAdded": "2024-09-30T14:43:39.632Z",
+      "dateUpdated": "2024-09-30T14:43:57.787Z",
+      "dehydrationStatus": {
+        "completed": 27,
+        "state": "completed",
+        "total": 26
+      },
+      "locationId": "9U9wNXb2nRyJBguu9K57",
+      "name": "The Ai Team",
+      "type": "own",
+      "version": 2
+    },
+    {
+      "_id": "RnOb6WqcNMlp66Lfa1l9",
+      "dateAdded": "2024-09-30T13:38:54.602Z",
+      "dateUpdated": "2024-09-30T13:39:09.720Z",
+      "dehydrationStatus": {
+        "completed": 26,
+        "state": "completed",
+        "total": 26
+      },
+      "locationId": "cwxhnGTWZcN4v1uyWl8Y",
+      "name": "Ai Team (Need to Remove GroBots Stuff)",
+      "type": "own",
+      "version": 2
+    },
+    {
+      "_id": "zb2SUvIGuzd17HatheMd",
+      "dateAdded": "2024-09-18T14:35:40.196Z",
+      "dateUpdated": "2024-09-18T14:38:03.126Z",
+      "name": "07.11.24b | \"The Perfect Ai Proposal/Contract Templates\" (Bot Launch)",
+      "type": "imported",
+      "version": 2
+    }
+  ],
+  "totalCount": 76
+}

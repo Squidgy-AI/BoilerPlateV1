@@ -1,0 +1,51 @@
+{
+  "test_timestamp": "2025-07-06T17:18:48.946996",
+  "test_configuration": {
+    "agency_token": "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
+    "company_id": "lp2p1q27DrdGta1qGDJd",
+    "source_location_id": "JUTFTny8EXQOSB5NcvAA",
+    "test_location_name": "TEST Solar Clone 20250706_121848"
+  },
+  "test_results": {
+    "business_data_exclusion": {
+      "exclusions_count": 8,
+      "validation_passed": true,
+      "violations_count": 0,
+      "status": "PASS"
+    },
+    "dummy_data_generator": {
+      "sample_contact_generated": true,
+      "demo_markers_present": true,
+      "data_types_count": 5,
+      "status": "PASS"
+    },
+    "clone_service": {
+      "request_validation": true,
+      "components_valid": true,
+      "exclusions_enforced": true,
+      "clone_id_generated": true,
+      "status": "PASS"
+    },
+    "api_endpoints": {
+      "server_accessible": false,
+      "error": "Health endpoint returned 404",
+      "status": "SKIP"
+    },
+    "end_to_end_workflow": {
+      "request_created": true,
+      "data_excluded": true,
+      "dummy_data_generated": true,
+      "clone_completed": true,
+      "security_confirmed": true,
+      "workflow_valid": true,
+      "status": "PASS"
+    }
+  },
+  "summary": {
+    "total_tests": 5,
+    "passed_tests": 4,
+    "failed_tests": 0,
+    "skipped_tests": 1,
+    "success_rate": 80.0
+  }
+}
