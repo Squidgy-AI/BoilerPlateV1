@@ -1714,13 +1714,13 @@ Let's begin with your Solar Business Setup! ☀️`;
                       <strong>CRITICAL DEBUG:</strong> Agent={selectedAgent?.id || 'none'}, SOLSetup={String(showSOLSetup)}, Timestamp={Date.now()}
                     </div>
                     
-                    {/* Show agent greeting as first message */}
-                    {selectedAgent && (
+                    {/* Show agent greeting as first message - TEMPORARILY DISABLED FOR DEBUGGING */}
+                    {/* {selectedAgent && (
                       <AgentGreeting 
                         agentId={selectedAgent.id} 
                         className="mb-4"
                       />
-                    )}
+                    )} */}
 
                     {/* Session History for Current Agent */}
                     {selectedAgent && agentSessionHistory[selectedAgent.id] && agentSessionHistory[selectedAgent.id].length > 0 && (
