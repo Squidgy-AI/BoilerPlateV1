@@ -152,13 +152,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       }
 
       // Add completion message to chat history
-      // Generate unique message ID to prevent conflicts
-      const messageId = `setup_${stage}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
       const { error } = await supabase
         .from('chat_history')
-        .upsert({
-          id: messageId,
+        .insert({
           user_id: userIdResult.user_id,
           session_id: sessionId,
           agent_id: 'SOLAgent',
@@ -166,8 +162,6 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           sender: 'agent',
           message: message,
           timestamp: new Date().toISOString()
-        }, {
-          onConflict: 'id'
         });
 
       if (error) {
