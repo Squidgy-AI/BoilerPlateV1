@@ -14,6 +14,7 @@ class FacebookOAuthTest {
         this.facebookPages = [];
         this.selectedPages = [];
         this.debugLog = [];
+        this.generatedOAuthUrl = null;
         
         this.initializeEventListeners();
     }
@@ -115,13 +116,14 @@ class FacebookOAuthTest {
                 }
             });
             
-            // Step 2: Open the corrected OAuth URL
-            this.updateStatus('oauth-status', 'Opening Facebook OAuth with corrected parameters...', 'info');
+            // Step 2: Store the OAuth URL and display it in chat window
+            this.generatedOAuthUrl = finalOAuthUrl;
+            this.updateStatus('oauth-status', '✅ Facebook OAuth URL generated successfully!', 'success');
             
-            const target = 'FacebookOAuthWindow';
-            const features = 'toolbar=no,menubar=no,scrollbars=yes,resizable=yes,location=no,directories=no,status=no,width=600,height=700';
-            
-            window.open(finalOAuthUrl, target, features);
+            // Show chat window and display the generated URL
+            this.showChatWindow();
+            this.addChatMessage('bot', 'Facebook OAuth URL has been generated successfully! You can now click the button below to open it in a new tab.');
+            this.displayGeneratedUrl(finalOAuthUrl);
             
         } catch (error) {
             this.addDebugLog('OAuth Error', error);
@@ -902,6 +904,70 @@ class FacebookOAuthTest {
         const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
         element.innerHTML = `<div class="${className}">${message}</div>`;
     }
+    
+    showChatWindow() {
+        const chatWindow = document.getElementById('chat-window');
+        chatWindow.style.display = 'block';
+        this.addDebugLog('Chat window displayed');
+    }
+    
+    addChatMessage(sender, message) {
+        const chatMessages = document.getElementById('chat-messages');
+        const messageElement = document.createElement('div');
+        messageElement.className = `chat-message ${sender}-message`;
+        
+        const senderName = sender === 'bot' ? 'Squidgy Bot' : 'User';
+        messageElement.innerHTML = `<strong>${senderName}:</strong> ${message}`;
+        
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        this.addDebugLog(`Chat message added (${sender})`, message);
+    }
+    
+    displayGeneratedUrl(url) {
+        const urlContainer = document.getElementById('generated-url-container');
+        const urlDisplay = document.getElementById('oauth-url-display');
+        
+        urlDisplay.textContent = url;
+        urlContainer.style.display = 'block';
+        
+        this.addDebugLog('OAuth URL displayed in chat window', { url: url.substring(0, 100) + '...' });
+    }
+    
+    openFacebookOAuth() {
+        if (!this.generatedOAuthUrl) {
+            this.addChatMessage('bot', 'Error: No OAuth URL available. Please generate the URL first.');
+            return;
+        }
+        
+        this.addChatMessage('bot', 'Opening Facebook OAuth in new tab. After completing the authentication, you will be redirected back to Squidgy.');
+        
+        // Open in new tab instead of popup window
+        const newTab = window.open(this.generatedOAuthUrl, '_blank');
+        
+        if (!newTab) {
+            this.addChatMessage('bot', 'Popup blocker may be preventing the OAuth window from opening. Please allow popups and try again.');
+        }
+        
+        this.addDebugLog('OAuth URL opened in new tab', this.generatedOAuthUrl);
+    }
+    
+    copyUrlToClipboard() {
+        if (!this.generatedOAuthUrl) {
+            this.addChatMessage('bot', 'Error: No OAuth URL to copy.');
+            return;
+        }
+        
+        navigator.clipboard.writeText(this.generatedOAuthUrl).then(() => {
+            this.addChatMessage('bot', 'OAuth URL copied to clipboard! You can paste it anywhere you need.');
+        }).catch(err => {
+            this.addChatMessage('bot', 'Failed to copy URL to clipboard. Please copy it manually from the text box above.');
+            console.error('Failed to copy: ', err);
+        });
+        
+        this.addDebugLog('OAuth URL copied to clipboard');
+    }
 }
 
 // Global functions for HTML onclick handlers
@@ -942,6 +1008,14 @@ function tryXAuthHeader() {
     facebookOAuthTest.addDebugLog('Trying X-Authorization header');
     facebookOAuthTest.config.useXAuth = true;
     facebookOAuthTest.fetchFacebookPages();
+}
+
+function openFacebookOAuth() {
+    facebookOAuthTest.openFacebookOAuth();
+}
+
+function copyUrlToClipboard() {
+    facebookOAuthTest.copyUrlToClipboard();
 }
 
 // Initialize when page loads

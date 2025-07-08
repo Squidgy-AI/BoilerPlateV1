@@ -110,6 +110,21 @@
             border-color: #4CAF50;
             background: #e8f5e8;
         }
+        .chat-message {
+            margin: 8px 0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .bot-message {
+            background: #e3f2fd;
+            border-left: 3px solid #2196F3;
+        }
+        .user-message {
+            background: #f3e5f5;
+            border-left: 3px solid #9c27b0;
+            margin-left: 20px;
+        }
     </style>
 </head>
 <body>
@@ -132,26 +147,37 @@
             </div>
             <div class="form-group">
                 <label for="locationId">Location ID:</label>
-                <input type="text" id="locationId" value="lBPqgBowX1CsjHay12LY" />
+                <input type="text" id="locationId" value="GJSb0aPcrBRne73LK3A3" />
             </div>
             <div class="form-group">
                 <label for="userId">User ID:</label>
-                <input type="text" id="userId" value="6ZHPyo1FRlZNBGzH5szG" />
-                <small>Using original user ID that works in GoHighLevel UI</small>
+                <input type="text" id="userId" value="utSop6RQjsF2Mwjnr8Gg" />
+                <small>Using SolarSetup_Clone_192939 subaccount user: Ovi Colton (ovi+192940@test-solar.com)</small>
             </div>
             <button onclick="startOAuth()">🚀 Start Facebook OAuth</button>
         </div>
 
         <!-- OAuth Step -->
         <div class="step" id="step-oauth">
-            <h3>Step 2: Facebook OAuth</h3>
-            <p>Click the button above to open Facebook OAuth window. This will:</p>
-            <ul>
-                <li>Open a popup window with Facebook login</li>
-                <li>Ask for permissions to access your Facebook pages</li>
-                <li>Return account data via postMessage</li>
-            </ul>
+            <h3>Step 2: Facebook OAuth URL Generation</h3>
+            <p>The generated Facebook OAuth URL will be displayed below:</p>
             <div id="oauth-status">Waiting for OAuth to start...</div>
+            
+            <!-- Chat Window for URL Display -->
+            <div id="chat-window" style="display: none; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin: 15px 0; max-height: 300px; overflow-y: auto;">
+                <h4>📱 Chat Window - Facebook Integration</h4>
+                <div id="chat-messages">
+                    <div class="chat-message bot-message">
+                        <strong>Squidgy Bot:</strong> Ready to generate Facebook OAuth URL...
+                    </div>
+                </div>
+                <div id="generated-url-container" style="display: none; margin-top: 15px; padding: 10px; background: #e8f5e8; border-radius: 5px;">
+                    <strong>🔗 Generated Facebook OAuth URL:</strong>
+                    <div id="oauth-url-display" style="word-break: break-all; margin: 10px 0; font-family: monospace; background: white; padding: 8px; border-radius: 3px;"></div>
+                    <button id="open-oauth-btn" onclick="openFacebookOAuth()" style="margin-right: 10px;">🚀 Open Facebook OAuth</button>
+                    <button onclick="copyUrlToClipboard()" style="background: #2196F3;">📋 Copy URL</button>
+                </div>
+            </div>
         </div>
 
         <!-- Account Data Step -->

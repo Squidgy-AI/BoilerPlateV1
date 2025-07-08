@@ -248,10 +248,10 @@ async def extract_facebook_oauth_params(request: FacebookOAuthRequest):
 
 @app.get("/test")
 async def test_extraction():
-    """Test endpoint with your actual credentials"""
+    """Test endpoint with SolarSetup_Clone_192939 subaccount credentials"""
     test_request = FacebookOAuthRequest(
-        locationId="lBPqgBowX1CsjHay12LY",
-        userId="6ZHPyo1FRlZNBGzH5szG"
+        locationId="GJSb0aPcrBRne73LK3A3",
+        userId="utSop6RQjsF2Mwjnr8Gg"
     )
     return await extract_facebook_oauth_params(test_request)
 

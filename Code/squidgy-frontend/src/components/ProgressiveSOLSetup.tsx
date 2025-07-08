@@ -6,6 +6,8 @@ import { CheckCircle, Clock, ArrowRight } from 'lucide-react';
 import SolarChatConfig from './SolarChatConfig';
 import EnhancedChatCalendarSetup from './EnhancedChatCalendarSetup';
 import EnhancedChatNotificationSetup from './EnhancedChatNotificationSetup';
+import EnhancedChatFacebookSetup from './EnhancedChatFacebookSetup';
+import EnhancedChatGHLSetup from './EnhancedChatGHLSetup';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { CalendarSetup as CalendarSetupType } from '@/config/calendarNotificationConfig';
 import { NotificationPreferences as NotificationPrefsType } from '@/config/calendarNotificationConfig';
@@ -22,12 +24,16 @@ interface SetupProgress {
   solar_completed: boolean;
   calendar_completed: boolean;
   notifications_completed: boolean;
+  ghl_completed: boolean;
+  facebook_completed: boolean;
   solar_completed_at?: string;
   calendar_completed_at?: string;
   notifications_completed_at?: string;
+  ghl_completed_at?: string;
+  facebook_completed_at?: string;
 }
 
-type SetupStage = 'solar' | 'calendar' | 'notifications' | 'complete';
+type SetupStage = 'solar' | 'calendar' | 'notifications' | 'ghl' | 'facebook' | 'complete';
 
 const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   onComplete,
@@ -40,7 +46,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const [progress, setProgress] = useState<SetupProgress>({
     solar_completed: false,
     calendar_completed: false,
-    notifications_completed: false
+    notifications_completed: false,
+    ghl_completed: false,
+    facebook_completed: false
   });
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -66,34 +74,46 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       console.log('🔍 Loading setup progress from database for user:', userIdResult.user_id);
 
       // Check unified squidgy_agent_business_setup table for completion status
-      const [solarResult, calendarResult, notificationResult] = await Promise.all([
+      const [solarResult, calendarResult, notificationResult, ghlResult, facebookResult] = await Promise.all([
         supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'SolarSetup').eq('is_enabled', true).single(),
         supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'CalendarSetup').eq('is_enabled', true).single(),
-        supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'NotificationSetup').eq('is_enabled', true).single()
+        supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'NotificationSetup').eq('is_enabled', true).single(),
+        supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'GHLSetup').eq('is_enabled', true).single(),
+        supabase.from('squidgy_agent_business_setup').select('*').eq('firm_user_id', userIdResult.user_id).eq('agent_id', 'SOLAgent').eq('setup_type', 'FacebookIntegration').eq('is_enabled', true).single()
       ]);
 
       // Log any API errors for debugging
       if (solarResult.error) console.warn('🔴 Solar setup query error:', solarResult.error);
       if (calendarResult.error) console.warn('🔴 Calendar setup query error:', calendarResult.error);
       if (notificationResult.error) console.warn('🔴 Notification setup query error:', notificationResult.error);
+      if (ghlResult.error) console.warn('🔴 GHL setup query error:', ghlResult.error);
+      if (facebookResult.error) console.warn('🔴 Facebook setup query error:', facebookResult.error);
 
       const solarCompleted = !solarResult.error && !!solarResult.data;
       const calendarCompleted = !calendarResult.error && !!calendarResult.data;
       const notificationsCompleted = !notificationResult.error && !!notificationResult.data;
+      const ghlCompleted = !ghlResult.error && !!ghlResult.data;
+      const facebookCompleted = !facebookResult.error && !!facebookResult.data;
 
       console.log('📊 Database completion status:', {
         solar: solarCompleted,
         calendar: calendarCompleted,
-        notifications: notificationsCompleted
+        notifications: notificationsCompleted,
+        ghl: ghlCompleted,
+        facebook: facebookCompleted
       });
 
       const progressFromDB = {
         solar_completed: solarCompleted,
         calendar_completed: calendarCompleted,
         notifications_completed: notificationsCompleted,
+        ghl_completed: ghlCompleted,
+        facebook_completed: facebookCompleted,
         solar_completed_at: solarResult.data?.created_at || '',
         calendar_completed_at: calendarResult.data?.created_at || '',
-        notifications_completed_at: notificationResult.data?.created_at || ''
+        notifications_completed_at: notificationResult.data?.created_at || '',
+        ghl_completed_at: ghlResult.data?.created_at || '',
+        facebook_completed_at: facebookResult.data?.created_at || ''
       };
 
       setProgress(progressFromDB);
@@ -108,6 +128,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         setCurrentStage('calendar');
       } else if (!notificationsCompleted) {
         setCurrentStage('notifications');
+      } else if (!ghlCompleted) {
+        setCurrentStage('ghl');
+      } else if (!facebookCompleted) {
+        setCurrentStage('facebook');
       } else {
         setCurrentStage('complete');
       }
@@ -135,6 +159,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           setCurrentStage('calendar');
         } else if (!parsedProgress.notifications_completed) {
           setCurrentStage('notifications');
+        } else if (!parsedProgress.ghl_completed) {
+          setCurrentStage('ghl');
+        } else if (!parsedProgress.facebook_completed) {
+          setCurrentStage('facebook');
         } else {
           setCurrentStage('complete');
         }
@@ -219,7 +247,37 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     // Add completion message to chat
     await addCompletionMessageToChat(
       'notifications',
-      '🔔 **Notification Preferences Setup Complete!** ✅\n\n🎉 **Congratulations! Your Solar Sales Specialist is now fully configured and ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.'
+      '🔔 **Notification Preferences Setup Complete!** ✅\n\nExcellent! Your notification system is now configured. You\'ll receive alerts about appointments, leads, and system updates through your preferred channels.\n\n*Moving to the next step: GoHighLevel Account Setup*'
+    );
+    
+    setCurrentStage('ghl');
+  };
+
+  const handleGHLComplete = async (config: any) => {
+    console.log('🏢 GHL setup completed');
+    
+    // Update progress state immediately
+    setProgress(prev => ({ ...prev, ghl_completed: true, ghl_completed_at: new Date().toISOString() }));
+    
+    // Add completion message to chat
+    await addCompletionMessageToChat(
+      'ghl',
+      '🏢 **GoHighLevel Account Setup Complete!** ✅\n\nPerfect! Your GoHighLevel sub-account and user credentials are now configured. This enables all integrations including Facebook, customer management, and automation.\n\n*Moving to the final step: Facebook Integration*'
+    );
+    
+    setCurrentStage('facebook');
+  };
+
+  const handleFacebookComplete = async (config: any) => {
+    console.log('📘 Facebook integration completed');
+    
+    // Update progress state immediately
+    setProgress(prev => ({ ...prev, facebook_completed: true, facebook_completed_at: new Date().toISOString() }));
+    
+    // Add completion message to chat
+    await addCompletionMessageToChat(
+      'facebook',
+      '📘 **Facebook Integration Complete!** ✅\n\n🎉 **Congratulations! Your Solar Sales Specialist is now fully configured and ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Manage your Facebook pages and social media posting\n• Answer questions about solar energy and financing\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.'
     );
     
     // Create GHL subaccount and user after all setup is complete
@@ -290,12 +348,23 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const handleSkipStage = async () => {
-    // For now, skip to the end
-    await addCompletionMessageToChat(
-      'skipped',
-      'Setup was skipped. You can always complete the configuration later by saying "configure solar business" in the chat.'
-    );
-    onSkip();
+    // Progress to next stage if skipping individual steps
+    if (currentStage === 'solar') {
+      setCurrentStage('calendar');
+    } else if (currentStage === 'calendar') {
+      setCurrentStage('notifications');
+    } else if (currentStage === 'notifications') {
+      setCurrentStage('ghl');
+    } else if (currentStage === 'ghl') {
+      setCurrentStage('facebook');
+    } else {
+      // For Facebook stage or final skip, skip to the end
+      await addCompletionMessageToChat(
+        'skipped',
+        'Setup was skipped. You can always complete the configuration later by saying "configure solar business" in the chat.'
+      );
+      onSkip();
+    }
   };
 
   console.log('🔍 ProgressiveSOLSetup RENDER DEBUG:');
@@ -320,7 +389,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800">Setup Progress</h3>
         <span className="text-sm text-gray-600">
-          Step {currentStage === 'solar' ? 1 : currentStage === 'calendar' ? 2 : currentStage === 'notifications' ? 3 : 3} of 3
+          Step {currentStage === 'solar' ? 1 : currentStage === 'calendar' ? 2 : currentStage === 'notifications' ? 3 : currentStage === 'ghl' ? 4 : currentStage === 'facebook' ? 5 : 5} of 5
         </span>
       </div>
       
@@ -343,6 +412,20 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           {progress.notifications_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
           <span className="ml-1 font-medium">Notifications</span>
         </div>
+        
+        <ArrowRight className="text-gray-300" size={14} />
+        
+        <div className={`flex items-center text-sm ${progress.ghl_completed ? 'text-green-600' : currentStage === 'ghl' ? 'text-blue-600' : 'text-gray-400'}`}>
+          {progress.ghl_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          <span className="ml-1 font-medium">GHL</span>
+        </div>
+        
+        <ArrowRight className="text-gray-300" size={14} />
+        
+        <div className={`flex items-center text-sm ${progress.facebook_completed ? 'text-green-600' : currentStage === 'facebook' ? 'text-blue-600' : 'text-gray-400'}`}>
+          {progress.facebook_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          <span className="ml-1 font-medium">Facebook</span>
+        </div>
       </div>
       
       <div className="w-full bg-gray-200 rounded-full h-2">
@@ -351,8 +434,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           style={{ 
             width: `${
               currentStage === 'solar' ? 10 :
-              currentStage === 'calendar' ? 40 :
-              currentStage === 'notifications' ? 70 :
+              currentStage === 'calendar' ? 25 :
+              currentStage === 'notifications' ? 45 :
+              currentStage === 'ghl' ? 65 :
+              currentStage === 'facebook' ? 85 :
               100
             }%` 
           }}
@@ -387,6 +472,8 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   console.log('- Will show solar?', currentStage === 'solar');
   console.log('- Will show calendar?', currentStage === 'calendar');
   console.log('- Will show notifications?', currentStage === 'notifications');
+  console.log('- Will show ghl?', currentStage === 'ghl');
+  console.log('- Will show facebook?', currentStage === 'facebook');
 
   // Early return for error state
   if (hasError && !isLoading) {
@@ -433,6 +520,22 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       {currentStage === 'notifications' && (
         <EnhancedChatNotificationSetup
           onComplete={handleNotificationsComplete}
+          onSkip={handleSkipStage}
+          sessionId={sessionId}
+        />
+      )}
+      
+      {currentStage === 'ghl' && (
+        <EnhancedChatGHLSetup
+          onConfigurationComplete={handleGHLComplete}
+          onSkip={handleSkipStage}
+          sessionId={sessionId}
+        />
+      )}
+      
+      {currentStage === 'facebook' && (
+        <EnhancedChatFacebookSetup
+          onConfigurationComplete={handleFacebookComplete}
           onSkip={handleSkipStage}
           sessionId={sessionId}
         />
