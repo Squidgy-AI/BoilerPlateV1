@@ -206,6 +206,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         .upsert({
           firm_user_id: userIdResult.user_id,
           agent_id: 'SOLAgent',
+          agent_name: 'Solar Sales Specialist',
           setup_type: 'GHLSetup',
           setup_json: ghlConfig,
           is_enabled: true,

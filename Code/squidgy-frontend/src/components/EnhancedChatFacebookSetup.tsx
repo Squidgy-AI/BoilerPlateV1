@@ -244,6 +244,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         .upsert({
           firm_user_id: userIdResult.user_id,
           agent_id: 'SOLAgent',
+          agent_name: 'Solar Sales Specialist',
           setup_type: 'FacebookIntegration',
           setup_json: facebookConfig,
           is_enabled: true,
