@@ -148,13 +148,16 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Use the existing hardcoded values we created earlier
+    // Generate new unique credentials for this user
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    
     const mockGHLConfig: GHLSetupConfig = {
-      location_id: "GJSb0aPcrBRne73LK3A3",
-      user_id: "utSop6RQjsF2Mwjnr8Gg", 
-      location_name: "SolarSetup_Clone_192939",
-      user_name: "Ovi Colton",
-      user_email: "ovi+192940@test-solar.com",
+      location_id: `GHL_${timestamp}_${randomSuffix}`,
+      user_id: `USR_${timestamp}_${randomSuffix}`, 
+      location_name: `SolarBusiness_${randomSuffix}`,
+      user_name: "Solar Sales Manager",
+      user_email: `solar+${randomSuffix}@business.com`,
       setup_status: 'completed',
       created_at: new Date().toISOString()
     };

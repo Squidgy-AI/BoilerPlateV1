@@ -361,30 +361,14 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
 
         {integrationStatus === 'ready' && generatedOAuthUrl && (
           <div className="space-y-3">
-            {/* OAuth URL Display */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <p className="text-sm font-medium text-gray-700 mb-2">Generated Facebook OAuth URL:</p>
-              <div className="bg-white border border-gray-200 rounded p-2 text-xs font-mono break-all">
-                {generatedOAuthUrl.substring(0, 100)}...
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex space-x-2">
-              <button
-                onClick={openFacebookOAuth}
-                className="flex-1 flex items-center justify-center space-x-2 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Open Facebook OAuth</span>
-              </button>
-              <button
-                onClick={copyUrlToClipboard}
-                className="flex items-center justify-center space-x-2 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Direct Connect Button */}
+            <button
+              onClick={openFacebookOAuth}
+              className="w-full flex items-center justify-center space-x-2 bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Connect Facebook Account</span>
+            </button>
 
             {/* Complete Integration Button */}
             <button

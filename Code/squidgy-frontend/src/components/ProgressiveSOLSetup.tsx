@@ -393,38 +393,31 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         </span>
       </div>
       
-      <div className="flex items-center space-x-2 mb-3">
-        <div className={`flex items-center text-sm ${progress.solar_completed ? 'text-green-600' : currentStage === 'solar' ? 'text-blue-600' : 'text-gray-400'}`}>
+      {/* Responsive Progress Steps */}
+      <div className="grid grid-cols-5 gap-1 mb-3">
+        <div className={`flex flex-col items-center text-xs ${progress.solar_completed ? 'text-green-600' : currentStage === 'solar' ? 'text-blue-600' : 'text-gray-400'}`}>
           {progress.solar_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
-          <span className="ml-1 font-medium">Solar</span>
+          <span className="mt-1 font-medium">Solar</span>
         </div>
         
-        <ArrowRight className="text-gray-300" size={14} />
-        
-        <div className={`flex items-center text-sm ${progress.calendar_completed ? 'text-green-600' : currentStage === 'calendar' ? 'text-blue-600' : 'text-gray-400'}`}>
+        <div className={`flex flex-col items-center text-xs ${progress.calendar_completed ? 'text-green-600' : currentStage === 'calendar' ? 'text-blue-600' : 'text-gray-400'}`}>
           {progress.calendar_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
-          <span className="ml-1 font-medium">Calendar</span>
+          <span className="mt-1 font-medium">Calendar</span>
         </div>
         
-        <ArrowRight className="text-gray-300" size={14} />
-        
-        <div className={`flex items-center text-sm ${progress.notifications_completed ? 'text-green-600' : currentStage === 'notifications' ? 'text-blue-600' : 'text-gray-400'}`}>
+        <div className={`flex flex-col items-center text-xs ${progress.notifications_completed ? 'text-green-600' : currentStage === 'notifications' ? 'text-blue-600' : 'text-gray-400'}`}>
           {progress.notifications_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
-          <span className="ml-1 font-medium">Notifications</span>
+          <span className="mt-1 font-medium">Notify</span>
         </div>
         
-        <ArrowRight className="text-gray-300" size={14} />
-        
-        <div className={`flex items-center text-sm ${progress.ghl_completed ? 'text-green-600' : currentStage === 'ghl' ? 'text-blue-600' : 'text-gray-400'}`}>
+        <div className={`flex flex-col items-center text-xs ${progress.ghl_completed ? 'text-green-600' : currentStage === 'ghl' ? 'text-blue-600' : 'text-gray-400'}`}>
           {progress.ghl_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
-          <span className="ml-1 font-medium">GHL</span>
+          <span className="mt-1 font-medium">GHL</span>
         </div>
         
-        <ArrowRight className="text-gray-300" size={14} />
-        
-        <div className={`flex items-center text-sm ${progress.facebook_completed ? 'text-green-600' : currentStage === 'facebook' ? 'text-blue-600' : 'text-gray-400'}`}>
+        <div className={`flex flex-col items-center text-xs ${progress.facebook_completed ? 'text-green-600' : currentStage === 'facebook' ? 'text-blue-600' : 'text-gray-400'}`}>
           {progress.facebook_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
-          <span className="ml-1 font-medium">Facebook</span>
+          <span className="mt-1 font-medium">Facebook</span>
         </div>
       </div>
       
