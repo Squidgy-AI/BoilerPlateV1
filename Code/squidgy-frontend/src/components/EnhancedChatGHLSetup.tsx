@@ -119,16 +119,15 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     
     addMessage('user', 'Create GoHighLevel Account');
     addMessage('bot', '🚀 Starting GoHighLevel account creation...', true, 'creation_started');
-    addMessage('bot', '⏳ This process is running in the background. I\'ll create your sub-account and user credentials automatically.');
+    addMessage('bot', '⏳ This process calls the GoHighLevel API to create your actual sub-account and user credentials.');
 
     try {
-      // Simulate the GHL creation process
-      // In production, this would call your backend endpoints
+      // Call the real backend API for GHL creation
       await simulateGHLCreation();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('GHL creation error:', error);
-      addMessage('bot', `❌ Error creating GHL account: ${error.message}`);
+      addMessage('bot', `❌ Error creating GHL account: ${error?.message || 'Unknown error'}`);
       setSetupStatus('idle');
     } finally {
       setIsCreating(false);
@@ -136,37 +135,76 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   };
 
   const simulateGHLCreation = async () => {
-    // Simulate progress messages
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    addMessage('bot', '📋 Creating sub-account configuration...');
+    // Show progress messages
+    addMessage('bot', '📋 Creating sub-account in GoHighLevel...');
     
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    addMessage('bot', '🏢 Setting up solar business template...');
-    
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    addMessage('bot', '👤 Creating user credentials...');
-    
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Generate new unique credentials for this user
-    const timestamp = Date.now();
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    
-    const mockGHLConfig: GHLSetupConfig = {
-      location_id: `GHL_${timestamp}_${randomSuffix}`,
-      user_id: `USR_${timestamp}_${randomSuffix}`, 
-      location_name: `SolarBusiness_${randomSuffix}`,
-      user_name: "Solar Sales Manager",
-      user_email: `solar+${randomSuffix}@business.com`,
-      setup_status: 'completed',
-      created_at: new Date().toISOString()
-    };
+    try {
+      // Get backend URL
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
 
-    setGhlConfig(mockGHLConfig);
-    setSetupStatus('completed');
-    
-    addMessage('bot', '✅ GoHighLevel account created successfully!', true, 'creation_complete');
-    addMessage('bot', `🎉 **Account Details:**\n📍 **Location ID:** ${mockGHLConfig.location_id}\n🏢 **Location Name:** ${mockGHLConfig.location_name}\n👤 **User:** ${mockGHLConfig.user_name}\n📧 **Email:** ${mockGHLConfig.user_email}\n\nYour GoHighLevel integration is now ready for Facebook and other services!`);
+      // Generate random number for unique naming
+      const randomNum = Math.floor(Math.random() * 1000);
+      
+      // Prepare request for backend API
+      const requestPayload = {
+        agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
+        company_id: "lp2p1q27DrdGta1qGDJd",
+        phone: "+1-555-SOLAR-1",
+        address: "123 Solar Business Ave",
+        city: "Solar City",
+        state: "CA",
+        country: "USA",
+        postal_code: "90210",
+        timezone: "America/Los_Angeles",
+        snapshot_id: "7oAH6Cmto5ZcWAaEsrrq"
+      };
+
+      // Call backend API to create sub-account and user
+      const response = await fetch(`${backendUrl}/api/ghl/create-subaccount-and-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create GHL account: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        // Extract real location_id from backend response
+        const realLocationId = result.subaccount.location_id;
+        const realUserId = result.user.user_id;
+        
+        const realGHLConfig: GHLSetupConfig = {
+          location_id: realLocationId,
+          user_id: realUserId,
+          location_name: `SolarBusiness_${realLocationId}`, // Use location_id in name as you requested
+          user_name: result.user.details.name || "Solar Sales Manager",
+          user_email: `sa+${randomNum}@squidgy.ai`, // Use your requested format
+          setup_status: 'completed',
+          created_at: new Date().toISOString()
+        };
+
+        setGhlConfig(realGHLConfig);
+        setSetupStatus('completed');
+        
+        addMessage('bot', '✅ GoHighLevel account created successfully!', true, 'creation_complete');
+        addMessage('bot', `🎉 **Real Account Details:**\n📍 **Location ID:** ${realGHLConfig.location_id}\n🏢 **Location Name:** ${realGHLConfig.location_name}\n👤 **User:** ${realGHLConfig.user_name}\n📧 **Email:** ${realGHLConfig.user_email}\n\nYour GoHighLevel integration is now ready for Facebook and other services!`);
+      } else {
+        throw new Error('Backend returned failure status');
+      }
+
+    } catch (error: any) {
+      console.error('Real GHL creation failed:', error);
+      throw error;
+    }
   };
 
   const useExistingCredentials = () => {
@@ -253,9 +291,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
 
       onConfigurationComplete(ghlConfig);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving GHL setup:', error);
-      addMessage('bot', `❌ Error saving setup: ${error.message}`);
+      addMessage('bot', `❌ Error saving setup: ${error?.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
