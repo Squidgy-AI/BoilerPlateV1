@@ -6,6 +6,7 @@ import type { Provider, Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/supabase';
 import { authService } from '@/lib/auth-service';
+import { v4 as uuidv4 } from 'uuid';
 
 type AuthContextType = {
   session: Session | null;
@@ -189,9 +190,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         .from('profiles')
                         .insert({
                           id: updatedSession.user.id,
+                          user_id: uuidv4(), // Add user_id for agent associations
                           email: updatedSession.user.email,
                           full_name: fullName,
-                          avatar_url: updatedSession.user.user_metadata?.avatar_url || null
+                          avatar_url: updatedSession.user.user_metadata?.avatar_url || null,
+                          role: 'member'
                         })
                         .select()
                         .single();
@@ -199,6 +202,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       if (error) throw error;
                       profileData = data;
                       console.log('Profile created successfully:', profileData);
+
+                      // Create PersonalAssistant agent record automatically for OAuth users
+                      try {
+                        const personalAssistantConfig = {
+                          description: "Your general-purpose AI assistant",
+                          capabilities: ["general_chat", "help", "information", "task_assistance"],
+                          personality: "helpful",
+                          auto_enabled: true
+                        };
+
+                        const { error: agentError } = await supabase
+                          .from('squidgy_agent_business_setup')
+                          .insert({
+                            firm_user_id: profileData.user_id,
+                            agent_id: 'PersonalAssistant',
+                            agent_name: 'Personal Assistant Bot',
+                            setup_type: 'agent_config',
+                            setup_json: personalAssistantConfig,
+                            is_enabled: true,
+                            created_at: new Date().toISOString()
+                          });
+
+                        if (agentError) {
+                          console.error('PersonalAssistant agent creation failed for OAuth user:', agentError);
+                        } else {
+                          console.log('✅ PersonalAssistant agent created automatically for OAuth user');
+                        }
+                      } catch (agentCreationError) {
+                        console.error('Error creating PersonalAssistant agent for OAuth user:', agentCreationError);
+                      }
                     } catch (error) {
                       console.error('Error creating profile:', error);
                     }

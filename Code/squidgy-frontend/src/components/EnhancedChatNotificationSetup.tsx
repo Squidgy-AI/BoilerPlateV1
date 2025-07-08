@@ -123,9 +123,25 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
       // Use direct Supabase calls with proper setup_type field
       const { supabase } = await import('@/lib/supabase');
       
-      console.log('🔔 NOTIFICATION SETUP - DIRECT SUPABASE INSERT');
-      console.log('🔔 user_id:', userIdResult.user_id);
-      console.log('🔔 setup_type: NotificationSetup');
+      // Critical NULL checks for composite primary key fields
+      const firm_user_id = userIdResult.user_id;
+      const agent_id = 'SOLAgent';
+      const setup_type = 'NotificationSetup';
+      
+      if (!firm_user_id) {
+        console.error('🚨 CRITICAL: firm_user_id is NULL - this will break the upsert!');
+        throw new Error('firm_user_id cannot be NULL');
+      }
+      if (!agent_id) {
+        console.error('🚨 CRITICAL: agent_id is NULL - this will break the upsert!');
+        throw new Error('agent_id cannot be NULL');
+      }
+      if (!setup_type) {
+        console.error('🚨 CRITICAL: setup_type is NULL - this will break the upsert!');
+        throw new Error('setup_type cannot be NULL');
+      }
+
+      console.log('✅ Notification Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
       console.log('🔔 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
       // Insert into public schema table using profile.user_id
@@ -133,10 +149,10 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
         .from('squidgy_agent_business_setup')
         .insert({
           firm_id: null,
-          firm_user_id: userIdResult.user_id,
-          agent_id: 'SOLAgent',
+          firm_user_id,
+          agent_id,
           agent_name: 'Solar Sales Specialist',
-          setup_type: 'NotificationSetup',  // This is the key field that was missing!
+          setup_type,
           setup_json: notificationPrefs,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
           is_enabled: true
@@ -144,6 +160,13 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
         .select();
 
       if (error) {
+        console.error('🚨 Database error in Notification Setup:', error);
+        console.error('🔍 Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw new Error(`Database error: ${error.message}`);
       }
 

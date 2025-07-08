@@ -230,6 +230,26 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         throw new Error('Failed to get user ID');
       }
 
+      // Critical NULL checks for composite primary key fields
+      const firm_user_id = userIdResult.user_id;
+      const agent_id = 'SOLAgent';
+      const setup_type = 'FacebookIntegration';
+      
+      if (!firm_user_id) {
+        console.error('🚨 CRITICAL: firm_user_id is NULL - this will break the upsert!');
+        throw new Error('firm_user_id cannot be NULL');
+      }
+      if (!agent_id) {
+        console.error('🚨 CRITICAL: agent_id is NULL - this will break the upsert!');
+        throw new Error('agent_id cannot be NULL');
+      }
+      if (!setup_type) {
+        console.error('🚨 CRITICAL: setup_type is NULL - this will break the upsert!');
+        throw new Error('setup_type cannot be NULL');
+      }
+
+      console.log('✅ Facebook Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
+
       const facebookConfig: FacebookIntegrationConfig = {
         location_id: locationId,
         user_id: userId,
@@ -242,17 +262,26 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
       const { error } = await supabase
         .from('squidgy_agent_business_setup')
         .upsert({
-          firm_user_id: userIdResult.user_id,
-          agent_id: 'SOLAgent',
+          firm_user_id,
+          agent_id,
           agent_name: 'Solar Sales Specialist',
-          setup_type: 'FacebookIntegration',
+          setup_type,
           setup_json: facebookConfig,
           is_enabled: true,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
           created_at: new Date().toISOString()
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('🚨 Database error in Facebook Setup:', error);
+        console.error('🔍 Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
 
       setIntegrationStatus('connected');
       addMessage('bot', '🎉 Facebook integration completed successfully!', true, 'integration_complete');

@@ -121,6 +121,39 @@ export class AuthService {
         throw new Error('Failed to create user profile. Please try again.');
       }
 
+      // Create PersonalAssistant agent record automatically
+      try {
+        const personalAssistantConfig = {
+          description: "Your general-purpose AI assistant",
+          capabilities: ["general_chat", "help", "information", "task_assistance"],
+          personality: "helpful",
+          auto_enabled: true
+        };
+
+        const { error: agentError } = await supabase
+          .from('squidgy_agent_business_setup')
+          .insert({
+            firm_user_id: profile.user_id, // Use the profile's user_id (UUID)
+            agent_id: 'PersonalAssistant',
+            agent_name: 'Personal Assistant Bot',
+            setup_type: 'agent_config',
+            setup_json: personalAssistantConfig,
+            is_enabled: true,
+            created_at: new Date().toISOString()
+          });
+
+        if (agentError) {
+          console.error('PersonalAssistant agent creation failed:', agentError);
+          // Don't fail the entire signup process, but log the error
+          console.warn('User profile created successfully, but PersonalAssistant agent creation failed');
+        } else {
+          console.log('✅ PersonalAssistant agent created automatically for new user');
+        }
+      } catch (agentCreationError) {
+        console.error('Error creating PersonalAssistant agent:', agentCreationError);
+        // Don't fail the signup process
+      }
+
       return {
         user: authData.user,
         profile: profile

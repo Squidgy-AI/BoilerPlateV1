@@ -125,12 +125,20 @@ export const enableSOLAgent = async (): Promise<boolean> => {
       return !!result;
     }
 
-    // Create new SOL Agent record with empty setup_json (to be filled later)
+    // Create new SOL Agent record with initial setup_json
+    const solAgentConfig = {
+      description: "Your specialized solar sales assistant",
+      capabilities: ["solar_calculations", "lead_qualification", "appointment_scheduling", "proposal_generation", "customer_follow_up"],
+      specialization: "solar_energy",
+      auto_enabled: false, // Requires progressive setup completion
+      progressive_setup_stages: "solar_config, calendar_setup, notification_setup, ghl_setup, facebook_integration"
+    };
+
     const result = await createOrUpdateAgentSetup({
       user_id: userIdResult.user_id,
       agent_id: 'SOLAgent',
       agent_name: 'Solar Sales Specialist',
-      setup_data: {}, // Empty JSON - will be populated when user completes business setup
+      setup_data: solAgentConfig, // Rich configuration object
       setup_type: 'agent_config',
       is_enabled: true
     });
