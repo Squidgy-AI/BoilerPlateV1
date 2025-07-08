@@ -52,6 +52,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   });
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [ghlCredentials, setGhlCredentials] = useState<{email: string; password: string} | null>(null);
 
   // Load existing progress on mount
   useEffect(() => {
@@ -255,6 +256,14 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
 
   const handleGHLComplete = async (config: any) => {
     console.log('🏢 GHL setup completed');
+    
+    // Store GHL credentials for Facebook integration
+    if (config.ghl_login_email && config.ghl_login_password) {
+      setGhlCredentials({
+        email: config.ghl_login_email,
+        password: config.ghl_login_password
+      });
+    }
     
     // Update progress state immediately
     setProgress(prev => ({ ...prev, ghl_completed: true, ghl_completed_at: new Date().toISOString() }));
@@ -531,6 +540,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           onConfigurationComplete={handleFacebookComplete}
           onSkip={handleSkipStage}
           sessionId={sessionId}
+          ghlCredentials={ghlCredentials}
         />
       )}
     </div>

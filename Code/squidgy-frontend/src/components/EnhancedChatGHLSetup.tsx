@@ -20,6 +20,8 @@ interface GHLSetupConfig {
   user_email: string;
   setup_status: 'pending' | 'creating' | 'completed' | 'failed';
   created_at?: string;
+  ghl_login_email?: string;
+  ghl_login_password?: string;
 }
 
 interface ChatMessage {
@@ -189,7 +191,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           user_name: result.user.details.name || "Solar Sales Manager",
           user_email: `sa+${randomNum}@squidgy.ai`, // Use your requested format
           setup_status: 'completed',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          ghl_login_email: "ovi.chand@gmail.com", // These are the credentials for browser automation
+          ghl_login_password: "Dummy@123"
         };
 
         setGhlConfig(realGHLConfig);
@@ -216,7 +220,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       user_name: "Ovi Colton",
       user_email: "ovi+192940@test-solar.com",
       setup_status: 'completed',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      ghl_login_email: "ovi.chand@gmail.com",
+      ghl_login_password: "Dummy@123"
     };
 
     setGhlConfig(existingConfig);
