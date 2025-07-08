@@ -14,7 +14,7 @@
 - **Email:** ovi.chand@gmail.com
 - **Password:** Dummy@123
 - **Role:** User
-- **Phone:** +18332327658
+- **Phone:** +17166044029
 
 ## 🏢 GoHighLevel Configuration
 

@@ -116,7 +116,7 @@ After successful creation, you'll see the user IDs in the output:
 - Password: Dummy@123
 - Role: user
 - Type: account
-- Phone: +18332327658
+- Phone: +17166044029
 
 ### Permissions (Both Users):
 All permissions are enabled including:

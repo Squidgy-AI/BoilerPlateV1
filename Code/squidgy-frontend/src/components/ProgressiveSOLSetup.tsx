@@ -222,12 +222,71 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       '🔔 **Notification Preferences Setup Complete!** ✅\n\n🎉 **Congratulations! Your Solar Sales Specialist is now fully configured and ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.'
     );
     
+    // Create GHL subaccount and user after all setup is complete
+    try {
+      console.log('🚀 Creating GoHighLevel sub-account and user...');
+      
+      // Add message about GHL setup starting
+      await addCompletionMessageToChat(
+        'ghl_creating',
+        '⏳ **Creating your GoHighLevel account...**\n\nSetting up your business automation platform with all solar configurations...'
+      );
+      
+      // Replace with your actual values - in production these should come from environment variables
+      const ghlConfig = {
+        company_id: "lp2p1q27DrdGta1qGDJd",
+        snapshot_id: "7oAH6Cmto5ZcWAaEsrrq",  // SOL - Solar Assistant snapshot
+        agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69"
+      };
+      
+      // Get backend URL
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'localhost:8000';
+      const backendUrl = apiBase.startsWith('http') ? apiBase : `https://${apiBase}`;
+      const cleanBackendUrl = backendUrl.replace(/\/$/, '');
+      
+      const response = await fetch(`${cleanBackendUrl}/api/ghl/create-subaccount-and-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ghlConfig),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ GHL creation successful:', result);
+        
+        // Add success message to chat
+        await addCompletionMessageToChat(
+          'ghl_success',
+          `✅ **GoHighLevel Account Created Successfully!**\n\n📋 **Sub-account Details:**\n• Name: ${result.subaccount.details.name}\n• ID: ${result.subaccount.location_id}\n\n👤 **User Account Created:**\n• Name: ${result.user.details.name}\n• Email: ${result.user.details.email}\n• Role: ${result.user.details.role}\n\nYour GoHighLevel account is now ready with all solar workflows, pipelines, and automations!`
+        );
+      } else {
+        const error = await response.text();
+        console.error('❌ GHL creation failed:', error);
+        
+        // Add error message to chat
+        await addCompletionMessageToChat(
+          'ghl_error',
+          '⚠️ **Note:** Your Solar Sales Specialist is fully configured, but the GoHighLevel account creation encountered an issue. You can still use all chat features. Please contact support if you need assistance with GoHighLevel setup.'
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error creating GHL account:', error);
+      
+      // Add error message to chat
+      await addCompletionMessageToChat(
+        'ghl_error',
+        '⚠️ **Note:** Your Solar Sales Specialist is ready to use! However, the automated GoHighLevel setup encountered a temporary issue. All chat features are working perfectly. Contact support if you need help with GoHighLevel.'
+      );
+    }
+    
     setCurrentStage('complete');
     
     // Complete the overall setup after a brief delay
     setTimeout(() => {
       onComplete();
-    }, 2000);
+    }, 3000); // Increased delay to allow time to read GHL messages
   };
 
   const handleSkipStage = async () => {

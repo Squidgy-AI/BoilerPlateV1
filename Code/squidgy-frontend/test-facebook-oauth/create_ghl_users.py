@@ -179,7 +179,7 @@ def main():
         "lastName": "Colton",
         "email": "ovi.chand@gmail.com",
         "password": "Dummy@123",
-        "phone": "+18332327658",
+        "phone": "+17166044029",
         "type": "account",
         "role": "user",
         "locationIds": [LOCATION_ID],
