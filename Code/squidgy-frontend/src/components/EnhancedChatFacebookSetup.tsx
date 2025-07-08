@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Facebook, ExternalLink, Copy, CheckCircle, AlertCircle } from 'lucide-react';
+import { Facebook, ExternalLink, CheckCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
 
@@ -28,7 +28,6 @@ interface FacebookIntegrationConfig {
   selected_page_ids?: string[];
 }
 
-
 interface ChatMessage {
   id: string;
   sender: 'bot' | 'user';
@@ -52,18 +51,22 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     {
       id: '1',
       sender: 'bot',
-      message: 'Hi! I\'m here to help you connect your Facebook account for social media posting. This will enable you to manage your Facebook pages directly from Squidgy.',
+      message: '👋 Hi! I\'ll help you connect Facebook in 3 simple steps:',
       timestamp: new Date()
     },
     {
       id: '2', 
       sender: 'bot',
-      message: 'Once connected, you\'ll be able to schedule posts, engage with customers, and manage your solar business\'s social media presence seamlessly.',
+      message: '**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy',
       timestamp: new Date()
     }
   ]);
   const [generatedOAuthUrl, setGeneratedOAuthUrl] = useState<string | null>(null);
-  const [integrationStatus, setIntegrationStatus] = useState<'idle' | 'generating' | 'ready' | 'connected'>('idle');
+  const [integrationStatus, setIntegrationStatus] = useState<'idle' | 'step1_oauth' | 'step2_getting_pages' | 'step3_selecting_pages' | 'completed'>('idle');
+  const [facebookPages, setFacebookPages] = useState<any[]>([]);
+  const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
+  const [oauthCompleted, setOauthCompleted] = useState(false);
+  const [storedJwtToken, setStoredJwtToken] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -88,18 +91,19 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     setMessages(prev => [...prev, newMessage]);
   };
 
-  const generateFacebookOAuthUrl = async () => {
+  // STEP 1: Generate and complete OAuth
+  const startStep1OAuth = async () => {
     setIsGenerating(true);
-    setIntegrationStatus('generating');
+    setIntegrationStatus('step1_oauth');
     
-    addMessage('user', 'Generate Facebook OAuth URL');
-    addMessage('bot', 'Generating your Facebook OAuth URL... Please wait a moment.');
+    addMessage('user', 'Start Facebook OAuth Connection');
+    addMessage('bot', '🔗 **Step 1: Connect Your Facebook Account**');
+    addMessage('bot', 'Generating Facebook OAuth URL to connect your business account...');
 
     try {
-      // Use the backend API endpoint we just created
       const backendUrl = process.env.NODE_ENV === 'production' 
         ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
-        : 'http://localhost:8000'; // For local development
+        : 'http://localhost:8000';
       
       const response = await fetch(`${backendUrl}/api/facebook/extract-oauth-params`, {
         method: 'POST',
@@ -120,7 +124,6 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
       const result = await response.json();
       
       if (result.success && result.params) {
-        // Build the OAuth URL with enhanced scopes and proper state
         const oauthParams = new URLSearchParams({
           response_type: result.params.response_type || 'code',
           client_id: result.params.client_id,
@@ -130,7 +133,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
             locationId: locationId,
             userId: userId,
             type: 'facebook',
-            source: 'squidgy_chat'
+            source: 'squidgy_step1'
           }),
           logger_id: result.params.logger_id || generateLoggerId()
         });
@@ -138,79 +141,9 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         const finalOAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?${oauthParams.toString()}`;
         
         setGeneratedOAuthUrl(finalOAuthUrl);
-        setIntegrationStatus('ready');
         
-        addMessage('bot', '✅ Facebook OAuth URL generated successfully!', true, 'url_generated');
-        addMessage('bot', 'You can now click the button below to open Facebook and connect your account. After completing the authentication, you\'ll be redirected back to Squidgy.');
-        
-      } else {
-        throw new Error('Failed to extract OAuth parameters from response');
-      }
-
-    } catch (error) {
-      console.error('Facebook OAuth generation error:', error);
-      addMessage('bot', `❌ Error generating OAuth URL: ${error.message}`);
-      setIntegrationStatus('idle');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-
-  const generateFacebookOAuthUrl = async () => {
-    setIsGenerating(true);
-    setIntegrationStatus('generating');
-    
-    addMessage('user', 'Generate Facebook OAuth URL');
-    addMessage('bot', 'Generating your Facebook OAuth URL... Please wait a moment.');
-
-    try {
-      // Use the backend API endpoint we just created
-      const backendUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
-        : 'http://localhost:8000'; // For local development
-      
-      const response = await fetch(`${backendUrl}/api/facebook/extract-oauth-params`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          locationId: locationId,
-          userId: userId
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to generate OAuth URL: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.success && result.params) {
-        // Build the OAuth URL with enhanced scopes and proper state
-        const oauthParams = new URLSearchParams({
-          response_type: result.params.response_type || 'code',
-          client_id: result.params.client_id,
-          redirect_uri: 'https://services.leadconnectorhq.com/integrations/oauth/finish',
-          scope: buildEnhancedScope(result.params.scope),
-          state: JSON.stringify({
-            locationId: locationId,
-            userId: userId,
-            type: 'facebook',
-            source: 'squidgy_chat'
-          }),
-          logger_id: result.params.logger_id || generateLoggerId()
-        });
-
-        const finalOAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?${oauthParams.toString()}`;
-        
-        setGeneratedOAuthUrl(finalOAuthUrl);
-        setIntegrationStatus('ready');
-        
-        addMessage('bot', '✅ Facebook OAuth URL generated successfully!', true, 'url_generated');
-        addMessage('bot', 'You can now click the button below to open Facebook and connect your account. After completing the authentication, you\'ll be redirected back to Squidgy.');
+        addMessage('bot', '✅ OAuth URL generated successfully!');
+        addMessage('bot', '👆 **Click the button below to connect your Facebook account.**\n\nYou\'ll be taken to Facebook to authorize the connection, then return here for the next step.');
         
       } else {
         throw new Error('Failed to extract OAuth parameters from response');
@@ -284,94 +217,197 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     }
   };
 
-  const copyUrlToClipboard = async () => {
-    if (!generatedOAuthUrl) {
-      addMessage('bot', 'Error: No OAuth URL to copy.');
-      return;
-    }
+  const completeStep1OAuth = () => {
+    addMessage('user', 'Facebook OAuth Completed');
+    addMessage('bot', '🎉 **Step 1 Complete!** Your Facebook account is now connected.');
+    addMessage('bot', '📋 **Ready for Step 2:** Click below to retrieve your Facebook pages using browser automation.');
+    setOauthCompleted(true);
+  };
+
+  // STEP 2: Browser automation to get Facebook pages
+  const startStep2GetPages = async () => {
+    setIntegrationStatus('step2_getting_pages');
+    
+    addMessage('user', 'Get Facebook Pages');
+    addMessage('bot', '🤖 **Step 2: Getting Your Facebook Pages**');
+    addMessage('bot', 'Starting browser automation to retrieve your Facebook pages and tokens...');
 
     try {
-      await navigator.clipboard.writeText(generatedOAuthUrl);
-      addMessage('bot', '📋 OAuth URL copied to clipboard! You can paste it anywhere you need.');
-    } catch (err) {
-      addMessage('bot', 'Failed to copy URL to clipboard. Please copy it manually from the text box above.');
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+      
+      const response = await fetch(`${backendUrl}/api/facebook/integrate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          location_id: locationId,
+          user_id: userId,
+          email: ghlCredentials?.email || 'ovi.chand@gmail.com',
+          password: ghlCredentials?.password || 'Dummy@123',
+          firm_user_id: await getUserId().then(r => r.user_id),
+          step: 'get_pages_only'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to start page retrieval: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      addMessage('bot', '⏳ Browser automation started! This will:');
+      addMessage('bot', '• Login to GoHighLevel with your credentials\n• Extract JWT token\n• Get all your Facebook pages\n• Store tokens safely');
+      
+      // Start polling for results
+      pollForPages();
+      
+    } catch (error) {
+      console.error('Page retrieval error:', error);
+      addMessage('bot', `❌ Error starting page retrieval: ${error.message}`);
+      setIntegrationStatus('step1_oauth');
     }
   };
 
-  const completeIntegration = async () => {
-    setSaving(true);
+  const pollForPages = async () => {
+    const backendUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+      : 'http://localhost:8000';
     
-    try {
-      const userIdResult = await getUserId();
-      if (!userIdResult.success || !userIdResult.user_id) {
-        throw new Error('Failed to get user ID');
+    let attempts = 0;
+    const maxAttempts = 30; // 1 minute polling
+    
+    const checkPages = async () => {
+      try {
+        const response = await fetch(`${backendUrl}/api/facebook/integration-status/${locationId}`);
+        
+        if (response.ok) {
+          const status = await response.json();
+          
+          if (status.status === 'success' && status.pages) {
+            setFacebookPages(status.pages);
+            setStoredJwtToken(status.jwt_token);
+            setIntegrationStatus('step3_selecting_pages');
+            
+            addMessage('bot', `✅ **Step 2 Complete!** Found ${status.pages.length} Facebook pages!`);
+            addMessage('bot', '📄 **Ready for Step 3:** Select which pages you want to connect to Squidgy.');
+            
+            return true;
+          } else if (status.status === 'failed') {
+            addMessage('bot', '❌ Page retrieval failed. Please try again.');
+            setIntegrationStatus('step1_oauth');
+            return true;
+          }
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
       }
-
-      // Critical NULL checks for composite primary key fields
-      const firm_user_id = userIdResult.user_id;
-      const agent_id = 'SOLAgent';
-      const setup_type = 'FacebookIntegration';
       
-      if (!firm_user_id) {
-        console.error('🚨 CRITICAL: firm_user_id is NULL - this will break the upsert!');
-        throw new Error('firm_user_id cannot be NULL');
+      return false;
+    };
+    
+    const interval = setInterval(async () => {
+      attempts++;
+      
+      const done = await checkPages();
+      
+      if (done || attempts >= maxAttempts) {
+        clearInterval(interval);
+        
+        if (attempts >= maxAttempts) {
+          addMessage('bot', '⏱️ Page retrieval is taking longer than expected. Please try again.');
+          setIntegrationStatus('step1_oauth');
+        }
       }
-      if (!agent_id) {
-        console.error('🚨 CRITICAL: agent_id is NULL - this will break the upsert!');
-        throw new Error('agent_id cannot be NULL');
-      }
-      if (!setup_type) {
-        console.error('🚨 CRITICAL: setup_type is NULL - this will break the upsert!');
-        throw new Error('setup_type cannot be NULL');
-      }
+    }, 2000);
+  };
 
-      console.log('✅ Facebook Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
+  // STEP 3: Page selection and final attachment
+  const completeStep3Selection = async () => {
+    if (selectedPageIds.length === 0) {
+      addMessage('bot', '⚠️ Please select at least one Facebook page to connect.');
+      return;
+    }
 
-      const facebookConfig: FacebookIntegrationConfig = {
-        location_id: locationId,
-        user_id: userId,
-        oauth_url: generatedOAuthUrl || '',
-        integration_status: 'connected',
-        connected_at: new Date().toISOString()
-      };
+    setSaving(true);
+    addMessage('bot', `🔗 **Step 3: Connecting ${selectedPageIds.length} selected page(s)...**`);
 
-      // Save to the squidgy_agent_business_setup table
-      const { error } = await supabase
-        .from('squidgy_agent_business_setup')
-        .upsert({
-          firm_user_id,
-          agent_id,
-          agent_name: 'Solar Sales Specialist',
-          setup_type,
-          setup_json: facebookConfig,
-          is_enabled: true,
-          session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          created_at: new Date().toISOString()
+    try {
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+      
+      // Connect each selected page
+      for (const pageId of selectedPageIds) {
+        const response = await fetch(`${backendUrl}/api/facebook/connect-page`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            location_id: locationId,
+            page_id: pageId,
+            jwt_token: storedJwtToken
+          })
         });
 
-      if (error) {
-        console.error('🚨 Database error in Facebook Setup:', error);
-        console.error('🔍 Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw error;
+        if (!response.ok) {
+          throw new Error(`Failed to connect page ${pageId}`);
+        }
       }
 
-      setIntegrationStatus('connected');
-      addMessage('bot', '🎉 Facebook integration completed successfully!', true, 'integration_complete');
-      addMessage('bot', 'Your Facebook account is now connected and ready for social media posting through Squidgy.');
-
-      onConfigurationComplete(facebookConfig);
-
+      // Save final configuration
+      await saveFinalConfiguration();
+      
+      setIntegrationStatus('completed');
+      addMessage('bot', '🎉 **All Steps Complete!** Your Facebook pages are now connected to Squidgy!');
+      addMessage('bot', '✨ You can now manage your Facebook pages, schedule posts, and engage with customers directly from Squidgy.');
+      
     } catch (error) {
-      console.error('Error saving Facebook integration:', error);
-      addMessage('bot', `❌ Error completing integration: ${error.message}`);
+      console.error('Page connection error:', error);
+      addMessage('bot', `❌ Error connecting pages: ${error.message}`);
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveFinalConfiguration = async () => {
+    const userIdResult = await getUserId();
+    if (!userIdResult.success || !userIdResult.user_id) {
+      throw new Error('Failed to get user ID');
+    }
+
+    const config: FacebookIntegrationConfig = {
+      location_id: locationId,
+      user_id: userId,
+      oauth_url: generatedOAuthUrl || '',
+      integration_status: 'connected',
+      connected_at: new Date().toISOString(),
+      facebook_pages: facebookPages,
+      selected_page_ids: selectedPageIds
+    };
+
+    // Save to database
+    const { error } = await supabase
+      .from('squidgy_agent_business_setup')
+      .upsert({
+        firm_user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        agent_name: 'Solar Sales Specialist',
+        setup_type: 'FacebookIntegration',
+        setup_json: config,
+        is_enabled: true,
+        session_id: sessionId && sessionId.includes('_') ? null : sessionId,
+        created_at: new Date().toISOString()
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    onConfigurationComplete(config);
   };
 
   return (
@@ -384,7 +420,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Facebook Integration</h3>
-            <p className="text-sm text-gray-500">Connect your Facebook account for social media posting</p>
+            <p className="text-sm text-gray-500">3-step process to connect your Facebook pages</p>
           </div>
         </div>
         <button
@@ -413,7 +449,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
                   : 'bg-gray-100 text-gray-900'
               } ${message.isAction ? 'border-l-4 border-blue-400' : ''}`}
             >
-              <p className="text-sm">{message.message}</p>
+              <p className="text-sm whitespace-pre-line">{message.message}</p>
               <p className="text-xs mt-1 opacity-70">
                 {message.timestamp.toLocaleTimeString()}
               </p>
@@ -425,65 +461,109 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
 
       {/* Action Buttons */}
       <div className="p-4 border-t border-gray-200 space-y-3">
+        {/* STEP 1: Initial OAuth Setup */}
         {integrationStatus === 'idle' && (
           <button
-            onClick={generateFacebookOAuthUrl}
+            onClick={startStep1OAuth}
             disabled={isGenerating}
             className="w-full flex items-center justify-center space-x-2 bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
           >
             <Facebook className="w-4 h-4" />
-            <span>{isGenerating ? 'Generating...' : 'Start Facebook Integration'}</span>
+            <span>{isGenerating ? 'Generating OAuth...' : 'Step 1: Connect Facebook Account'}</span>
           </button>
         )}
 
-        {integrationStatus === 'ready' && generatedOAuthUrl && (
+        {/* STEP 1: OAuth URL Ready */}
+        {integrationStatus === 'step1_oauth' && generatedOAuthUrl && (
           <div className="space-y-3">
-            {/* Direct Connect Button */}
             <button
               onClick={openFacebookOAuth}
               className="w-full flex items-center justify-center space-x-2 bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
-              <span>Connect Facebook Account</span>
+              <span>Open Facebook OAuth</span>
             </button>
-
-            {/* Complete Integration Button */}
+            
             <button
-              onClick={completeIntegration}
-              disabled={isSaving}
-              className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+              onClick={completeStep1OAuth}
+              className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>{isSaving ? 'Completing...' : 'Mark Integration Complete'}</span>
+              <span>I Completed Facebook OAuth ✓</span>
             </button>
           </div>
         )}
 
+        {/* STEP 2: Get Facebook Pages */}
+        {oauthCompleted && integrationStatus !== 'step3_selecting_pages' && integrationStatus !== 'completed' && (
+          <button
+            onClick={startStep2GetPages}
+            disabled={integrationStatus === 'step2_getting_pages'}
+            className="w-full flex items-center justify-center space-x-2 bg-orange-500 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+          >
+            {integrationStatus === 'step2_getting_pages' ? (
+              <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+            ) : (
+              <Facebook className="w-4 h-4" />
+            )}
+            <span>
+              {integrationStatus === 'step2_getting_pages' 
+                ? 'Getting Pages...' 
+                : 'Step 2: Get Facebook Pages'}
+            </span>
+          </button>
+        )}
 
-        {integrationStatus === 'ready' && generatedOAuthUrl && (
+        {/* STEP 3: Page Selection */}
+        {integrationStatus === 'step3_selecting_pages' && (
           <div className="space-y-3">
-            {/* Direct Connect Button */}
+            <h4 className="font-semibold text-gray-900 text-center">Step 3: Select Facebook Pages</h4>
+            
+            <div className="max-h-48 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-3">
+              {facebookPages.map((page, index) => (
+                <label key={page.facebookPageId || index} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedPageIds.includes(page.facebookPageId || page.id)}
+                    onChange={(e) => {
+                      const pageId = page.facebookPageId || page.id;
+                      if (e.target.checked) {
+                        setSelectedPageIds([...selectedPageIds, pageId]);
+                      } else {
+                        setSelectedPageIds(selectedPageIds.filter(id => id !== pageId));
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">
+                      {page.facebookPageName || page.name || `Page ${index + 1}`}
+                    </p>
+                    {page.isInstagramAvailable && (
+                      <p className="text-xs text-gray-500">Instagram available</p>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+            
             <button
-              onClick={openFacebookOAuth}
-              className="w-full flex items-center justify-center space-x-2 bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Connect Facebook Account</span>
-            </button>
-
-            {/* Complete Integration Button */}
-            <button
-              onClick={completeIntegration}
-              disabled={isSaving}
+              onClick={completeStep3Selection}
+              disabled={selectedPageIds.length === 0 || isSaving}
               className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>{isSaving ? 'Completing...' : 'Mark Integration Complete'}</span>
+              <span>
+                {isSaving 
+                  ? 'Connecting...' 
+                  : `Connect ${selectedPageIds.length} Selected Page${selectedPageIds.length !== 1 ? 's' : ''}`}
+              </span>
             </button>
           </div>
         )}
 
-        {integrationStatus === 'connected' && (
+        {/* COMPLETED */}
+        {integrationStatus === 'completed' && (
           <div className="text-center">
             <div className="inline-flex items-center space-x-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
               <CheckCircle className="w-5 h-5" />
@@ -493,12 +573,14 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         )}
 
         {/* Skip Button */}
-        <button
-          onClick={onSkip}
-          className="w-full text-gray-500 hover:text-gray-700 transition-colors py-2"
-        >
-          Skip Facebook Integration for now
-        </button>
+        {integrationStatus !== 'completed' && (
+          <button
+            onClick={onSkip}
+            className="w-full text-gray-500 hover:text-gray-700 transition-colors py-2"
+          >
+            Skip Facebook Integration for now
+          </button>
+        )}
       </div>
     </div>
   );
