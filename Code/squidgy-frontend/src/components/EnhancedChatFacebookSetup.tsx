@@ -247,7 +247,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
           setup_type: 'FacebookIntegration',
           setup_json: facebookConfig,
           is_enabled: true,
-          session_id: sessionId,
+          session_id: sessionId && sessionId.includes('_') ? null : sessionId,
           created_at: new Date().toISOString()
         });
 

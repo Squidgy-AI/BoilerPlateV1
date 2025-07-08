@@ -209,7 +209,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           setup_type: 'GHLSetup',
           setup_json: ghlConfig,
           is_enabled: true,
-          session_id: sessionId,
+          session_id: sessionId && sessionId.includes('_') ? null : sessionId,
           created_at: new Date().toISOString()
         });
 
