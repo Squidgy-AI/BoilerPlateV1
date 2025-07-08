@@ -28,13 +28,6 @@ interface FacebookIntegrationConfig {
   selected_page_ids?: string[];
 }
 
-interface FacebookPage {
-  facebookPageId: string;
-  facebookPageName: string;
-  facebookIgnoreMessages: boolean;
-  isInstagramAvailable: boolean;
-  pageAccessToken?: string;
-}
 
 interface ChatMessage {
   id: string;
@@ -70,11 +63,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     }
   ]);
   const [generatedOAuthUrl, setGeneratedOAuthUrl] = useState<string | null>(null);
-  const [integrationStatus, setIntegrationStatus] = useState<'idle' | 'generating' | 'ready' | 'automating' | 'selecting_pages' | 'connected'>('idle');
-  const [automationProgress, setAutomationProgress] = useState<string>('');
-  const [availablePages, setAvailablePages] = useState<FacebookPage[]>([]);
-  const [selectedPages, setSelectedPages] = useState<string[]>([]);
-  const [isAutomating, setIsAutomating] = useState(false);
+  const [integrationStatus, setIntegrationStatus] = useState<'idle' | 'generating' | 'ready' | 'connected'>('idle');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -99,122 +88,74 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     setMessages(prev => [...prev, newMessage]);
   };
 
-  const startBrowserAutomation = async () => {
-    if (!ghlCredentials || !ghlCredentials.email || !ghlCredentials.password) {
-      addMessage('bot', '❌ GHL credentials not found. Please complete the GHL setup first.');
-      return;
-    }
-
-    setIsAutomating(true);
-    setIntegrationStatus('automating');
+  const generateFacebookOAuthUrl = async () => {
+    setIsGenerating(true);
+    setIntegrationStatus('generating');
     
-    addMessage('user', 'Start Facebook Integration');
-    addMessage('bot', '🚀 Starting browser automation to connect your Facebook account...');
-    addMessage('bot', '🔐 I\'ll log in to GoHighLevel for you and handle the Facebook connection process.');
-    setAutomationProgress('Starting browser...');
+    addMessage('user', 'Generate Facebook OAuth URL');
+    addMessage('bot', 'Generating your Facebook OAuth URL... Please wait a moment.');
 
     try {
+      // Use the backend API endpoint we just created
       const backendUrl = process.env.NODE_ENV === 'production' 
         ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
-        : 'http://localhost:8000';
+        : 'http://localhost:8000'; // For local development
       
-      const response = await fetch(`${backendUrl}/api/facebook/integrate`, {
+      const response = await fetch(`${backendUrl}/api/facebook/extract-oauth-params`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          location_id: locationId,
-          user_id: userId,
-          email: ghlCredentials.email,
-          password: ghlCredentials.password,
-          firm_user_id: await getUserId().then(r => r.user_id),
-          enable_2fa_bypass: false
+          locationId: locationId,
+          userId: userId
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to start automation: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Failed to generate OAuth URL: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
       
-      addMessage('bot', '✅ Browser automation started! A new browser window will open.');
-      addMessage('bot', '📱 If 2FA is required, please check your email for the verification code.');
-      
-      // Start polling for status
-      pollAutomationStatus();
-      
+      if (result.success && result.params) {
+        // Build the OAuth URL with enhanced scopes and proper state
+        const oauthParams = new URLSearchParams({
+          response_type: result.params.response_type || 'code',
+          client_id: result.params.client_id,
+          redirect_uri: 'https://services.leadconnectorhq.com/integrations/oauth/finish',
+          scope: buildEnhancedScope(result.params.scope),
+          state: JSON.stringify({
+            locationId: locationId,
+            userId: userId,
+            type: 'facebook',
+            source: 'squidgy_chat'
+          }),
+          logger_id: result.params.logger_id || generateLoggerId()
+        });
+
+        const finalOAuthUrl = `https://www.facebook.com/v18.0/dialog/oauth?${oauthParams.toString()}`;
+        
+        setGeneratedOAuthUrl(finalOAuthUrl);
+        setIntegrationStatus('ready');
+        
+        addMessage('bot', '✅ Facebook OAuth URL generated successfully!', true, 'url_generated');
+        addMessage('bot', 'You can now click the button below to open Facebook and connect your account. After completing the authentication, you\'ll be redirected back to Squidgy.');
+        
+      } else {
+        throw new Error('Failed to extract OAuth parameters from response');
+      }
+
     } catch (error) {
-      console.error('Browser automation error:', error);
-      addMessage('bot', `❌ Error starting automation: ${error.message}`);
+      console.error('Facebook OAuth generation error:', error);
+      addMessage('bot', `❌ Error generating OAuth URL: ${error.message}`);
       setIntegrationStatus('idle');
-      setIsAutomating(false);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const pollAutomationStatus = async () => {
-    const backendUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
-      : 'http://localhost:8000';
-    
-    const checkStatus = async () => {
-      try {
-        const response = await fetch(`${backendUrl}/api/facebook/integration-status/${locationId}`);
-        
-        if (response.ok) {
-          const status = await response.json();
-          
-          if (status.status === 'success' && status.pages) {
-            setAvailablePages(status.pages);
-            setIntegrationStatus('selecting_pages');
-            setIsAutomating(false);
-            setAutomationProgress('');
-            
-            addMessage('bot', `✅ Found ${status.pages.length} Facebook pages!`, true, 'pages_found');
-            addMessage('bot', 'Please select which pages you want to connect to Squidgy for social media management.');
-            
-            // Stop polling
-            return true;
-          } else if (status.status === 'failed') {
-            addMessage('bot', '❌ Automation failed. Please try again or contact support.');
-            setIntegrationStatus('idle');
-            setIsAutomating(false);
-            return true;
-          }
-          
-          // Update progress message
-          if (status.current_step) {
-            setAutomationProgress(status.current_step);
-          }
-        }
-      } catch (error) {
-        console.error('Status polling error:', error);
-      }
-      
-      return false;
-    };
-    
-    // Poll every 2 seconds for up to 2 minutes
-    let attempts = 0;
-    const maxAttempts = 60;
-    
-    const interval = setInterval(async () => {
-      attempts++;
-      
-      const done = await checkStatus();
-      
-      if (done || attempts >= maxAttempts) {
-        clearInterval(interval);
-        
-        if (attempts >= maxAttempts) {
-          addMessage('bot', '⏱️ Automation is taking longer than expected. Please check the browser window.');
-          setIntegrationStatus('idle');
-          setIsAutomating(false);
-        }
-      }
-    }, 2000);
-  };
 
   const generateFacebookOAuthUrl = async () => {
     setIsGenerating(true);
@@ -486,106 +427,38 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
       <div className="p-4 border-t border-gray-200 space-y-3">
         {integrationStatus === 'idle' && (
           <button
-            onClick={startBrowserAutomation}
-            disabled={isAutomating}
+            onClick={generateFacebookOAuthUrl}
+            disabled={isGenerating}
             className="w-full flex items-center justify-center space-x-2 bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
           >
             <Facebook className="w-4 h-4" />
-            <span>{isAutomating ? 'Starting Automation...' : 'Connect Facebook Account'}</span>
+            <span>{isGenerating ? 'Generating...' : 'Start Facebook Integration'}</span>
           </button>
         )}
 
-        {integrationStatus === 'automating' && (
-          <div className="text-center space-y-3">
-            <div className="flex items-center justify-center space-x-2">
-              <div className="animate-spin w-5 h-5 border-3 border-blue-500 border-t-transparent rounded-full"></div>
-              <span className="text-gray-700 font-medium">Processing Facebook Integration...</span>
-            </div>
-            {automationProgress && (
-              <p className="text-sm text-gray-600">{automationProgress}</p>
-            )}
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <p className="text-sm text-blue-700">
-                <strong>What's happening:</strong><br/>
-                {process.env.NODE_ENV === 'development' ? (
-                  <>
-                    • Opening browser in incognito mode<br/>
-                    • Logging into GoHighLevel<br/>
-                    • Navigating to Facebook integration<br/>
-                    • Extracting your Facebook pages
-                  </>
-                ) : (
-                  <>
-                    • Connecting to GoHighLevel API<br/>
-                    • Authenticating with Facebook<br/>
-                    • Retrieving your Facebook pages<br/>
-                    • Processing integration data
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {integrationStatus === 'selecting_pages' && availablePages.length > 0 && (
+        {integrationStatus === 'ready' && generatedOAuthUrl && (
           <div className="space-y-3">
-            <h4 className="font-semibold text-gray-900">Select Facebook Pages to Connect:</h4>
-            <div className="max-h-48 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-3">
-              {availablePages.map((page) => (
-                <label key={page.facebookPageId} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedPages.includes(page.facebookPageId)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedPages([...selectedPages, page.facebookPageId]);
-                      } else {
-                        setSelectedPages(selectedPages.filter(id => id !== page.facebookPageId));
-                      }
-                    }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{page.facebookPageName}</p>
-                    {page.isInstagramAvailable && (
-                      <p className="text-xs text-gray-500">Instagram available</p>
-                    )}
-                  </div>
-                </label>
-              ))}
-            </div>
+            {/* Direct Connect Button */}
             <button
-              onClick={async () => {
-                if (selectedPages.length === 0) {
-                  addMessage('bot', '⚠️ Please select at least one page to connect.');
-                  return;
-                }
-                
-                setSaving(true);
-                addMessage('bot', `Connecting ${selectedPages.length} selected pages...`);
-                
-                // Save the configuration
-                const config: FacebookIntegrationConfig = {
-                  location_id: locationId,
-                  user_id: userId,
-                  integration_status: 'connected',
-                  connected_at: new Date().toISOString(),
-                  facebook_pages: availablePages,
-                  selected_page_ids: selectedPages
-                };
-                
-                await completeIntegration();
-              }}
-              disabled={selectedPages.length === 0 || isSaving}
+              onClick={openFacebookOAuth}
+              className="w-full flex items-center justify-center space-x-2 bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Connect Facebook Account</span>
+            </button>
+
+            {/* Complete Integration Button */}
+            <button
+              onClick={completeIntegration}
+              disabled={isSaving}
               className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>
-                {isSaving ? 'Connecting...' : `Connect ${selectedPages.length} Selected Page${selectedPages.length !== 1 ? 's' : ''}`}
-              </span>
+              <span>{isSaving ? 'Completing...' : 'Mark Integration Complete'}</span>
             </button>
           </div>
         )}
+
 
         {integrationStatus === 'ready' && generatedOAuthUrl && (
           <div className="space-y-3">
