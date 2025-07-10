@@ -189,11 +189,11 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           user_id: realUserId,
           location_name: `SolarBusiness_${realLocationId}`, // Use location_id in name as you requested
           user_name: result.user.details.name || "Solar Sales Manager",
-          user_email: `sa+${randomNum}@squidgy.ai`, // Use your requested format
+          user_email: result.user.details.email || process.env.NEXT_PUBLIC_DEFAULT_EMAIL || "admin@example.com",
           setup_status: 'completed',
           created_at: new Date().toISOString(),
-          ghl_login_email: "ovi.chand@gmail.com", // These are the credentials for browser automation
-          ghl_login_password: "Dummy@123"
+          ghl_login_email: result.user.details.email || process.env.NEXT_PUBLIC_DEFAULT_EMAIL || "admin@example.com",
+          ghl_login_password: process.env.NEXT_PUBLIC_DEFAULT_PASSWORD || "DefaultPassword123"
         };
 
         setGhlConfig(realGHLConfig);
@@ -217,12 +217,12 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       location_id: "GJSb0aPcrBRne73LK3A3",
       user_id: "utSop6RQjsF2Mwjnr8Gg", 
       location_name: "SolarSetup_Clone_192939",
-      user_name: "Ovi Colton",
-      user_email: "ovi+192940@test-solar.com",
+      user_name: "Solar Sales Manager",
+      user_email: process.env.NEXT_PUBLIC_DEFAULT_EMAIL || "admin@example.com",
       setup_status: 'completed',
       created_at: new Date().toISOString(),
-      ghl_login_email: "ovi.chand@gmail.com",
-      ghl_login_password: "Dummy@123"
+      ghl_login_email: process.env.NEXT_PUBLIC_DEFAULT_EMAIL || "admin@example.com",
+      ghl_login_password: process.env.NEXT_PUBLIC_DEFAULT_PASSWORD || "DefaultPassword123"
     };
 
     setGhlConfig(existingConfig);
