@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Building2, Users, CheckCircle, Loader, AlertCircle } from 'lucide-react';
+import { Building2, Users, CheckCircle, Loader, AlertCircle, X, Globe, Mail, Phone, MapPin } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
 
@@ -31,6 +31,22 @@ interface ChatMessage {
   actionType?: 'creation_started' | 'creation_complete' | 'using_existing';
 }
 
+interface GHLFormData {
+  businessName: string;
+  businessEmail: string;
+  phone: string;
+  website: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+}
+
+interface FormErrors {
+  [key: string]: string;
+}
+
 const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   onConfigurationComplete,
   onSkip,
@@ -54,6 +70,22 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   ]);
   const [setupStatus, setSetupStatus] = useState<'idle' | 'creating' | 'completed' | 'using_existing'>('idle');
   const [ghlConfig, setGhlConfig] = useState<GHLSetupConfig | null>(null);
+  
+  // Form modal state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [formData, setFormData] = useState<GHLFormData>({
+    businessName: '',
+    businessEmail: '',
+    phone: '',
+    website: '',
+    address: '',
+    city: '',
+    state: '',
+    country: 'US',
+    postalCode: ''
+  });
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -114,23 +146,177 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   };
 
   const startGHLCreation = async () => {
+    // Show the form modal instead of direct creation
+    setShowFormModal(true);
+    addMessage('user', 'Create GoHighLevel Account');
+    addMessage('bot', '📋 Please fill out your business information to create your GoHighLevel subaccount.');
+  };
+
+  const validateForm = (): boolean => {
+    const errors: FormErrors = {};
+    
+    if (!formData.businessName.trim()) {
+      errors.businessName = 'Business name is required';
+    }
+    
+    if (!formData.businessEmail.trim()) {
+      errors.businessEmail = 'Business email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.businessEmail)) {
+      errors.businessEmail = 'Please enter a valid email address';
+    }
+    
+    if (!formData.phone.trim()) {
+      errors.phone = 'Phone number is required';
+    }
+    
+    if (!formData.address.trim()) {
+      errors.address = 'Address is required';
+    }
+    
+    if (!formData.city.trim()) {
+      errors.city = 'City is required';
+    }
+    
+    if (!formData.state.trim()) {
+      errors.state = 'State is required';
+    }
+    
+    if (!formData.country.trim()) {
+      errors.country = 'Country is required';
+    }
+    
+    if (!formData.postalCode.trim()) {
+      errors.postalCode = 'Postal code is required';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!validateForm()) {
+      addMessage('bot', '❌ Please fix the form errors before submitting.');
+      return;
+    }
+    
+    setIsSubmittingForm(true);
     setIsCreating(true);
     setSetupStatus('creating');
     
-    addMessage('user', 'Create GoHighLevel Account');
-    addMessage('bot', '🚀 Starting GoHighLevel account creation...', true, 'creation_started');
-    addMessage('bot', '⏳ This process calls the GoHighLevel API to create your actual sub-account and user credentials.');
-
     try {
-      // Call the real backend API for GHL creation
-      await simulateGHLCreation();
-
+      await createGHLWithFormData();
+      // Form modal will be closed in createGHLWithFormData on success
     } catch (error: any) {
       console.error('GHL creation error:', error);
-      addMessage('bot', `❌ Error creating GHL account: ${error?.message || 'Unknown error'}`);
+      // Error message already added in createGHLWithFormData
       setSetupStatus('idle');
     } finally {
+      setIsSubmittingForm(false);
       setIsCreating(false);
+    }
+  };
+
+  const handleFormChange = (field: keyof GHLFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (formErrors[field]) {
+      setFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const createGHLWithFormData = async () => {
+    // Show progress messages
+    addMessage('bot', '📋 Creating GoHighLevel subaccount with your business information...');
+    addMessage('bot', '⏳ This process typically takes 30-60 seconds. Please wait...');
+    
+    try {
+      // Get backend URL - use exact same endpoint as test HTML
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://127.0.0.1:8010'; // Standard FastAPI development port
+
+      // Prepare request payload exactly like test HTML
+      const requestPayload = {
+        // Only send business information fields
+        // API credentials will be handled securely by the backend
+        subaccount_name: formData.businessName,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
+        postal_code: formData.postalCode,
+        website: formData.website,
+        // Include business_email at the top level for GHL location email field
+        business_email: formData.businessEmail,
+        // Also use businessEmail as prospect email
+        prospect_email: formData.businessEmail
+      };
+
+      // Call backend API to create sub-account - exact same as test HTML
+      const response = await fetch(`${backendUrl}/api/ghl/create-subaccount`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload)
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        // Success - clean user-friendly message
+        const successMessage = `✅ **GoHighLevel Account Created Successfully!**\n\n🏢 **Business:** ${result.subaccount_name}\n📍 **Location ID:** ${result.location_id}\n🌍 **Region:** ${result.details?.country || 'N/A'}\n\n${result.message}`;
+        addMessage('bot', successMessage);
+        
+        // Create GHL config for the app
+        const realGHLConfig: GHLSetupConfig = {
+          location_id: result.location_id,
+          user_id: result.details?.user_id || `user_${Date.now()}`,
+          location_name: result.subaccount_name,
+          user_name: "Solar Sales Manager",
+          user_email: formData.businessEmail,
+          setup_status: 'completed',
+          created_at: new Date().toISOString()
+        };
+
+        setGhlConfig(realGHLConfig);
+        setSetupStatus('completed');
+        
+        // Close the form modal
+        setShowFormModal(false);
+        
+        addMessage('bot', '🎉 **Setup Complete!** Your GoHighLevel integration is now ready. You can proceed to the next step.');
+        
+      } else {
+        // Error from backend - match test HTML error format
+        const errorMessage = `❌ **ERROR!**\n\n**Status:** ${response.status}\n**Message:** ${result.detail || result.message || 'Unknown error'}\n\n**Request Data:**\n\`\`\`json\n${JSON.stringify(requestPayload, null, 2)}\n\`\`\``;
+        addMessage('bot', errorMessage);
+        throw new Error(result.detail || result.message || 'Backend returned error');
+      }
+
+    } catch (error: any) {
+      console.error('GHL creation with form data failed:', error);
+      
+      // Network or other error - match test HTML error format
+      const errorMessage = `❌ **NETWORK ERROR!**\n\n**Error:** ${error.message}\n\n**This could be due to:**\n- Backend server not running\n- CORS issues\n- Network connectivity\n\n**Request Data:**\n\`\`\`json\n${JSON.stringify({
+        subaccount_name: formData.businessName,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
+        postal_code: formData.postalCode,
+        website: formData.website,
+        business_email: formData.businessEmail,
+        prospect_email: formData.businessEmail
+      }, null, 2)}\n\`\`\``;
+      addMessage('bot', errorMessage);
+      
+      throw error;
     }
   };
 
@@ -408,6 +594,230 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           Skip GHL Setup for now
         </button>
       </div>
+
+      {/* GHL Subaccount Creation Form Modal */}
+      {showFormModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Create GoHighLevel Subaccount</h2>
+                <button
+                  onClick={() => setShowFormModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleFormSubmit} className="space-y-4">
+                {/* Business Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Business Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.businessName}
+                    onChange={(e) => handleFormChange('businessName', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white placeholder-gray-500 ${
+                      formErrors.businessName ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter your business name"
+                  />
+                  {formErrors.businessName && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.businessName}</p>
+                  )}
+                </div>
+
+                {/* Business Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Business Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.businessEmail}
+                    onChange={(e) => handleFormChange('businessEmail', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white placeholder-gray-500 ${
+                      formErrors.businessEmail ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter your business email"
+                  />
+                  {formErrors.businessEmail && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.businessEmail}</p>
+                  )}
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleFormChange('phone', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white placeholder-gray-500 ${
+                      formErrors.phone ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter your phone number"
+                  />
+                  {formErrors.phone && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>
+                  )}
+                </div>
+
+                {/* Website */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => handleFormChange('website', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white placeholder-gray-500"
+                    placeholder="https://yourwebsite.com"
+                  />
+                </div>
+
+                {/* Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => handleFormChange('address', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white placeholder-gray-500 ${
+                      formErrors.address ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter your business address"
+                  />
+                  {formErrors.address && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.address}</p>
+                  )}
+                </div>
+
+                {/* City, State, Country Row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      City *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => handleFormChange('city', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white placeholder-gray-500 ${
+                        formErrors.city ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="City"
+                    />
+                    {formErrors.city && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.city}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      State *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.state}
+                      onChange={(e) => handleFormChange('state', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white placeholder-gray-500 ${
+                        formErrors.state ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="State"
+                    />
+                    {formErrors.state && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.state}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Country *
+                    </label>
+                    <select
+                      value={formData.country}
+                      onChange={(e) => handleFormChange('country', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white ${
+                        formErrors.country ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    >
+                      <option value="US">United States</option>
+                      <option value="CA">Canada</option>
+                      <option value="GB">United Kingdom</option>
+                      <option value="AU">Australia</option>
+                      <option value="DE">Germany</option>
+                      <option value="FR">France</option>
+                      <option value="IT">Italy</option>
+                      <option value="ES">Spain</option>
+                      <option value="NL">Netherlands</option>
+                      <option value="SE">Sweden</option>
+                      <option value="NO">Norway</option>
+                      <option value="DK">Denmark</option>
+                      <option value="FI">Finland</option>
+                    </select>
+                    {formErrors.country && (
+                      <p className="text-red-500 text-sm mt-1">{formErrors.country}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Postal Code */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Postal Code *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.postalCode}
+                    onChange={(e) => handleFormChange('postalCode', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white placeholder-gray-500 ${
+                      formErrors.postalCode ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter postal code"
+                  />
+                  {formErrors.postalCode && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.postalCode}</p>
+                  )}
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowFormModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingForm}
+                    className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                  >
+                    {isSubmittingForm ? (
+                      <>
+                        <Loader className="w-4 h-4 animate-spin" />
+                        <span>Creating Account...</span>
+                      </>
+                    ) : (
+                      <span>Create GoHighLevel Account</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
