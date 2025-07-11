@@ -58,7 +58,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     {
       id: '1',
       sender: 'bot',
-      message: 'Hi! Now I need to set up your GoHighLevel account integration. This will create your dedicated sub-account and user credentials for managing your solar business.',
+      message: 'Hi! Now I need to set up your business account. This will create your dedicated account and user credentials for managing your solar business.',
       timestamp: new Date()
     },
     {
@@ -258,7 +258,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   };
 
   const handleCreateNewAccount = () => {
-    addMessage('bot', '📋 Please fill out the form below to create your GoHighLevel subaccount.');
+    addMessage('bot', '📋 Please fill out the form below with your business information.');
     setShowInlineForm(true);
   };
 
@@ -286,15 +286,16 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     if (!validateForm()) return;
     
     setIsSubmittingForm(true);
-    addMessage('bot', '📋 Creating GoHighLevel subaccount with your business information...');
+    addMessage('bot', '📋 Setting up your business account...');
     
     const backendUrl = process.env.NODE_ENV === 'production' 
       ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
       : 'http://127.0.0.1:8010';
     
     const requestPayload = {
-      business_name: formData.businessName,
+      subaccount_name: formData.businessName,
       business_email: formData.businessEmail,
+      prospect_email: formData.businessEmail,
       phone: formData.phone,
       website: formData.website || '',
       address: formData.address,
@@ -440,8 +441,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
             <Building2 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">GoHighLevel Setup</h3>
-            <p className="text-sm text-gray-500">Create your business sub-account and user credentials</p>
+            <h3 className="text-lg font-semibold text-gray-900">Business Information Setup</h3>
+            <p className="text-sm text-gray-500">Enter your business details to get started</p>
           </div>
         </div>
         <button
@@ -615,7 +616,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
                 disabled={isSubmittingForm}
                 className="flex-1 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmittingForm ? 'Creating Account...' : 'Create Account'}
+                {isSubmittingForm ? 'Processing...' : 'Next'}
               </button>
             </div>
           </form>
@@ -631,7 +632,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>Use Existing Credentials</span>
+              <span>Use Existing Business Info</span>
             </button>
             <p className="text-center text-xs text-gray-500">or</p>
             <button
@@ -639,7 +640,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               className="w-full flex items-center justify-center space-x-2 bg-orange-500 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors"
             >
               <Building2 className="w-4 h-4" />
-              <span>Create New GHL Account</span>
+              <span>Enter Business Information</span>
             </button>
           </div>
         )}
@@ -658,7 +659,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
             <div className="text-center">
               <div className="inline-flex items-center space-x-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
                 <CheckCircle className="w-5 h-5" />
-                <span className="font-medium">GHL Account Ready!</span>
+                <span className="font-medium">Business Info Ready!</span>
               </div>
             </div>
             
@@ -678,7 +679,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           onClick={onSkip}
           className="w-full text-gray-500 hover:text-gray-700 transition-colors py-2"
         >
-          Skip GHL Setup for now
+          Skip Business Setup for now
         </button>
       </div>
     </div>
