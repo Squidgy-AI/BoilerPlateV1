@@ -1,195 +1,111 @@
-# Squidgy Project Deployment Guide For development
+# Squidgy Frontend
 
-This guide provides instructions for deploying the Squidgy application, which consists of a frontend and two backend options (local testing and hosting).
+This is the frontend for the Squidgy application, a collaborative agent platform for business teams.
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+- Supabase account
+- HeyGen API key (for avatar streaming)
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/your-username/squidgy-frontend.git
+cd squidgy-frontend
+```
+
+2. Install dependencies
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Set up environment variables
+```bash
+cp .env.local.example .env.local
+```
+Then edit `.env.local` to add your actual API keys and endpoints.
+
+4. Run the development server
+```bash
+npm run dev
+# or
+yarn dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ## Project Structure
 
 ```
-BoilerPlateV1\
-├── Code\
-│   ├── squidgy-backend\          # Backend for local testing
-│   ├── squidgy-backend_host\     # Backend for deployment
-│   └── squidgy-frontend\         # Frontend (common for both backends)
+├── public/                  # Static files
+├── src/
+│   ├── app/                 # Next.js App Router
+│   ├── components/          # React components
+│   │   ├── Agents/          # Agent-related components
+│   │   ├── Auth/            # Authentication components
+│   │   ├── Groups/          # Group management components
+│   │   ├── Header/          # Header components
+│   │   ├── Invitations/     # Invitation components
+│   │   └── Sidebar/         # Sidebar components
+│   ├── context/             # React Context providers
+│   ├── hooks/               # Custom React hooks
+│   ├── lib/                 # Utility libraries
+│   └── services/            # API services
+├── database/                # Database scripts
+│   ├── create_queries.sql   # Table creation queries
+│   ├── policies.sql         # Security policies
+│   └── trigger.sql          # Database triggers
+├── scripts/                 # Utility scripts
+└── types/                   # TypeScript type definitions
 ```
 
-## Deployment Methods
+## Features
 
-There are two ways to deploy this application:
+- Real-time communication via WebSockets
+- Interactive AI agents with different personas
+- Group chat functionality
+- User authentication and profile management
+- Interactive avatars with speech synthesis
+- Tool execution visualization
+- Solar analysis tools integration
+- Dashboard with session management
 
-1. **Manual Deployment**: Follow the step-by-step instructions below
-2. **Docker Deployment**: Use the Docker configuration provided in the "Docker Deployment Instructions" document
+## Environment Variables
 
-## Docker Deployment
+- `NEXT_PUBLIC_API_BASE`: Base URL for the API server
+- `NEXT_PUBLIC_N8N_WEBHOOK_URL`: URL for n8n webhook integration
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anonymous key
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key (for admin functions)
+- `HEYGEN_API_KEY`: API key for HeyGen avatar streaming service
 
-For Docker-based deployment, follow these steps:
+## Database Setup
 
-1. Create a Dockerfile in the backend_host directory:
-```dockerfile
-# Choose our version of Python
-FROM python:3.12
+The database scripts in the `database` directory can be used to set up the Supabase database:
 
-# Set up a working directory
-WORKDIR /code
+1. Run `create_queries.sql` to create the tables
+2. Run `policies.sql` to set up Row Level Security policies
+3. Run `trigger.sql` to create database triggers
 
-# Copy just the requirements into the working directory so it gets cached by itself
-COPY ./requirements.txt /code/requirements.txt
+Alternatively, you can run the seed script:
 
-# Install the dependencies from the requirements file
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
-
-# Copy the vector_store.py file to the root code directory
-COPY ./app/vector_store.py /code/vector_store.py
-COPY ./app/roles_config.py /code/roles_config.py
-
-# Copy the entire app directory with all files
-COPY ./app /code/app
-
-# Copy GHL directory 
-COPY ./GHL /code/GHL
-
-# Copy conversation_templates.xlsx to the code directory
-COPY ./app/conversation_templates.xlsx /code/conversation_templates.xlsx
-
-COPY ./.env /code/.env
-
-# Tell uvicorn to start spin up our code, which will be running inside the container now
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
-```
-
-2. Create a Dockerfile in the frontend directory:
-```dockerfile
-# Use Node.js as the base image
-FROM node:18-alpine
-
-# Set working directory
-WORKDIR /app
-
-# Copy package.json and yarn.lock
-COPY package.json yarn.lock ./
-
-# Install dependencies
-RUN yarn install --frozen-lockfile
-
-# Copy the rest of the code
-COPY . .
-
-# Build the application and ignore ESLint errors
-# RUN yarn build --no-lint
-
-# Expose the port the app will run on
-EXPOSE 3000
-
-# Command to run the app
-CMD ["yarn", "dev", "--hostname", "0.0.0.0"]
-```
-
-3. Create a docker-compose.yml file in the root directory:
-```yaml
-version: '3'
-services:
-  backend:
-    build:
-      context: ./Code/squidgy-backend_host
-    ports:
-      - "80:80"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-  
-  frontend:
-    build:
-      context: ./Code/squidgy-frontend
-    depends_on:
-      - backend
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_BASE=backend:80
-```
-
-4. Run the deployment:
 ```bash
-docker-compose up -d
+npm run seed
+# or
+yarn seed
 ```
 
-**Note**: Make sure all environment variables required by both services are properly configured. The backend exposes port 80 in this configuration, so the frontend's API base should point to `backend:80` instead of `127.0.0.1:8080`.
+## Styling
 
-## Deployment Order
+The project uses Tailwind CSS for styling. The main configuration is in `tailwind.config.ts`.
 
-**Important**: Always deploy the backend first, followed by the frontend. This ensures proper WebSocket connection establishment.
+## License
 
-## Backend Deployment (squidgy-backend_host)
-
-1. Navigate to the backend_host directory:
-   ```
-   cd Code\squidgy-backend_host
-   ```
-
-2. Install required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-
-3. Set up environment variables:
-   - Check the `.env` file in the backend_host folder
-   - Contact Soma for required environment variables if needed
-
-4. **Critical Step**: Update all occurrences of `127.0.0.1:8080` in the code to your actual deployment endpoint URL
-   - This includes file paths, configuration files, and connection strings
-   - This step ensures the backend can be properly accessed by the frontend
-
-5. Start the backend server:
-   ```
-   python main.py
-   ```
-
-6. Note the URL where your backend is running, as you'll need it for frontend configuration
-
-## Frontend Deployment (squidgy-frontend)
-
-1. Navigate to the frontend directory:
-   ```
-   cd Code\squidgy-frontend
-   ```
-
-2. Install required dependencies:
-   ```
-   yarn install
-   ```
-
-3. Configure the API endpoint:
-   - Open the frontend configuration or `.env` file
-   - Update the API base URL to point to your deployed backend:
-     ```
-     # Located in .env or similar configuration file
-     NEXT_PUBLIC_API_BASE=your-backend-endpoint-url
-     ```
-   - This replaces the default `127.0.0.1:8080` with your actual backend URL
-
-4. Run the frontend application:
-   ```
-   yarn dev
-   ```
-   
-   The frontend will be accessible at `http://127.0.0.1:3000`
-
-
-## WebSocket Implementation Notes
-
-- This application uses WebSockets for real-time communication
-- Ensure that any firewalls or network configurations allow WebSocket connections
-- The backend must be running and accessible before the frontend is started
-- Test the WebSocket connection after deployment to ensure proper functionality
-
-## Troubleshooting
-
-If you encounter connection issues:
-
-1. Verify the backend is running and accessible
-2. Check that all `127.0.0.1:8080` references were updated to the correct deployment URL
-3. Confirm environment variables are properly set in both backend and frontend
-4. Ensure WebSocket ports are not blocked by firewalls or network policies
-5. update backend url for websocket connection in Vercel environment variables (NEXT_PUBLIC_API_BASE)
-
-## Contact Information
-
-For additional deployment assistance or to obtain required environment variables, please contact Soma.
+[MIT](https://choosealicense.com/licenses/mit/)

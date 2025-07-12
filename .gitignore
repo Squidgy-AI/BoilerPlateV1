@@ -1,166 +1,43 @@
-# Dependencies
-node_modules/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
+.pnpm-debug.log*
 
-# Next.js
-.next/
-out/
-
-# Production
-build/
-dist/
-
-# Environment variables
+# env files (can opt-in for committing if needed)
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env*
 
-# Vercel
+# vercel
 .vercel
 
-# TypeScript
+# typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Logs
-*.log
-logs/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage/
-*.lcov
-.nyc_output
-
-# Grunt intermediate storage
-.grunt
-
-# Bower dependency directory
-bower_components
-
-# node-waf configuration
-.lock-wscript
-
-# Compiled binary addons
-build/Release
-
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env.test
-
-# parcel-bundler cache
-.cache
-.parcel-cache
-
-# Storybook build outputs
-.out
-.storybook-out
-
-# Temporary folders
-tmp/
-temp/
-
-# Database
-*.db
-*.sqlite
-
-# Facebook Integration - Specific files to ignore
-test-facebook-oauth/*.log
-database/*.sql
-database/*_backup.sql
-*_backup.tsx
-*_backup.js
-*_backup.ts
-
-# Testing
-.nyc_output/
-coverage/
-test-results/
-playwright-report/
-
-# Backup files
-*.backup
-*.bak
-backup/
-
-# Documentation (keep only essential)
-*.md
-!README.md
-!CHANGELOG.md
-
-# Python files (for reference scripts)
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-venv/
-.Python
-
-# Custom project files
-AGENT_SWITCHING_SUMMARY.md
-AUTHENTICATION.md
-BACKEND_FIX_NEEDED.md
-DATABASE_UPDATES_SUMMARY.md
-SCHEMA_UPDATE_GUIDE.md
-*_SUMMARY.md
-*_GUIDE.md
-database-*.sql
-data-cleanup-*.sql
-disable-rls-*.sql
-
-# Docker
-Dockerfile
-.dockerignore
-docker-compose.yml
-
-# Miscellaneous
-*.tgz
-*.tar.gz
-.cache/
