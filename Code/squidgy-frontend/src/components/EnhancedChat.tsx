@@ -44,6 +44,10 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   const [agentType, setAgentType] = useState<string | null>(null);
   const [selectedAvatarId, setSelectedAvatarId] = useState('Anna_public_3_20240108');
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
+
+  const [isListening, setIsListening] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -55,6 +59,14 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   
   // All available agents
   const availableAgents = AGENT_CONFIG;
+
+  useEffect(() => {
+    console.log('🔍 AgentType changed:', {
+      agentType,
+      sessionId,
+      timestamp: new Date().toISOString()
+    });
+  }, [agentType, sessionId]);
   
   // Connect WebSocket
   // DISABLED: Using centralized WebSocket from ChatContext instead
@@ -217,17 +229,24 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
           setMessages(formattedMessages);
         } else {
           // Check if this is an agent session
-          const agent = availableAgents.find(a => a.id === sessionId);
+          const agent = AGENT_CONFIG.find(a => a.id === sessionId);
           
-          if (agent) {
-            setSessionDetails({
+          if (agent && !agentType) {
+            const agentDetails = {
               id: agent.id,
               name: agent.name,
               avatar: agent.avatar
-            });
+            };
             
+            setSessionDetails(agentDetails);
             setAgentType(agent.type); 
-            setSelectedAvatarId(agent.id); // Just pass the agent ID
+            setSelectedAvatarId(agent.id); 
+            console.log('🎯 Agent detected and set:', {
+              agentId: agent.id,
+              agentType: agent.type,
+              agentName: agent.name,
+              sessionId: sessionId
+            });
             
             // No need to fetch messages for a new agent chat
             setMessages([]);
@@ -299,7 +318,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
   const getAgentName = (type: string | null): string => {
     if (!type) return 'AI';
     
-    const agent = availableAgents.find(a => a.type === type);
+    const agent = AGENT_CONFIG.find(a => a.type === type);
     return agent ? agent.name : 'AI';
   };
   
@@ -441,6 +460,114 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
       sendMessage();
     }
   };
+
+  // Speech-to-text handlers
+  const handleSpeechTranscript = (transcript: string) => {
+    console.log('🎤 Speech transcript received:', transcript);
+
+    // Add transcript to current message
+    setNewMessage(prev => {
+      const newText = prev ? `${prev} ${transcript}` : transcript;
+      return newText.trim();
+    });
+
+    // Clear any speech errors
+    setSpeechError(null);
+  };
+
+  const handleSpeechError = (error: string) => {
+    console.error('🎤 Speech recognition error:', error);
+    setSpeechError(error);
+    setIsListening(false);
+  };
+
+  const toggleListening = () => {
+    if (!voiceEnabled) return;
+
+    if (isListening) {
+      // Stop listening
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+      setSpeechError(null);
+    } else {
+      // Start listening
+      startSpeechRecognition();
+    }
+  };
+
+  const startSpeechRecognition = () => {
+    // Check browser support
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechError('Speech recognition not supported');
+      return;
+    }
+
+    // Create recognition instance
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      console.log('🎤 Speech recognition started');
+      setIsListening(true);
+      setSpeechError(null);
+    };
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        }
+      }
+
+      if (finalTranscript) {
+        handleSpeechTranscript(finalTranscript);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('🚨 Speech recognition error:', event.error);
+      setIsListening(false);
+
+      let errorMessage = 'Speech recognition error';
+      switch (event.error) {
+        case 'no-speech':
+          errorMessage = 'No speech detected';
+          break;
+        case 'audio-capture':
+          errorMessage = 'Microphone not available';
+          break;
+        case 'not-allowed':
+          errorMessage = 'Microphone access denied';
+          break;
+        default:
+          errorMessage = `Speech error: ${event.error}`;
+      }
+      setSpeechError(errorMessage);
+    };
+
+    recognition.onend = () => {
+      console.log('🎤 Speech recognition ended');
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+    } catch (error) {
+      console.error('🚨 Error starting speech recognition:', error);
+      setSpeechError('Failed to start speech recognition');
+      setIsListening(false);
+    }
+  };
   
   return (
     <div className="flex flex-col h-full bg-[#1E2A3B]">
@@ -457,7 +584,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       // Find the agent and use its fallback
-                      const agent = availableAgents.find(a => 
+                      const agent = AGENT_CONFIG.find(a => 
                         a.id === sessionId || a.type === sessionDetails.agent_type
                       );
                       target.src = agent?.fallbackAvatar || '/avatars/default-agent.jpg';
@@ -519,6 +646,7 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
       {agentType && (
         <div className="relative h-[430px] mb-4">
           <InteractiveAvatar
+            key={`avatar-${sessionId}-${agentType}`}
             onAvatarReady={handleAvatarReady}
             avatarRef={avatarRef}
             enabled={videoEnabled}
@@ -526,6 +654,33 @@ const EnhancedChat: React.FC<EnhancedChatProps> = ({
             voiceEnabled={voiceEnabled}
             avatarId={selectedAvatarId}
           />
+          {/* Microphone Button - Centered at bottom of avatar frame */}
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+            <div className="relative">
+              <button
+                onClick={toggleListening}
+                disabled={!voiceEnabled}
+                className={`
+                  p-3 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center
+                  ${isListening 
+                    ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                  }
+                  ${!voiceEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
+                title={isListening ? 'Stop listening' : 'Start voice input'}
+              >
+                <Mic size={20} className="text-white" />
+              </button>
+
+              {/* Speech Error Indicator */}
+              {speechError && (
+                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-red-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                  {speechError}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
       

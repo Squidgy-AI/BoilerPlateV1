@@ -105,11 +105,13 @@ export const processImagePath = (
     }
   };
   
-  export default {
+  const webSocketUtils = {
     processImagePath,
     processToolResult,
     logWebSocketEvent
   };
+
+  export default webSocketUtils;
 
 
   /**

@@ -22,7 +22,10 @@ export const AGENT_CONFIG: Agent[] = [
     description: 'Your intelligent personal assistant for all needs',
     // heygenAvatarId: '413a244b053949f39e8ab50099a895ea', // Original avatar ID - NOT FOUND ERROR
     // heygenAvatarId: 'Wayne_20240711', // May not be available
-    heygenAvatarId: 'josh_lite3_20230714', // HeyGen's default public avatar
+    // heygenAvatarId: 'josh_lite3_20230714', // HeyGen's default public avatar
+    // heygenAvatarId: 'josh_lite3_20230714', // HeyGen's default public avatar
+    // heygenAvatarId: 'Graham_Black_Shirt_public', // without background
+    heygenAvatarId: 'Judy_Lawyer_Sitting2_public', // with background
     fallbackAvatar: '/avatars/personal-assistant-fallback.jpg',
     agent_name: 'PersonalAssistant',
     introMessage: "Hi! I'm your Personal Assistant Bot. I help with various tasks, answer questions, and provide assistance with anything you need.",
@@ -35,7 +38,8 @@ export const AGENT_CONFIG: Agent[] = [
     type: 'SOLAgent',
     description: 'Expert in solar energy solutions and renewable energy sales',
     // heygenAvatarId: 'Thaddeus_ProfessionalLook_public', // May not be working
-    heygenAvatarId: 'anna_public_3_20240108', // HeyGen's public avatar for solar specialist
+    // heygenAvatarId: 'anna_public_3_20240108', // HeyGen's public avatar for solar specialist
+    heygenAvatarId: 'Wayne_20240711', // HeyGen public avatar
     fallbackAvatar: '/avatars/leadgen-fallback.jpg', // Using existing fallback
     agent_name: 'SOLAgent',
     introMessage: "Hello! I'm your Solar Sales Specialist. I help customers find the perfect solar energy solutions, calculate savings, and guide them through the transition to renewable energy. How can I help you go solar today?",
@@ -129,7 +133,7 @@ export const getValidatedAvatarId = (agentId: string): string => {
   
   // Check if it's a valid avatar ID format
   if (isValidAvatarId(avatarId)) {
-    console.log(`Using validated avatar ID for agent ${agentId}: ${avatarId}`);
+    console.log(`✅ Using avatar ID for agent ${agentId}: ${avatarId}`);
     return avatarId;
   }
   

@@ -12,14 +12,17 @@
   },
   "dependencies": {
     "@heygen/streaming-avatar": "^2.0.9",
+    "@livekit/components-react": "^2.9.12",
     "@supabase/supabase-js": "^2.49.4",
     "axios": "^1.7.9",
+    "livekit-client": "^2.13.8",
     "lucide-react": "^0.475.0",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "supabase": "^2.22.12",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "ws": "^8.18.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

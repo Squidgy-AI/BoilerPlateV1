@@ -1,7 +1,7 @@
 // src/components/Dashboard/EnhancedDashboard.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
 import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, getAgentSetup, checkSOLAgentEnabled, initializePersonalAssistant, enableSOLAgent } from '@/services/agentService';
 import type { Agent } from '@/services/agentService';
@@ -30,6 +30,7 @@ import StreamingAvatar from "@heygen/streaming-avatar";
 import WebSocketDebugger from '../WebSocketDebugger';
 import AgentGreeting from '../AgentGreeting';
 import SquidgyLogo from '../Auth/SquidgyLogo';
+import SpeechToText from '../SpeechToText';
 import MessageContent from '../Chat/MessageContent';
 import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
@@ -46,7 +47,7 @@ const EnhancedDashboard: React.FC = () => {
     data?: any;
   };
   const [websocketLogs, setWebsocketLogs] = useState<WebSocketLog[]>([]);
-  const { profile, signOut, inviteUser } = useAuth();
+  const { profile, signOut, inviteUser, session, isLoading } = useAuth();
   const [activeSection, setActiveSection] = useState<'people' | 'agents' | 'groups'>('agents');
   const [currentSessionId, setCurrentSessionId] = useState<string>('');
   const [isGroupSession, setIsGroupSession] = useState(false);
@@ -74,6 +75,11 @@ const EnhancedDashboard: React.FC = () => {
   // const [isLoading, setIsLoading] = useState(false);
   const [selectedAvatarId, setSelectedAvatarId] = useState<string>('PersonalAssistant');;
   const avatarRef = React.useRef<StreamingAvatar | null>(null);
+
+  const [avatarReady, setAvatarReady] = useState<boolean>(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState<number>(0);
+  const [cleanupTrigger, setCleanupTrigger] = useState<number>(0);
   
   // Store session IDs for each agent to maintain continuity
   // Initialize agentSessions from localStorage to persist across refreshes
@@ -181,6 +187,16 @@ const EnhancedDashboard: React.FC = () => {
   
   // SOL Agent progressive setup state  
   const [showSOLSetup, setShowSOLSetup] = useState(false);
+
+    // Voice input settings - simplified to always auto-send
+  const [voiceInputEnabled, setVoiceInputEnabled] = useState(true);
+  const [lastVoiceMessage, setLastVoiceMessage] = useState('');
+  const voiceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+    // Speech recognition state for microphone button
+  const [isListening, setIsListening] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   // DEBUG: Monitor showSOLSetup state changes
   useEffect(() => {
@@ -385,7 +401,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
   
   // Connect WebSocket when session changes
   useEffect(() => {
-    if (!profile || !currentSessionId) {
+    if (!profile || !currentSessionId || !session) {
       // Clean up existing connection if no session
       if (websocket) {
         websocket.close();
@@ -396,6 +412,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     
     // Add a small delay to prevent rapid connection creation/destruction
     const connectTimer = setTimeout(() => {
+
+      if (!profile || !currentSessionId || !session) {
+        console.log("🚫 Skipping WebSocket creation - session ended during timeout");
+        return;
+      }
+
       // Disconnect existing WebSocket
       if (websocket) {
         websocket.close();
@@ -431,7 +453,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         websocket.close();
       }
     };
-  }, [profile, currentSessionId]);
+  }, [profile, currentSessionId, session]);
   
   // Debug messages changes
   useEffect(() => {
@@ -623,7 +645,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
               // Agent message will be saved by backend - no need to save here
               
               // Speak with avatar if enabled
-              if (avatarRef.current && videoEnabled && voiceEnabled) {
+              if (false && avatarRef.current && videoEnabled && voiceEnabled) {
                 try {
                   avatarRef.current.speak({
                     text: transitionMessage.text,
@@ -640,7 +662,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
               console.log('🔄 Same agent - showing normal response');
               // Same agent, just show the response normally
             } else {
-              console.log('🔄 Target agent not found:', responseAgentName);
+              console.log('🚫 Avatar speech is disabled - agent transition will not be spoken');
             }
           }
           
@@ -663,32 +685,72 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
           }
           
           addMessage(agentMessage);
+
+          // 🎯 Avatar will read n8n responses (but not listen to voice directly)
+          // Send agent response to avatar for speech if enabled
+          console.log('🔍 Avatar speech check:', {
+            avatarExists: !!avatarRef.current,
+            videoEnabled,
+            voiceEnabled,
+            agentResponseLength: agentResponse?.length
+          });
+
+          if (avatarRef.current && videoEnabled && voiceEnabled) {
+            try {
+              console.log('🗣️ Sending agent response to avatar for speech:', agentResponse);
+
+              // Try using the new streaming task API method first
+              if (typeof (avatarRef.current as any).sendTextToAvatarAPI === 'function') {
+                await (avatarRef.current as any).sendTextToAvatarAPI(agentResponse, 'sync', 'chat');
+                console.log('✅ Agent response sent to avatar via streaming task API');
+              } else if (typeof (avatarRef.current as any).sendN8nResponseToAvatarAPI === 'function') {
+                await (avatarRef.current as any).sendN8nResponseToAvatarAPI(agentResponse);
+                console.log('✅ Agent response sent to avatar via n8n response API');
+              } else {
+                // Fallback to original speak method
+                console.log('⚠️ Using fallback speak method for avatar');
+                (avatarRef.current as any).speak({
+                  text: agentResponse,
+                  taskType: "repeat" as any,
+                  taskMode: "sync" as any
+                });
+                console.log('✅ Agent response sent to avatar via fallback speak method');
+              }
+            } catch (error) {
+              console.error('❌ Error sending agent response to avatar:', error);
+
+              // Don't break the chat flow if avatar speech fails
+              console.log('💬 Chat continues despite avatar speech error');
+            }
+          } else {
+            console.log('🚫 Avatar speech is disabled (video/voice not enabled) - agent response will not be spoken');
+          }
           
           // Agent message will be saved by backend - no need to save here
           
           // Speak with avatar if enabled
-          if (avatarRef.current && videoEnabled && voiceEnabled) {
-            try {
-              avatarRef.current.speak({
-                text: agentResponse,
-                taskType: "talk" as any,
-                taskMode: 1 as any
-              });
-            } catch (error) {
-              console.error('Error speaking with avatar:', error);
-            }
-          }
+          // if (avatarRef.current && videoEnabled && voiceEnabled) {
+          //   try {
+          //     avatarRef.current.speak({
+          //       text: agentResponse,
+          //       taskType: "talk" as any,
+          //       taskMode: 1 as any
+          //     });
+          //   } catch (error) {
+          //     console.error('Error speaking with avatar:', error);
+          //   }
+          // }
         }
         break;
         
-      case 'error':
-        setWebsocketLogs(prev => [...prev, {
-          timestamp: new Date(),
-          type: 'error',
-          message: `Error: ${data.message}`,
-          data: data
-        }]);
-        break;
+      // case 'error':
+      //   setWebsocketLogs(prev => [...prev, {
+      //     timestamp: new Date(),
+      //     type: 'error',
+      //     message: `Error: ${data.message}`,
+      //     data: data
+      //   }]);
+      //   break;
     }
   };
   
@@ -1089,9 +1151,236 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     setAgentThinking('AI is thinking...');
   };
   
-  const handleAvatarReady = () => {
-    console.log("Avatar is ready");
+  const sendSpeechMessage = async (speechText: string) => {
+    if (!speechText.trim() || !websocket || !selectedAgent) {
+      console.log('Cannot send speech message:', { speechText: speechText.trim(), websocket: !!websocket, selectedAgent: !!selectedAgent });
+      return;
+    }
+
+    // Use the agent's persistent session, or create one if it doesn't exist
+    let sessionId = currentSessionId;
+    if (!sessionId) {
+      sessionId = agentSessions[selectedAgent.id];
+      if (!sessionId) {
+        sessionId = `${profile?.user_id}_${selectedAgent.id}_${Date.now()}`;
+        setAgentSessions(prev => ({ ...prev, [selectedAgent.id]: sessionId }));
+      }
+      setCurrentSessionId(sessionId);
+      console.log(`Using session for agent: ${selectedAgent.name}`);
+    }
+
+    const userMessage = speechText.trim();
+    console.log('🎤 Sending speech message:', userMessage, 'Session ID:', sessionId);
+
+    // Add user message to UI and cache
+    addMessage({ sender: 'user', text: userMessage, timestamp: new Date().toISOString() });
+
+    // Send via WebSocket
+    console.log('WebSocket status:', websocket.getStatus(), 'Connection state:', connectionStatus);
+
+    try {
+      // Pass the selected agent's agent_name to WebSocket
+      const agentName = selectedAgent.agent_name || selectedAgent.id;
+      console.log(`🎯 Sending speech message with agent: ${agentName} (selected agent: ${selectedAgent.name})`);
+      await websocket.sendMessage(userMessage, undefined, agentName);
+    } catch (error) {
+      console.error('Failed to send speech message:', error);
+      setWebsocketLogs(prev => [...prev, {
+        timestamp: new Date(),
+        type: 'error',
+        message: `Failed to send speech message: ${error}`,
+        data: error
+      }]);
+    }
+
+    // Clear input field and set thinking state
+    setInputMessage('');
+    setAgentThinking('AI is thinking...');
   };
+
+  // Speech recognition handlers for microphone button
+  const toggleListening = () => {
+    if (!voiceEnabled) return;
+
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListening(false);
+      setSpeechError(null);
+    } else {
+      startSpeechRecognition();
+    }
+  };
+
+  const startSpeechRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSpeechError('Speech recognition not supported');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setSpeechError(null);
+    };
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        }
+      }
+
+      if (finalTranscript) {
+        const speechText = finalTranscript.trim();
+        if (speechText) {
+          // Send the speech text directly without relying on state
+          sendSpeechMessage(speechText);
+        }
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+
+      switch (event.error) {
+        case 'no-speech':
+          setSpeechError('No speech detected');
+          break;
+        case 'audio-capture':
+          setSpeechError('Microphone not accessible');
+          break;
+        case 'not-allowed':
+          setSpeechError('Microphone access denied');
+          break;
+        default:
+          setSpeechError('Speech recognition error');
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  // Handle avatar ready callback
+  const handleAvatarReady = useCallback(() => {
+    console.log("🎯 Avatar ready callback received - hiding loading indicator");
+    setAvatarReady(true);
+    setAvatarError(null);
+  }, []);
+
+  // Handle avatar error callback
+  const handleAvatarError = useCallback((error: string) => {
+    console.log("❌ Avatar error callback received:", error);
+    setAvatarReady(false);
+
+    // Check if it's a 400 error (likely credit exhaustion)
+    if (error.includes('400') || error.includes('API request failed with status 400')) {
+      setAvatarError('HeyGen credits exhausted. Please check your account balance and try again later.');
+    } else {
+      setAvatarError(error);
+    }
+  }, []);
+
+  // Reset avatar ready state when session changes
+  useEffect(() => {
+    setAvatarReady(false);
+    setAvatarError(null);
+  }, [currentSessionId, selectedAvatarId]);
+
+  // Clean up avatar when user session ends
+  useEffect(() => {
+    if (!session && avatarRef.current) {
+      console.log("🚪 User session ended - cleaning up avatar");
+      // Clean up avatar session immediately when user logs out
+      (avatarRef.current as any).stopAvatar?.().catch(() => {
+        // Ignore errors during cleanup
+      });
+      avatarRef.current = null;
+      setAvatarReady(false);
+      setAvatarError(null);
+    }
+  }, [session]);
+
+  // Cleanup function for logout
+  const handleLogout = async () => {
+    console.log("🚪 Logout initiated - triggering immediate cleanup of all processes");
+    console.log("🔍 Current cleanup trigger value:", cleanupTrigger);
+
+    // Trigger immediate cleanup in InteractiveAvatar component
+    console.log("📡 Incrementing cleanup trigger to force InteractiveAvatar cleanup...");
+    setCleanupTrigger(prev => {
+      const newValue = prev + 1;
+      console.log(`🔄 Cleanup trigger: ${prev} -> ${newValue}`);
+      return newValue;
+    });
+
+    // Give a moment for the cleanup trigger to propagate
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Clean up avatar session
+    if (avatarRef.current) {
+      console.log("🛑 Stopping avatar session from Dashboard...");
+      await (avatarRef.current as any).stopAvatar?.().catch((error: any) => {
+        console.log("ℹ️ Avatar stop error (expected):", error);
+      });
+      avatarRef.current = null;
+      console.log("✅ Avatar session stopped from Dashboard");
+    } else {
+      console.log("ℹ️ No avatar reference to clean up in Dashboard");
+    }
+
+    // Reset avatar state
+    console.log("🔄 Resetting avatar UI state...");
+    setAvatarReady(false);
+    setAvatarError(null);
+    setVideoEnabled(true);
+    setVoiceEnabled(true);
+
+    // Stop microphone tracks
+    try {
+      console.log("🎤 Attempting to stop microphone tracks...");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log(`✅ Stopped ${track.kind} track from Dashboard`);
+      });
+    } catch (error) {
+      console.log("ℹ️ No microphone access to clean up:", error);
+    }
+
+    // Clean up WebSocket
+    if (websocket) {
+      console.log("🔌 Closing WebSocket connection...");
+      websocket.close();
+      setWebsocket(null);
+      console.log("✅ WebSocket connection closed");
+    } else {
+      console.log("ℹ️ No WebSocket to close");
+    }
+
+    // Reset session state
+    console.log("🔄 Resetting session state...");
+    setCurrentSessionId('');
+    setMessages([]);
+    setAgentThinking(null);
+
+    console.log("🧹 Dashboard cleanup completed - calling signOut...");
+    await signOut();
+    console.log("✅ Logout process completed - user should be signed out");
+  };  
   
   const handleInviteUser = async () => {
     if (!profile || !inviteEmail) return;
@@ -1411,7 +1700,7 @@ Let's begin with your Solar Business Setup! ☀️`;
             <Settings size={20} />
           </button>
           <button 
-            onClick={() => signOut()} 
+            onClick={handleLogout} 
             className="p-2 hover:bg-gray-700 rounded"
           >
             <LogOut size={20} />
@@ -1515,7 +1804,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                 onClick={handleNewSession}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center"
               >
-                <MessageSquare size={16} className="mr-2" />
+                <Send size={16} className="mr-2" />
                 New Chat
               </button>
             )}
@@ -1624,20 +1913,22 @@ Let's begin with your Solar Business Setup! ☀️`;
             {/* Control Buttons */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setTextEnabled(!textEnabled)}
-                className={`p-2 rounded ${textEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}
-              >
-                <MessageSquare size={16} />
-              </button>
-              <button
-                onClick={() => setVoiceEnabled(!voiceEnabled)}
-                className={`p-2 rounded ${voiceEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}
-              >
-                <Mic size={16} />
-              </button>
-              <button
-                onClick={() => setVideoEnabled(!videoEnabled)}
+                onClick={() => {
+                  if (videoEnabled) {
+                    // Disable avatar
+                    setVideoEnabled(false);
+                    console.log('🎥 Avatar disabled by user');
+                  } else {
+                    // Enable and restart avatar
+                    console.log('🔄 Restarting avatar via video button');
+                    setAvatarError(null);
+                    setAvatarReady(false);
+                    setVideoEnabled(true);
+                    setRetryTrigger(prev => prev + 1); // Trigger avatar restart
+                  }
+                }}
                 className={`p-2 rounded ${videoEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}
+                title={videoEnabled ? 'Disable Avatar' : 'Enable & Restart Avatar'}
               >
                 <Video size={16} />
               </button>
@@ -1651,39 +1942,118 @@ Let's begin with your Solar Business Setup! ☀️`;
               <div className="h-full rounded-lg bg-[#2D3B4F] flex items-center justify-center relative">
                 {videoEnabled ? (
                   <>
+                   {/* Show loading frame when avatar is not ready and no error */}
+                   {!avatarReady && !avatarError && (
+                      <div className="absolute inset-0 bg-[#2D3B4F] flex items-center justify-center z-20">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                          <div className="text-white text-lg font-medium mb-2">Initializing Avatar</div>
+                          <div className="text-gray-400 text-sm">Setting up your AI assistant...</div>
+                        </div>
+                      </div>
+                    )}
                     <InteractiveAvatar
+                      key={`avatar-${selectedAvatarId}`}
                       onAvatarReady={handleAvatarReady}
+                      onAvatarError={handleAvatarError}
                       avatarRef={avatarRef}
                       enabled={videoEnabled}
                       sessionId={currentSessionId}
                       voiceEnabled={voiceEnabled}
                       avatarId={selectedAvatarId}
                       avatarTimeout={6000}
+                      retryTrigger={retryTrigger}
+                      cleanupTrigger={cleanupTrigger}
                     />
                     
                     {/* Fallback when avatar is loading */}
-                    {!avatarRef.current && (
-                      <div className="text-center">
-                        <div className="w-64 h-64 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                          <span className="text-8xl">🤖</span>
+                     {/* Error notification at top */}
+                     {avatarError && (
+                      <div className="absolute top-4 left-4 right-4 z-10">
+                        <div className="bg-red-600 bg-opacity-90 text-white p-3 rounded-lg shadow-lg">
+                          <div className="flex items-center">
+                            <span className="text-xl mr-2">⚠️</span>
+                            <div className="flex-1">
+                              {avatarError.includes('Concurrent limit') ? (
+                                <>
+                                  <div className="font-semibold">HeyGen Concurrent Limit Reached</div>
+                                  <div className="text-sm opacity-90">
+                                    Multiple avatar sessions are active. Please wait 2-3 minutes.
+                                  </div>
+                                </>
+                              ) : avatarError.includes('credits exhausted') ? (
+                                <>
+                                  <div className="font-semibold">HeyGen Credits Exhausted</div>
+                                  <div className="text-sm opacity-90">
+                                    Your account has run out of credits. Please add more credits.
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="font-semibold">Avatar Error</div>
+                                  <div className="text-sm opacity-90">{avatarError}</div>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="animate-pulse text-xl text-blue-400">
-                          Loading avatar...
+                      </div>
+                    )}
+
+                    {/* Retry button centered under avatar frame */}
+                    {avatarError && (
+                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+                        <button
+                          onClick={() => {
+                            console.log("🔄 User clicked retry button");
+                            setAvatarError(null);
+                            setAvatarReady(false);
+                            setRetryTrigger(prev => prev + 1); // Trigger manual retry
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-lg transition-colors"
+                        >
+                          Retry Avatar
+                        </button>
+                      </div>
+                    )}
+
+                    {agentThinking && (
+                      <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg z-20">
+                        <div className="flex items-center">
+                          <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
+                          {agentThinking}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Microphone Button - Floating at bottom center of avatar */}
+                    {videoEnabled && !avatarError && (
+                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30">
+                        {speechError && (
+                          <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
+                            {speechError}
+                          </div>
+                        )}
+                        <button
+                          onClick={toggleListening}
+                          disabled={!voiceEnabled}
+                          className={`
+                            w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg
+                            ${isListening 
+                              ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' 
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                            }
+                            ${!voiceEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
+                          `}
+                          title={isListening ? 'Stop listening' : 'Start voice input'}
+                        >
+                          <Mic size={20} />
+                        </button>
                       </div>
                     )}
                   </>
                 ) : (
                   <div className="text-gray-400">Video is disabled</div>
-                )}
-                
-                {agentThinking && (
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
-                    <div className="flex items-center">
-                      <div className="animate-pulse w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
-                      {agentThinking}
-                    </div>
-                  </div>
                 )}
               </div>
             </div>

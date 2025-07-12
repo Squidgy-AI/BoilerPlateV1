@@ -92,7 +92,9 @@ export const sendToN8nWorkflow = async (
   }
 };
 
-export default {
+const n8nService = {
   processAgentResponse,
   sendToN8nWorkflow
 };
+
+export default n8nService;
