@@ -20,8 +20,6 @@ interface GHLSetupConfig {
   user_email: string;
   setup_status: 'pending' | 'creating' | 'completed' | 'failed';
   created_at?: string;
-  ghl_login_email?: string;
-  ghl_login_password?: string;
 }
 
 interface ChatMessage {
@@ -31,6 +29,22 @@ interface ChatMessage {
   timestamp: Date;
   isAction?: boolean;
   actionType?: 'creation_started' | 'creation_complete' | 'using_existing';
+}
+
+interface GHLFormData {
+  businessName: string;
+  businessEmail: string;
+  phone: string;
+  website: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+}
+
+interface FormErrors {
+  [key: string]: string;
 }
 
 const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
@@ -44,7 +58,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     {
       id: '1',
       sender: 'bot',
-      message: 'Hi! Now I need to set up your GoHighLevel account integration. This will create your dedicated sub-account and user credentials for managing your solar business.',
+      message: 'Hi! Now I need to set up your business account. This will create your dedicated account and user credentials for managing your solar business.',
       timestamp: new Date()
     },
     {
@@ -56,6 +70,22 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   ]);
   const [setupStatus, setSetupStatus] = useState<'idle' | 'creating' | 'completed' | 'using_existing'>('idle');
   const [ghlConfig, setGhlConfig] = useState<GHLSetupConfig | null>(null);
+  
+  // Inline form state
+  const [showInlineForm, setShowInlineForm] = useState(false);
+  const [formData, setFormData] = useState<GHLFormData>({
+    businessName: '',
+    businessEmail: '',
+    phone: '',
+    website: '',
+    address: '',
+    city: '',
+    state: '',
+    country: 'US',
+    postalCode: ''
+  });
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -189,11 +219,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           user_id: realUserId,
           location_name: `SolarBusiness_${realLocationId}`, // Use location_id in name as you requested
           user_name: result.user.details.name || "Solar Sales Manager",
-          user_email: result.user.details.email || process.env.NEXT_PUBLIC_DEFAULT_EMAIL || "admin@example.com",
+          user_email: `sa+${randomNum}@squidgy.ai`, // Use your requested format
           setup_status: 'completed',
-          created_at: new Date().toISOString(),
-          ghl_login_email: result.user.details.email || process.env.NEXT_PUBLIC_DEFAULT_EMAIL || "admin@example.com",
-          ghl_login_password: process.env.NEXT_PUBLIC_DEFAULT_PASSWORD || "DefaultPassword123"
+          created_at: new Date().toISOString()
         };
 
         setGhlConfig(realGHLConfig);
@@ -217,20 +245,119 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       location_id: "GJSb0aPcrBRne73LK3A3",
       user_id: "utSop6RQjsF2Mwjnr8Gg", 
       location_name: "SolarSetup_Clone_192939",
-      user_name: "Solar Sales Manager",
-      user_email: process.env.NEXT_PUBLIC_DEFAULT_EMAIL || "admin@example.com",
+      user_name: "Ovi Colton",
+      user_email: "ovi+192940@test-solar.com",
       setup_status: 'completed',
-      created_at: new Date().toISOString(),
-      ghl_login_email: process.env.NEXT_PUBLIC_DEFAULT_EMAIL || "admin@example.com",
-      ghl_login_password: process.env.NEXT_PUBLIC_DEFAULT_PASSWORD || "DefaultPassword123"
+      created_at: new Date().toISOString()
     };
 
     setGhlConfig(existingConfig);
     setSetupStatus('using_existing');
     
     addMessage('user', 'Use Existing Credentials');
-    addMessage('bot', '✅ Using existing GoHighLevel credentials!', true, 'using_existing');
-    addMessage('bot', `📍 **Location:** ${existingConfig.location_name}\n👤 **User:** ${existingConfig.user_name} (${existingConfig.user_email})\n\nPerfect! We'll use your existing GHL setup to avoid creating duplicate accounts.`);
+  };
+
+  const handleCreateNewAccount = () => {
+    addMessage('bot', '📋 Please fill out the form below with your business information.');
+    setShowInlineForm(true);
+  };
+
+  const validateForm = (): boolean => {
+    const errors: FormErrors = {};
+    
+    if (!formData.businessName.trim()) errors.businessName = 'Business name is required';
+    if (!formData.businessEmail.trim()) errors.businessEmail = 'Business email is required';
+    if (!formData.phone.trim()) errors.phone = 'Phone number is required';
+    if (!formData.address.trim()) errors.address = 'Address is required';
+    if (!formData.city.trim()) errors.city = 'City is required';
+    if (!formData.state.trim()) errors.state = 'State is required';
+    if (!formData.country.trim()) errors.country = 'Country is required';
+    if (!formData.postalCode.trim()) errors.postalCode = 'Postal code is required';
+    
+    if (formData.businessEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.businessEmail)) {
+      errors.businessEmail = 'Please enter a valid email address';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const createGHLWithFormData = async () => {
+    if (!validateForm()) return;
+    
+    setIsSubmittingForm(true);
+    addMessage('bot', '📋 Setting up your business account...');
+    
+    const backendUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+      : 'http://127.0.0.1:8010';
+    
+    const requestPayload = {
+      subaccount_name: formData.businessName,
+      business_email: formData.businessEmail,
+      prospect_email: formData.businessEmail,
+      phone: formData.phone,
+      website: formData.website || '',
+      address: formData.address,
+      city: formData.city,
+      state: formData.state,
+      country: formData.country,
+      postal_code: formData.postalCode
+    };
+    
+    try {
+      const response = await fetch(`${backendUrl}/api/ghl/create-subaccount`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload)
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        console.log('GHL Account Created Successfully:', {
+          business: result.subaccount_name,
+          locationId: result.location_id,
+          region: result.details?.country || 'N/A',
+          fullResponse: result
+        });
+        
+        setShowInlineForm(false);
+        setSetupStatus('completed');
+        
+        const newConfig: GHLSetupConfig = {
+          location_id: result.location_id,
+          user_id: result.user_id || 'generated_user_id',
+          location_name: result.subaccount_name,
+          user_name: formData.businessName,
+          user_email: formData.businessEmail,
+          setup_status: 'completed',
+          created_at: new Date().toISOString()
+        };
+        setGhlConfig(newConfig);
+      } else {
+        console.error('GHL Account Creation Failed:', {
+          status: response.status,
+          error: result.detail || result.message || 'Unknown error',
+          fullResponse: result
+        });
+        
+        throw new Error(result.detail || result.message || 'Unknown error');
+      }
+    } catch (error: any) {
+      console.error('GHL Account Creation Error:', error);
+    } finally {
+      setIsSubmittingForm(false);
+    }
+  };
+
+  const handleInputChange = (field: keyof GHLFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
   const completeSetup = async () => {
@@ -314,8 +441,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
             <Building2 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">GoHighLevel Setup</h3>
-            <p className="text-sm text-gray-500">Create your business sub-account and user credentials</p>
+            <h3 className="text-lg font-semibold text-gray-900">Business Information Setup</h3>
+            <p className="text-sm text-gray-500">Enter your business details to get started</p>
           </div>
         </div>
         <button
@@ -354,25 +481,166 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Inline GHL Form */}
+      {showInlineForm && (
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <form onSubmit={(e) => { e.preventDefault(); createGHLWithFormData(); }} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Business Name *</label>
+                <input
+                  type="text"
+                  value={formData.businessName}
+                  onChange={(e) => handleInputChange('businessName', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 ${formErrors.businessName ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Enter your business name"
+                />
+                {formErrors.businessName && <p className="text-red-500 text-xs mt-1">{formErrors.businessName}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Business Email *</label>
+                <input
+                  type="email"
+                  value={formData.businessEmail}
+                  onChange={(e) => handleInputChange('businessEmail', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 ${formErrors.businessEmail ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Enter your business email"
+                />
+                {formErrors.businessEmail && <p className="text-red-500 text-xs mt-1">{formErrors.businessEmail}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 ${formErrors.phone ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Enter your phone number"
+                />
+                {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Website (Optional)</label>
+                <input
+                  type="url"
+                  value={formData.website}
+                  onChange={(e) => handleInputChange('website', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                  placeholder="Enter your website URL"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 ${formErrors.address ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Enter your business address"
+                />
+                {formErrors.address && <p className="text-red-500 text-xs mt-1">{formErrors.address}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 ${formErrors.city ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Enter your city"
+                />
+                {formErrors.city && <p className="text-red-500 text-xs mt-1">{formErrors.city}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                <input
+                  type="text"
+                  value={formData.state}
+                  onChange={(e) => handleInputChange('state', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 ${formErrors.state ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Enter your state"
+                />
+                {formErrors.state && <p className="text-red-500 text-xs mt-1">{formErrors.state}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country *</label>
+                <select
+                  value={formData.country}
+                  onChange={(e) => handleInputChange('country', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 ${formErrors.country ? 'border-red-500' : 'border-gray-300'}`}
+                >
+                  <option value="US">United States</option>
+                  <option value="CA">Canada</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="AU">Australia</option>
+                  <option value="DE">Germany</option>
+                  <option value="FR">France</option>
+                  <option value="ES">Spain</option>
+                  <option value="IT">Italy</option>
+                  <option value="NL">Netherlands</option>
+                  <option value="SE">Sweden</option>
+                </select>
+                {formErrors.country && <p className="text-red-500 text-xs mt-1">{formErrors.country}</p>}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code *</label>
+                <input
+                  type="text"
+                  value={formData.postalCode}
+                  onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 ${formErrors.postalCode ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Enter your postal code"
+                />
+                {formErrors.postalCode && <p className="text-red-500 text-xs mt-1">{formErrors.postalCode}</p>}
+              </div>
+            </div>
+            
+            <div className="flex space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowInlineForm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingForm}
+                className="flex-1 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingForm ? 'Processing...' : 'Next'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="p-4 border-t border-gray-200 space-y-3">
-        {setupStatus === 'idle' && (
+        {setupStatus === 'idle' && !showInlineForm && (
           <div className="space-y-2">
             <button
               onClick={useExistingCredentials}
               className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>Use Existing Credentials</span>
+              <span>Use Existing Business Info</span>
             </button>
             <p className="text-center text-xs text-gray-500">or</p>
             <button
-              onClick={startGHLCreation}
-              disabled={isCreating}
-              className="w-full flex items-center justify-center space-x-2 bg-orange-500 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+              onClick={handleCreateNewAccount}
+              className="w-full flex items-center justify-center space-x-2 bg-orange-500 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors"
             >
               <Building2 className="w-4 h-4" />
-              <span>{isCreating ? 'Creating Account...' : 'Create New GHL Account'}</span>
+              <span>Enter Business Information</span>
             </button>
           </div>
         )}
@@ -391,7 +659,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
             <div className="text-center">
               <div className="inline-flex items-center space-x-2 text-green-600 bg-green-50 px-4 py-2 rounded-lg">
                 <CheckCircle className="w-5 h-5" />
-                <span className="font-medium">GHL Account Ready!</span>
+                <span className="font-medium">Business Info Ready!</span>
               </div>
             </div>
             
@@ -411,7 +679,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           onClick={onSkip}
           className="w-full text-gray-500 hover:text-gray-700 transition-colors py-2"
         >
-          Skip GHL Setup for now
+          Skip Business Setup for now
         </button>
       </div>
     </div>

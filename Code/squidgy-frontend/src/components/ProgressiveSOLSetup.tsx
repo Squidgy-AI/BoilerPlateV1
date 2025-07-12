@@ -52,7 +52,6 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   });
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [ghlCredentials, setGhlCredentials] = useState<{email: string; password: string} | null>(null);
 
   // Load existing progress on mount
   useEffect(() => {
@@ -257,14 +256,6 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const handleGHLComplete = async (config: any) => {
     console.log('🏢 GHL setup completed');
     
-    // Store GHL credentials for Facebook integration
-    if (config.ghl_login_email && config.ghl_login_password) {
-      setGhlCredentials({
-        email: config.ghl_login_email,
-        password: config.ghl_login_password
-      });
-    }
-    
     // Update progress state immediately
     setProgress(prev => ({ ...prev, ghl_completed: true, ghl_completed_at: new Date().toISOString() }));
     
@@ -421,7 +412,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         
         <div className={`flex flex-col items-center text-xs ${progress.ghl_completed ? 'text-green-600' : currentStage === 'ghl' ? 'text-blue-600' : 'text-gray-400'}`}>
           {progress.ghl_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
-          <span className="mt-1 font-medium">GHL</span>
+          <span className="mt-1 font-medium">Set Up</span>
         </div>
         
         <div className={`flex flex-col items-center text-xs ${progress.facebook_completed ? 'text-green-600' : currentStage === 'facebook' ? 'text-blue-600' : 'text-gray-400'}`}>
@@ -540,7 +531,6 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           onConfigurationComplete={handleFacebookComplete}
           onSkip={handleSkipStage}
           sessionId={sessionId}
-          ghlCredentials={ghlCredentials}
         />
       )}
     </div>
