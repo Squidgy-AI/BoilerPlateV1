@@ -80,10 +80,42 @@ const SpeechToText: React.FC<SpeechToTextProps> = ({
         // Update interim text for real-time display
         setInterimText(interimTranscript);
 
-        // If we have final transcript, add it to our accumulator
+        // If we have final results, accumulate them but don't send yet
         if (finalTranscript) {
           finalTranscriptRef.current += finalTranscript;
-          console.log('🎯 Final transcript chunk:', finalTranscript);
+          console.log('🗣️ Final transcript part:', finalTranscript);
+          // Don't send yet - wait for recognition to end
+        }
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('🚨 Speech recognition error:', event.error);
+        setIsListening(false);
+        setInterimText('');
+        
+        let errorMessage = 'Speech recognition error';
+        switch (event.error) {
+          case 'no-speech':
+            errorMessage = 'No speech detected. Please try again.';
+            break;
+          case 'audio-capture':
+            errorMessage = 'Microphone access denied or not available.';
+            break;
+          case 'not-allowed':
+            errorMessage = 'Microphone permission denied.';
+            break;
+          case 'network':
+            errorMessage = 'Network error occurred during speech recognition.';
+            break;
+          case 'aborted':
+            errorMessage = 'Speech recognition was aborted.';
+            break;
+          default:
+            errorMessage = `Speech recognition error: ${event.error}`;
+        }
+        
+        if (onError) {
+          onError(errorMessage);
         }
       };
 
@@ -92,51 +124,45 @@ const SpeechToText: React.FC<SpeechToTextProps> = ({
         setIsListening(false);
         setInterimText('');
         
-        // Send the final accumulated transcript if we have any
+        // If we have accumulated final transcript, send it
         if (finalTranscriptRef.current.trim()) {
-          console.log('📤 Sending final transcript:', finalTranscriptRef.current.trim());
+          console.log('🗣️ Complete transcript:', finalTranscriptRef.current);
           onTranscript(finalTranscriptRef.current.trim());
-        }
-        
-        finalTranscriptRef.current = '';
-      };
-
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error('🚨 Speech recognition error:', event.error);
-        setIsListening(false);
-        setInterimText('');
-        
-        if (onError) {
-          onError(`Speech recognition error: ${event.error}`);
+          finalTranscriptRef.current = '';
         }
       };
 
       recognitionRef.current = recognition;
     }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
   }, [language, continuous, interimResults, onTranscript, onError]);
 
   const startListening = () => {
-    if (recognitionRef.current && !isListening && !disabled) {
-      try {
-        console.log('🎤 Starting speech recognition...');
-        recognitionRef.current.start();
-      } catch (error) {
-        console.error('Error starting speech recognition:', error);
-        if (onError) {
-          onError('Failed to start speech recognition');
-        }
-      }
+    if (!isSupported) {
+      const errorMsg = 'Speech recognition is not supported in this browser';
+      console.error('🚨', errorMsg);
+      if (onError) onError(errorMsg);
+      return;
+    }
+
+    if (!recognitionRef.current || isListening) return;
+
+    try {
+      recognitionRef.current.start();
+    } catch (error) {
+      console.error('🚨 Error starting speech recognition:', error);
+      if (onError) onError('Failed to start speech recognition');
     }
   };
 
   const stopListening = () => {
     if (recognitionRef.current && isListening) {
-      try {
-        console.log('🛑 Stopping speech recognition...');
-        recognitionRef.current.stop();
-      } catch (error) {
-        console.error('Error stopping speech recognition:', error);
-      }
+      recognitionRef.current.stop();
     }
   };
 
@@ -150,40 +176,35 @@ const SpeechToText: React.FC<SpeechToTextProps> = ({
 
   if (!isSupported) {
     return (
-      <div className={`flex items-center justify-center p-2 text-gray-500 ${className}`}>
+      <div className={`flex items-center text-gray-500 ${className}`}>
         <MicOff size={16} />
-        <span className="ml-2 text-sm">Speech recognition not supported</span>
+        <span className="ml-1 text-xs">Speech not supported</span>
       </div>
     );
   }
 
   return (
-    <div className={`flex items-center space-x-2 ${className}`}>
+    <div className={`flex items-center ${className}`}>
       <button
         onClick={toggleListening}
         disabled={disabled}
         className={`
-          flex items-center justify-center p-2 rounded-full transition-all duration-200
+          p-2 rounded-lg transition-all duration-200 flex items-center justify-center
           ${isListening 
-            ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
-            : 'bg-blue-500 hover:bg-blue-600 text-white'
+            ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' 
+            : 'bg-gray-600 hover:bg-gray-700 text-gray-300'
           }
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
         `}
         title={isListening ? 'Stop listening' : 'Start voice input'}
       >
         {isListening ? <Volume2 size={16} /> : <Mic size={16} />}
       </button>
       
+      {/* Interim text display */}
       {interimText && (
-        <div className="text-sm text-gray-500 italic">
-          {interimText}
-        </div>
-      )}
-      
-      {isListening && (
-        <div className="text-xs text-blue-500 animate-pulse">
-          Listening...
+        <div className="ml-2 text-sm text-gray-400 italic">
+          "{interimText}"
         </div>
       )}
     </div>
