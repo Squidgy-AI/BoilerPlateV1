@@ -212,14 +212,16 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       if (result.status === 'success') {
         // Extract real location_id from backend response
         const realLocationId = result.subaccount.location_id;
-        const realUserId = result.user.user_id;
+        // Use business_user as primary, since it's the actual business owner
+        const businessUser = result.business_user;
+        const somaUser = result.soma_user;
         
         const realGHLConfig: GHLSetupConfig = {
           location_id: realLocationId,
-          user_id: realUserId,
+          user_id: businessUser.user_id, // Primary business user
           location_name: `SolarBusiness_${realLocationId}`, // Use location_id in name as you requested
-          user_name: result.user.details.name || "Solar Sales Manager",
-          user_email: `sa+${randomNum}@squidgy.ai`, // Use your requested format
+          user_name: businessUser.details.name || "Solar Sales Manager",
+          user_email: businessUser.details.email || `sa+${randomNum}@squidgy.ai`,
           setup_status: 'completed',
           created_at: new Date().toISOString()
         };
@@ -228,7 +230,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         setSetupStatus('completed');
         
         addMessage('bot', '✅ GoHighLevel account created successfully!', true, 'creation_complete');
-        addMessage('bot', `🎉 **Real Account Details:**\n📍 **Location ID:** ${realGHLConfig.location_id}\n🏢 **Location Name:** ${realGHLConfig.location_name}\n👤 **User:** ${realGHLConfig.user_name}\n📧 **Email:** ${realGHLConfig.user_email}\n\nYour GoHighLevel integration is now ready for Facebook and other services!`);
+        addMessage('bot', `🎉 **Dual User Account Details:**\n📍 **Location ID:** ${realGHLConfig.location_id}\n🏢 **Location Name:** ${realGHLConfig.location_name}\n👤 **Business User:** ${realGHLConfig.user_name} (${realGHLConfig.user_email})\n👤 **Soma User:** ${somaUser.details.name} (${somaUser.details.email})\n\nBoth accounts are created and ready for Facebook integration!`);
       } else {
         throw new Error('Backend returned failure status');
       }
@@ -330,14 +332,21 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       const result = await response.json();
       
       if (response.ok && result.status === 'success') {
-        addMessage('bot', '✅ Both sub-account and user created successfully!');
+        addMessage('bot', '✅ Both sub-account and dual users created successfully!');
+        
+        // Handle the new dual user response structure
+        const businessUser = result.business_user;
+        const somaUser = result.soma_user;
         
         console.log('GHL Account Created Successfully:', {
           business: result.subaccount.subaccount_name,
           locationId: result.subaccount.location_id,
-          userId: result.user.user_id,
-          userName: result.user.details.name,
-          userEmail: result.user.details.email,
+          businessUserId: businessUser.user_id,
+          businessUserName: businessUser.details.name,
+          businessUserEmail: businessUser.details.email,
+          somaUserId: somaUser.user_id,
+          somaUserName: somaUser.details.name,
+          somaUserEmail: somaUser.details.email,
           fullResponse: result
         });
         
@@ -346,16 +355,16 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         
         const newConfig: GHLSetupConfig = {
           location_id: result.subaccount.location_id,
-          user_id: result.user.user_id,
+          user_id: businessUser.user_id, // Use business user as primary
           location_name: result.subaccount.subaccount_name || formData.businessName,
-          user_name: result.user.details.name || formData.businessName,
-          user_email: result.user.details.email || formData.businessEmail,
+          user_name: businessUser.details.name || formData.businessName,
+          user_email: businessUser.details.email || formData.businessEmail,
           setup_status: 'completed',
           created_at: new Date().toISOString()
         };
         setGhlConfig(newConfig);
         
-        addMessage('bot', `🎉 **Account Details:**\n📍 **Location ID:** ${newConfig.location_id}\n👤 **User ID:** ${newConfig.user_id}\n🏢 **Business:** ${newConfig.location_name}\n👤 **User:** ${newConfig.user_name}\n📧 **Email:** ${newConfig.user_email}\n\nYour GoHighLevel integration is ready for Facebook and other services!`);
+        addMessage('bot', `🎉 **Dual User Account Details:**\n📍 **Location ID:** ${newConfig.location_id}\n🏢 **Business:** ${newConfig.location_name}\n👤 **Business User:** ${newConfig.user_name} (${newConfig.user_email})\n👤 **Soma User:** ${somaUser.details.name} (${somaUser.details.email})\n\nBoth users are created and ready for Facebook integration!`);
       } else {
         console.error('GHL Account Creation Failed:', {
           status: response.status,
