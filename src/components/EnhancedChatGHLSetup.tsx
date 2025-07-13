@@ -137,8 +137,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         setGhlConfig(existingConfig);
         setSetupStatus('using_existing');
         
-        addMessage('bot', '✅ Found existing GoHighLevel setup!', true, 'using_existing');
-        addMessage('bot', `📍 **Location:** ${existingConfig.location_name || existingConfig.location_id}\n👤 **User:** ${existingConfig.user_name || 'Solar Specialist'} (${existingConfig.user_email || 'configured'})\n\nYour GHL integration is already configured and ready to use.`);
+        addMessage('bot', '✅ Found existing account setup!', true, 'using_existing');
+        addMessage('bot', `📍 **Location:** ${existingConfig.location_name || existingConfig.location_id}\n👤 **User:** ${existingConfig.user_name || 'Solar Specialist'} (${existingConfig.user_email || 'configured'})\n\nYour account integration is already configured and ready to use.`);
       }
     } catch (error) {
       console.error('Error checking existing GHL setup:', error);
@@ -149,9 +149,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     setIsCreating(true);
     setSetupStatus('creating');
     
-    addMessage('user', 'Create GoHighLevel Account');
-    addMessage('bot', '🚀 Starting GoHighLevel account creation...', true, 'creation_started');
-    addMessage('bot', '⏳ This process calls the GoHighLevel API to create your actual sub-account and user credentials.');
+    addMessage('user', 'Create Account');
+    addMessage('bot', '🚀 Starting account creation...', true, 'creation_started');
+    addMessage('bot', '⏳ This process calls the API to create your actual sub-account and user credentials.');
 
     try {
       // Call the real backend API for GHL creation
@@ -159,7 +159,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
 
     } catch (error: any) {
       console.error('GHL creation error:', error);
-      addMessage('bot', `❌ Error creating GHL account: ${error?.message || 'Unknown error'}`);
+      addMessage('bot', `❌ Error creating account: ${error?.message || 'Unknown error'}`);
       setSetupStatus('idle');
     } finally {
       setIsCreating(false);
@@ -168,7 +168,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
 
   const simulateGHLCreation = async () => {
     // Show progress messages
-    addMessage('bot', '📋 Creating sub-account in GoHighLevel...');
+    addMessage('bot', '📋 Creating sub-account...');
     
     try {
       // Get backend URL
@@ -204,7 +204,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to create GHL account: ${response.status} - ${errorText}`);
+        throw new Error(`Failed to create account: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
@@ -229,7 +229,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         setGhlConfig(realGHLConfig);
         setSetupStatus('completed');
         
-        addMessage('bot', '✅ GoHighLevel account created successfully!', true, 'creation_complete');
+        addMessage('bot', '✅ Account created successfully!', true, 'creation_complete');
         addMessage('bot', `🎉 **Dual User Account Details:**\n📍 **Location ID:** ${realGHLConfig.location_id}\n🏢 **Location Name:** ${realGHLConfig.location_name}\n👤 **Business User:** ${realGHLConfig.user_name} (${realGHLConfig.user_email})\n👤 **Soma User:** ${somaUser.details.name} (${somaUser.details.email})\n\nBoth accounts are created and ready for Facebook integration!`);
       } else {
         throw new Error('Backend returned failure status');
@@ -318,7 +318,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     };
     
     try {
-      addMessage('bot', '🏢 Creating GoHighLevel sub-account...');
+      addMessage('bot', '🏢 Creating sub-account...');
       
       // Use the combined endpoint that creates both sub-account and user
       const response = await fetch(`${backendUrl}/api/ghl/create-subaccount-and-user`, {
@@ -678,7 +678,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           <div className="text-center">
             <div className="inline-flex items-center space-x-2 text-orange-600 bg-orange-50 px-4 py-2 rounded-lg">
               <Loader className="w-5 h-5 animate-spin" />
-              <span className="font-medium">Creating GoHighLevel Account...</span>
+              <span className="font-medium">Creating Account...</span>
             </div>
           </div>
         )}
