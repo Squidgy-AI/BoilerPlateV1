@@ -41,8 +41,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   onConfigurationComplete,
   onSkip,
   sessionId,
-  locationId = "GJSb0aPcrBRne73LK3A3", // Fallback if not provided from GHL setup
-  userId = "utSop6RQjsF2Mwjnr8Gg", // Fallback if not provided from GHL setup
+  locationId = "rlRJ1n5Hoy3X53WDOJlq", // Updated to correct location_id
+  userId = "MHwz5yMaG0JrTfGXjvxB", // Updated to correct user_id
   ghlCredentials
 }) => {
   const [isSaving, setSaving] = useState(false);
@@ -67,6 +67,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
   const [oauthCompleted, setOauthCompleted] = useState(false);
   const [storedJwtToken, setStoredJwtToken] = useState<string | null>(null);
+  const [actualLocationId, setActualLocationId] = useState<string>(locationId); // Track actual location_id from backend
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -258,11 +259,17 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
 
       const result = await response.json();
       
+      // Use the location_id returned from backend (may be different from what we sent)
+      if (result.location_id) {
+        setActualLocationId(result.location_id);
+        console.log(`Using backend location_id: ${result.location_id} (sent: ${locationId})`);
+      }
+      
       addMessage('bot', '⏳ Browser automation started! This will:');
       addMessage('bot', '• Login to GoHighLevel with your credentials\n• Extract JWT token\n• Get all your Facebook pages\n• Store tokens safely');
       
-      // Start polling for results
-      pollForPages();
+      // Start polling for results using the actual location_id
+      pollForPages(result.location_id || actualLocationId);
       
     } catch (error) {
       console.error('Page retrieval error:', error);
@@ -271,17 +278,21 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     }
   };
 
-  const pollForPages = async () => {
+  const pollForPages = async (statusLocationId?: string) => {
     const backendUrl = process.env.NODE_ENV === 'production' 
       ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
       : 'http://localhost:8000';
     
+    // Use the provided location_id or fallback to stored actual location_id
+    const checkLocationId = statusLocationId || actualLocationId;
+    console.log(`Polling status with location_id: ${checkLocationId}`);
+    
     let attempts = 0;
-    const maxAttempts = 30; // 1 minute polling
+    const maxAttempts = 120; // 4 minutes polling (increased for backend processing time)
     
     const checkPages = async () => {
       try {
-        const response = await fetch(`${backendUrl}/api/facebook/integration-status/${locationId}`);
+        const response = await fetch(`${backendUrl}/api/facebook/integration-status/${checkLocationId}`);
         
         if (response.ok) {
           const status = await response.json();
@@ -317,7 +328,26 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         clearInterval(interval);
         
         if (attempts >= maxAttempts) {
-          addMessage('bot', '⏱️ Page retrieval is taking longer than expected. Please try again.');
+          // Fallback: Check database directly for completed results
+          addMessage('bot', '⏳ Checking for completed results...');
+          try {
+            const dbResponse = await fetch(`${backendUrl}/api/facebook/pages/${checkLocationId}`);
+            if (dbResponse.ok) {
+              const dbData = await dbResponse.json();
+              if (dbData.success && dbData.pages && dbData.pages.length > 0) {
+                setFacebookPages(dbData.pages);
+                setStoredJwtToken(dbData.jwt_token);
+                setIntegrationStatus('step3_selecting_pages');
+                addMessage('bot', `✅ **Step 2 Complete!** Found ${dbData.pages.length} Facebook pages from database!`);
+                addMessage('bot', '📄 **Ready for Step 3:** Select which pages you want to connect to Squidgy.');
+                return;
+              }
+            }
+          } catch (error) {
+            console.error('Database fallback error:', error);
+          }
+          
+          addMessage('bot', '⏱️ Page retrieval is taking longer than expected. The integration may have completed successfully. Please check your GoHighLevel dashboard or try again.');
           setIntegrationStatus('step1_oauth');
         }
       }
