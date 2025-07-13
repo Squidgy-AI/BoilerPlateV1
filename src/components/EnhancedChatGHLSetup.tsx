@@ -262,12 +262,16 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   };
 
   const useExistingCredentials = async () => {
-    // Pre-fill form with demo business data and create a real account
-    const demoData = {
-      businessName: 'Demo Solar Business',
-      businessEmail: `demo+${Math.floor(Math.random() * 1000)}@example.com`,
+    // Use the same working credentials that we use for Facebook integration
+    // These are the verified working credentials that successfully handle 2FA
+    const workingCredentials = {
+      location_id: 'rlRJ1n5Hoy3X53WDOJlq',
+      user_id: 'MHwz5yMaG0JrTfGXjvxB',
+      email: 'somashekhar34+rlRJ1n5H@gmail.com',
+      businessName: 'Solar Business rlRJ1n5H',
+      businessEmail: 'somashekhar34+rlRJ1n5H@gmail.com',
       phone: '+1-555-SOLAR-1',
-      website: 'https://demo-solar.com',
+      website: 'https://solar-business.com',
       address: '123 Solar Business Ave',
       city: 'Solar City', 
       state: 'CA',
@@ -275,20 +279,50 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       postalCode: '90210'
     };
     
-    // Update form data with demo values
-    setFormData(demoData);
+    // Update form data with working credentials
+    setFormData({
+      businessName: workingCredentials.businessName,
+      businessEmail: workingCredentials.businessEmail,
+      phone: workingCredentials.phone,
+      website: workingCredentials.website,
+      address: workingCredentials.address,
+      city: workingCredentials.city,
+      state: workingCredentials.state,
+      country: workingCredentials.country,
+      postalCode: workingCredentials.postalCode
+    });
     
-    addMessage('user', 'Use Demo Business Info');
-    addMessage('bot', '📋 Using demo business information to create a real account...');
+    addMessage('user', 'Use Existing Working Credentials');
+    addMessage('bot', '🔑 Using the same working credentials from Facebook integration...');
+    addMessage('bot', `📍 **Location ID:** ${workingCredentials.location_id}\n👤 **User ID:** ${workingCredentials.user_id}\n📧 **Email:** ${workingCredentials.email}`);
     
-    // Create actual account with demo data
+    // Create GHL config directly with existing working credentials
     try {
       setIsCreating(true);
       setSetupStatus('creating');
-      await simulateGHLCreation();
+      
+      const workingGHLConfig: GHLSetupConfig = {
+        location_id: workingCredentials.location_id,
+        user_id: workingCredentials.user_id,
+        location_name: `SolarBusiness_${workingCredentials.location_id}`,
+        user_name: "Solar Sales Manager",
+        user_email: workingCredentials.email,
+        setup_status: 'completed',
+        created_at: new Date().toISOString()
+      };
+
+      setGhlConfig(workingGHLConfig);
+      setSetupStatus('completed');
+      
+      addMessage('bot', '✅ Using existing working account successfully!', true, 'using_existing');
+      addMessage('bot', `🎉 **Account Details:**\n📍 **Location ID:** ${workingGHLConfig.location_id}\n🏢 **Location Name:** ${workingGHLConfig.location_name}\n👤 **User:** ${workingGHLConfig.user_name}\n📧 **Email:** ${workingGHLConfig.user_email}\n\n✨ This account is already verified and ready for Facebook integration!`);
+      
+      // Save configuration to database
+      await saveFinalConfiguration(workingGHLConfig);
+      
     } catch (error) {
-      console.error('Error with demo account creation:', error);
-      addMessage('bot', '❌ Error creating demo account. Please try entering your business information manually.');
+      console.error('Error with existing credentials setup:', error);
+      addMessage('bot', '❌ Error setting up existing credentials. Please try again.');
       setSetupStatus('idle');
     } finally {
       setIsCreating(false);
@@ -715,7 +749,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>Create Demo Account</span>
+              <span>Use Working Credentials</span>
             </button>
             <p className="text-center text-xs text-gray-500">or</p>
             <button
