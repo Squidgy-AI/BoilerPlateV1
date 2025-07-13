@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd Code/squidgy-frontend && npm run build",
+  "outputDirectory": "Code/squidgy-frontend/.next",
+  "installCommand": "cd Code/squidgy-frontend && npm install",
+  "devCommand": "cd Code/squidgy-frontend && npm run dev",
+  "framework": "nextjs"
+}
