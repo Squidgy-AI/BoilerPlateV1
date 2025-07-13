@@ -342,17 +342,15 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         throw new Error(errorMsg);
       }
 
-      // Prepare payload with only existing columns (setup_type and session_id may not exist yet)
+      // Prepare payload with correct database schema
       const dbPayload = {
         firm_user_id: userIdResult.user_id,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
-        setup_json: {
-          ...config,
-          setup_type: 'GHLSetup', // Store in JSON if column doesn't exist
-          session_id: sessionId && sessionId.includes('_') ? null : sessionId
-        },
+        setup_type: 'GHLSetup', // Required NOT NULL column
+        setup_json: config,
         is_enabled: true,
+        session_id: sessionId && sessionId.includes('_') ? null : sessionId,
         created_at: new Date().toISOString()
       };
       
