@@ -204,6 +204,17 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
 
       if (!response.ok) {
         const errorText = await response.text();
+        
+        // Check if it's a "user already exists" error
+        const isUserExistsError = errorText.includes('user with this email already exists') || 
+                                  errorText.includes('A user with this email already exists');
+        
+        if (isUserExistsError) {
+          addMessage('bot', '⚠️ User already exists, continuing with existing account...');
+          addMessage('bot', '📝 Account setup requires manual completion due to existing user. Please contact support if needed.');
+          return; // Exit gracefully instead of throwing error
+        }
+        
         throw new Error(`Failed to create account: ${response.status} - ${errorText}`);
       }
 
@@ -366,13 +377,31 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         
         addMessage('bot', `🎉 **Dual User Account Details:**\n📍 **Location ID:** ${newConfig.location_id}\n🏢 **Business:** ${newConfig.location_name}\n👤 **Business User:** ${newConfig.user_name} (${newConfig.user_email})\n👤 **Soma User:** ${somaUser.details.name} (${somaUser.details.email})\n\nBoth users are created and ready for Facebook integration!`);
       } else {
-        console.error('GHL Account Creation Failed:', {
+        // Check if it's a "user already exists" error
+        const errorMessage = result.detail || result.message || 'Unknown error';
+        const isUserExistsError = errorMessage.includes('user with this email already exists') || 
+                                  errorMessage.includes('A user with this email already exists');
+        
+        if (isUserExistsError) {
+          addMessage('bot', '⚠️ User already exists, continuing with existing account...');
+          
+          // Try to extract what information we can from the error response
+          // You might want to call a "get existing user" endpoint here if available
+          console.log('User already exists, attempting to continue with existing user');
+          
+          // For now, show a message that setup needs manual completion
+          addMessage('bot', '📝 Account setup requires manual completion due to existing user. Please contact support if needed.');
+          setShowInlineForm(false);
+          return;
+        }
+        
+        console.error('Account Creation Failed:', {
           status: response.status,
-          error: result.detail || result.message || 'Unknown error',
+          error: errorMessage,
           fullResponse: result
         });
         
-        throw new Error(result.detail || result.message || 'Unknown error');
+        throw new Error(errorMessage);
       }
     } catch (error: any) {
       console.error('GHL Account Creation Error:', error);
