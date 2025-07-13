@@ -330,15 +330,19 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   };
 
   const saveFinalConfiguration = async (config: GHLSetupConfig) => {
-    const userIdResult = await getUserId();
-    if (!userIdResult.success || !userIdResult.user_id) {
-      throw new Error('Failed to get user ID');
-    }
+    try {
+      console.log('🔍 Starting saveFinalConfiguration with config:', config);
+      
+      const userIdResult = await getUserId();
+      console.log('🔍 getUserId result:', userIdResult);
+      
+      if (!userIdResult.success || !userIdResult.user_id) {
+        const errorMsg = `Failed to get user ID: ${userIdResult.error || 'Unknown error'}`;
+        console.error('❌ User ID error:', errorMsg);
+        throw new Error(errorMsg);
+      }
 
-    // Save to database
-    const { error } = await supabase
-      .from('squidgy_agent_business_setup')
-      .upsert({
+      const dbPayload = {
         firm_user_id: userIdResult.user_id,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
@@ -347,13 +351,29 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         is_enabled: true,
         session_id: sessionId && sessionId.includes('_') ? null : sessionId,
         created_at: new Date().toISOString()
-      });
+      };
+      
+      console.log('🔍 Database payload:', dbPayload);
 
-    if (error) {
+      // Save to database
+      const { data, error } = await supabase
+        .from('squidgy_agent_business_setup')
+        .upsert(dbPayload);
+
+      console.log('🔍 Database response:', { data, error });
+
+      if (error) {
+        console.error('❌ Database error:', error);
+        throw error;
+      }
+
+      console.log('✅ Configuration saved successfully');
+      onConfigurationComplete(config);
+      
+    } catch (error) {
+      console.error('❌ Error in saveFinalConfiguration:', error);
       throw error;
     }
-
-    onConfigurationComplete(config);
   };
 
   const handleCreateNewAccount = () => {
