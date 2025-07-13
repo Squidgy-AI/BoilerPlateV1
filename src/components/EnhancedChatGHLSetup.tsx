@@ -329,6 +329,33 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     }
   };
 
+  const saveFinalConfiguration = async (config: GHLSetupConfig) => {
+    const userIdResult = await getUserId();
+    if (!userIdResult.success || !userIdResult.user_id) {
+      throw new Error('Failed to get user ID');
+    }
+
+    // Save to database
+    const { error } = await supabase
+      .from('squidgy_agent_business_setup')
+      .upsert({
+        firm_user_id: userIdResult.user_id,
+        agent_id: 'SOLAgent',
+        agent_name: 'Solar Sales Specialist',
+        setup_type: 'GHLSetup',
+        setup_json: config,
+        is_enabled: true,
+        session_id: sessionId && sessionId.includes('_') ? null : sessionId,
+        created_at: new Date().toISOString()
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    onConfigurationComplete(config);
+  };
+
   const handleCreateNewAccount = () => {
     addMessage('bot', '📋 Please fill out the form below with your business information.');
     setShowInlineForm(true);
