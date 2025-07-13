@@ -6,8 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 // Supabase configuration
-const SUPABASE_URL = 'https://aoteeitreschwzkbpqyd.supabase.co';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvdGVlaXRyZXNjaHd6a2JwcXlkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDEyMDAzNCwiZXhwIjoyMDU5Njk2MDM0fQ.EfXz8Rv_6yvI4MTDk5WoKSQ0E0jxoO3oWEMO-xAEtWU';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+const SUPABASE_SERVICE_KEY = 'YOUR_SUPABASE_SERVICE_ROLE_KEY_HERE';
 
 async function testDatabaseAndFix() {
     console.log('🔍 Testing database connection and schema...');
