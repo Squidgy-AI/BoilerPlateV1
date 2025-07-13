@@ -179,18 +179,27 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       // Generate random number for unique naming
       const randomNum = Math.floor(Math.random() * 1000);
       
-      // Prepare request for backend API
+      // Use form data if available, otherwise use demo values
       const requestPayload = {
-        agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
         company_id: "lp2p1q27DrdGta1qGDJd",
-        phone: "+1-555-SOLAR-1",
-        address: "123 Solar Business Ave",
-        city: "Solar City",
-        state: "CA",
-        country: "USA",
-        postal_code: "90210",
-        timezone: "America/Los_Angeles",
-        snapshot_id: "7oAH6Cmto5ZcWAaEsrrq"
+        snapshot_id: "7oAH6Cmto5ZcWAaEsrrq",
+        agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
+        subaccount_name: formData.businessName || `DemoSolarBusiness_${randomNum}`,
+        prospect_email: formData.businessEmail || `demo+${randomNum}@example.com`,
+        prospect_first_name: formData.businessName?.split(' ')[0] || 'Demo',
+        prospect_last_name: formData.businessName?.split(' ').slice(1).join(' ') || 'Business',
+        phone: formData.phone || "+1-555-SOLAR-1",
+        website: formData.website || 'https://demo-solar.com',
+        address: formData.address || "123 Solar Business Ave",
+        city: formData.city || "Solar City",
+        state: formData.state || "CA",
+        country: formData.country || "US",
+        postal_code: formData.postalCode || "90210",
+        timezone: 'America/Los_Angeles',
+        allow_duplicate_contact: false,
+        allow_duplicate_opportunity: false,
+        allow_facebook_name_merge: true,
+        disable_contact_timezone: false
       };
 
       // Call backend API to create sub-account and user
@@ -252,22 +261,38 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     }
   };
 
-  const useExistingCredentials = () => {
-    // Use the existing hardcoded values we created
-    const existingConfig: GHLSetupConfig = {
-      location_id: "GJSb0aPcrBRne73LK3A3",
-      user_id: "utSop6RQjsF2Mwjnr8Gg", 
-      location_name: "SolarSetup_Clone_192939",
-      user_name: "Ovi Colton",
-      user_email: "ovi+192940@test-solar.com",
-      setup_status: 'completed',
-      created_at: new Date().toISOString()
+  const useExistingCredentials = async () => {
+    // Pre-fill form with demo business data and create a real account
+    const demoData = {
+      businessName: 'Demo Solar Business',
+      businessEmail: `demo+${Math.floor(Math.random() * 1000)}@example.com`,
+      phone: '+1-555-SOLAR-1',
+      website: 'https://demo-solar.com',
+      address: '123 Solar Business Ave',
+      city: 'Solar City', 
+      state: 'CA',
+      country: 'US',
+      postalCode: '90210'
     };
-
-    setGhlConfig(existingConfig);
-    setSetupStatus('using_existing');
     
-    addMessage('user', 'Use Existing Credentials');
+    // Update form data with demo values
+    setFormData(demoData);
+    
+    addMessage('user', 'Use Demo Business Info');
+    addMessage('bot', '📋 Using demo business information to create a real account...');
+    
+    // Create actual account with demo data
+    try {
+      setIsCreating(true);
+      setSetupStatus('creating');
+      await simulateGHLCreation();
+    } catch (error) {
+      console.error('Error with demo account creation:', error);
+      addMessage('bot', '❌ Error creating demo account. Please try entering your business information manually.');
+      setSetupStatus('idle');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleCreateNewAccount = () => {
@@ -690,7 +715,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>Use Existing Business Info</span>
+              <span>Create Demo Account</span>
             </button>
             <p className="text-center text-xs text-gray-500">or</p>
             <button
