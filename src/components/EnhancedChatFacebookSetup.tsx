@@ -41,8 +41,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   onConfigurationComplete,
   onSkip,
   sessionId,
-  locationId = "rlRJ1n5Hoy3X53WDOJlq", // Updated to correct location_id
-  userId = "MHwz5yMaG0JrTfGXjvxB", // Updated to correct user_id
+  locationId, // Will be provided dynamically from GHL setup
+  userId, // Will be provided dynamically from GHL setup
   ghlCredentials
 }) => {
   const [isSaving, setSaving] = useState(false);
@@ -57,7 +57,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     {
       id: '2', 
       sender: 'bot',
-      message: `📍 **Using your GHL Account:**\n• Location ID: ${locationId}\n• User ID: ${userId}\n\n**Facebook Integration Steps:**\n**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy`,
+      message: `📍 **Using your GHL Account:**\n• Location ID: ${locationId || 'Not provided'}\n• User ID: ${userId || 'Not provided'}\n\n**Facebook Integration Steps:**\n**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy`,
       timestamp: new Date()
     }
   ]);
@@ -67,7 +67,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
   const [oauthCompleted, setOauthCompleted] = useState(false);
   const [storedJwtToken, setStoredJwtToken] = useState<string | null>(null);
-  const [actualLocationId, setActualLocationId] = useState<string>(locationId); // Track actual location_id from backend
+  const [actualLocationId, setActualLocationId] = useState<string>(locationId || ''); // Track actual location_id from backend with empty string fallback
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -82,7 +82,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
 
   const addMessage = (sender: 'bot' | 'user', message: string, isAction = false, actionType?: string) => {
     const newMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, // Add random component to ensure uniqueness
       sender,
       message,
       timestamp: new Date(),
@@ -152,7 +152,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
 
     } catch (error) {
       console.error('Facebook OAuth generation error:', error);
-      addMessage('bot', `❌ Error generating OAuth URL: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      addMessage('bot', `❌ Error generating OAuth URL: ${errorMessage}`);
       setIntegrationStatus('idle');
     } finally {
       setIsGenerating(false);
@@ -238,18 +239,21 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
         : 'http://localhost:8000';
       
-      const response = await fetch(`${backendUrl}/api/facebook/integrate`, {
+      // Use the dynamic endpoint that supports dynamic IDs
+      const response = await fetch(`${backendUrl}/api/facebook/connect-dynamic`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           location_id: locationId,
-          user_id: userId,
-          email: ghlCredentials?.email || 'ovi.chand@gmail.com',
-          password: ghlCredentials?.password || 'Dummy@123',
+          ghl_user_id: userId, // Use the correct parameter name for the dynamic endpoint
+          email: ghlCredentials?.email || '',
+          password: ghlCredentials?.password || '',
+          // Use empty strings as fallbacks so backend will use config defaults
           firm_user_id: await getUserId().then(r => r.user_id),
-          step: 'get_pages_only'
+          manual_token: true, // Enable manual token mode
+          jwt_token: '' // Will be extracted automatically or provided manually
         })
       });
 
@@ -273,7 +277,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
       
     } catch (error) {
       console.error('Page retrieval error:', error);
-      addMessage('bot', `❌ Error starting page retrieval: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      addMessage('bot', `❌ Error starting page retrieval: ${errorMessage}`);
       setIntegrationStatus('step1_oauth');
     }
   };
@@ -397,7 +402,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
       
     } catch (error) {
       console.error('Page connection error:', error);
-      addMessage('bot', `❌ Error connecting pages: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      addMessage('bot', `❌ Error connecting pages: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
@@ -410,8 +416,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     }
 
     const config: FacebookIntegrationConfig = {
-      location_id: locationId,
-      user_id: userId,
+      location_id: locationId || '',
+      user_id: userId || '',
       oauth_url: generatedOAuthUrl || '',
       integration_status: 'connected',
       connected_at: new Date().toISOString(),
