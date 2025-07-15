@@ -105,7 +105,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
 
   const addMessage = (sender: 'bot' | 'user', message: string, isAction = false, actionType?: string) => {
     const newMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       sender,
       message,
       timestamp: new Date(),
@@ -410,7 +410,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     
     const backendUrl = process.env.NODE_ENV === 'production' 
       ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
-      : 'http://127.0.0.1:8010';
+      : 'http://localhost:8000';
     
     // Use the combined endpoint that creates BOTH sub-account AND user
     const requestPayload = {
