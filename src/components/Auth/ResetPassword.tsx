@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { trackActivity, ActivityType } from '@/utils/activityTracker';
+import { trackActivity, ActivityType } from '../../utils/activityTracker';
 
 const ResetPassword: React.FC = () => {
   const router = useRouter();

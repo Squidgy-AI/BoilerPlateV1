@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { trackActivity, ActivityType } from '@/utils/activityTracker';
+import { trackActivity, ActivityType } from '../utils/activityTracker';
 import StreamingAvatar, {
   AvatarQuality,
   StreamingEvents,
