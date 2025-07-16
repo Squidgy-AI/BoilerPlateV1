@@ -21,6 +21,8 @@ import {
   Code2,
   Sun
 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { trackActivity, ActivityType } from '../../utils/activityTracker';
 import { supabase } from '@/lib/supabase';
 import ProfileSettings from '../ProfileSettings';
 import GroupManagement from '../Groups/GroupManagement';
@@ -1918,6 +1920,22 @@ Let's begin with your Solar Business Setup! ☀️`;
                     // Disable avatar
                     setVideoEnabled(false);
                     console.log('🎥 Avatar disabled by user');
+                    
+                    // Track avatar disabled event
+                    try {
+                      console.log('%c🎭 Tracking avatar disabled event', 'background: #2d3748; color: #f56565; padding: 2px; border-radius: 2px;');
+                      trackActivity({
+                        user_id: session?.user?.id,
+                        action: ActivityType.AVATAR_DISABLED,
+                        details: { 
+                          description: 'Avatar disabled by user',
+                          agent_id: selectedAgent?.id || 'unknown',
+                          timestamp: new Date().toISOString()
+                        }
+                      }).catch(error => console.error('Failed to track avatar disabled activity:', error));
+                    } catch (error) {
+                      console.error('Error tracking avatar disabled activity:', error);
+                    }
                   } else {
                     // Enable and restart avatar
                     console.log('🔄 Restarting avatar via video button');
@@ -1925,6 +1943,22 @@ Let's begin with your Solar Business Setup! ☀️`;
                     setAvatarReady(false);
                     setVideoEnabled(true);
                     setRetryTrigger(prev => prev + 1); // Trigger avatar restart
+                    
+                    // Track avatar enabled event
+                    try {
+                      console.log('%c🎭 Tracking avatar enabled event', 'background: #2d3748; color: #4caf50; padding: 2px; border-radius: 2px;');
+                      trackActivity({
+                        user_id: session?.user?.id,
+                        action: ActivityType.AVATAR_ENABLED,
+                        details: { 
+                          description: 'Avatar enabled by user',
+                          agent_id: selectedAgent?.id || 'unknown',
+                          timestamp: new Date().toISOString()
+                        }
+                      }).catch(error => console.error('Failed to track avatar enabled activity:', error));
+                    } catch (error) {
+                      console.error('Error tracking avatar enabled activity:', error);
+                    }
                   }
                 }}
                 className={`p-2 rounded ${videoEnabled ? 'bg-blue-600' : 'bg-gray-700'}`}

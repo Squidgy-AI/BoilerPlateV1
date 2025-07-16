@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { trackActivity, ActivityType } from '../utils/activityTracker';
+import { trackActivity, ActivityType } from '@/utils/activityTracker';
 import StreamingAvatar, {
   AvatarQuality,
   StreamingEvents,
@@ -55,7 +55,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   voiceEnabled = true,
   avatarId = 'PersonalAssistant',
   onAvatarError,
-  avatarTimeout = 10000, // 10 seconds default timeout
+  avatarTimeout = 60000, // 60 seconds default timeout (increased from 10s)
   retryTrigger = 0,
   cleanupTrigger = 0,
   onTextToSpeech
@@ -160,7 +160,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         (localAvatarRef.current as any).stopVoiceChat?.();
         console.log('🔇 Voice chat stopped');
         voiceChatActiveRef.current = false;
-      } catch (err) {
+      } catch (err: any) {
         // Don't log 401 errors as they're expected when session wasn't properly created
         if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string' && !(err as any).message.includes('401')) {
           console.error('Error stopping voice chat:', err);
@@ -174,12 +174,29 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         // Use stopAvatar method instead of destroy for proper cleanup
         await (localAvatarRef.current as any).stopAvatar?.();
         console.log('🛑 Avatar session stopped');
-      } catch (err) {
+      } catch (err: any) {
         // Don't log 401 errors as they're expected when session wasn't properly created
         if (err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string' && !(err as any).message.includes('401')) {
           console.error('Error stopping avatar:', err);
         }
       }
+    }
+    
+    // Track avatar session end
+    try {
+      console.log('%c🎭 Tracking avatar session end', 'background: #2d3748; color: #f56565; padding: 2px; border-radius: 2px;');
+      trackActivity({
+        action: ActivityType.AVATAR_DISABLED,
+        details: { 
+          description: 'Avatar session ended',
+          avatarId: currentAvatarIdRef.current || 'unknown',
+          sessionId: currentSessionIdRef.current?.substring(0, 8) || 'unknown',
+          reason: 'session_cleanup',
+          timestamp: new Date().toISOString()
+        }
+      }).catch((err: Error) => console.error('Failed to track avatar session end:', err));
+    } catch (trackError) {
+      console.error('Error tracking avatar session end:', trackError);
     }
     
     // Reset refs and state
@@ -208,7 +225,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       try {
         await (localAvatarRef.current as any).stopAvatar?.();
         console.log('🛑 Forced avatar session cleanup');
-      } catch (err) {
+      } catch (err: any) {
         console.log('⚠️ Force cleanup attempt completed (errors expected)');
       }
     }
@@ -251,6 +268,22 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         });
         setStream(event.detail);
         console.log("📺 Stream state updated, video should now be visible");
+        
+        // Track successful avatar initialization
+        try {
+          console.log('%c🎭 Tracking avatar initialization success', 'background: #2d3748; color: #4ade80; padding: 2px; border-radius: 2px;');
+          trackActivity({
+            action: ActivityType.AVATAR_INITIALIZED,
+            details: { 
+              description: 'Avatar initialized successfully',
+              avatarId: currentAvatarIdRef.current || 'unknown',
+              sessionId: currentSessionIdRef.current?.substring(0, 8) || 'unknown',
+              timestamp: new Date().toISOString()
+            }
+          }).catch((err: Error) => console.error('Failed to track avatar initialization:', err));
+        } catch (trackError) {
+          console.error('Error tracking avatar initialization:', trackError);
+        }
         
         // Notify parent component that avatar is ready and video is visible
         if (onAvatarReady) {
@@ -328,7 +361,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         handleAvatarFailure(new Error("Avatar initialization timeout"));
         initializationInProgressRef.current = false;
       }
-    }, 30000); // 30 second timeout
+    }, avatarTimeout || 60000); // Use prop timeout or 60 seconds as fallback (increased from 30s)
     
     try {
       console.log("🚀 Initializing avatar with session ID:", sessionId, "and avatar ID:", avatarId);
@@ -547,14 +580,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       console.log("✅ Avatar initialization complete with LiveKit transport");
       console.log("💰 Credit optimization active - Max session: 5min, Idle timeout: 2min");
       
-      // Track avatar initialization success
-      trackActivity({
-        action: ActivityType.AVATAR_INITIALIZED,
-        details: { 
-          description: 'Avatar initialized successfully',
-          avatarId: avatarId
-        }
-      }).catch(err => console.error('Failed to track avatar initialization:', err));
+      // Note: Avatar initialization tracking is already handled in the stream_ready event handler
       
       // Clear the timeout since initialization succeeded
       clearTimeout(initTimeout);

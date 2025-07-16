@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/supabase';
 import { authService } from '@/lib/auth-service';
 import { v4 as uuidv4 } from 'uuid';
+import { trackActivity, ActivityType } from '@/utils/activityTracker';
 
 type AuthContextType = {
   session: Session | null;
@@ -165,6 +166,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Handle sign out events
             if (event === 'SIGNED_OUT') {
               console.log('User signed out, clearing auth state');
+              
+              // Track sign out activity if we have a user ID
+              if (updatedSession?.user?.id) {
+                try {
+                  console.log('%c🔐 Tracking sign out event', 'background: #2d3748; color: #f56565; padding: 2px; border-radius: 2px;');
+                  trackActivity({
+                    user_id: updatedSession.user.id,
+                    action: ActivityType.SIGN_OUT,
+                    details: { 
+                      description: 'User signed out',
+                      timestamp: new Date().toISOString()
+                    }
+                  }).catch(error => console.error('Failed to track sign out activity:', error));
+                } catch (error) {
+                  console.error('Error tracking sign out activity:', error);
+                }
+              }
+              
               setSession(null);
               setUser(null);
               setProfile(null);
@@ -286,6 +305,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(result.user);
         setProfile(result.profile);
         
+        // Track sign-in activity
+        try {
+          console.log('%c🔐 Tracking email sign in event', 'background: #2d3748; color: #4caf50; padding: 2px; border-radius: 2px;');
+          await trackActivity({
+            user_id: result.user?.id,
+            action: ActivityType.SIGN_IN,
+            details: { 
+              description: 'User signed in with email',
+              provider: 'email' 
+            }
+          });
+        } catch (error: any) {
+          console.error('Failed to track sign-in activity:', error);
+        }
+        
       } else if (['google', 'apple', 'github', 'whatsapp'].includes(provider)) {
         // Handle whatsapp special case
         if (provider === 'whatsapp') {
@@ -325,6 +359,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Sign out
   const signOut = async () => {
     try {
+      // Track sign-out activity before signing out
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          console.log('%c🚪 Tracking user sign-out', 'background: #2d3748; color: #f56565; padding: 2px; border-radius: 2px;');
+          await trackActivity({
+            user_id: user.id,
+            action: ActivityType.SIGN_OUT,
+            details: { 
+              timestamp: new Date().toISOString(),
+              email: user.email
+            }
+          });
+        }
+      } catch (trackError) {
+        console.error('Error tracking sign-out activity:', trackError);
+        // Continue with sign-out even if tracking fails
+      }
+      
+      // Perform sign-out
       await supabase.auth.signOut();
     } catch (error: any) {
       throw new Error(error.message || 'Sign-out failed');

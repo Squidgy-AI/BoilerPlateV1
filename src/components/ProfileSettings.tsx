@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './Auth/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import { Settings, Camera, Save, X } from 'lucide-react';
+import { trackActivity, ActivityType } from '@/utils/activityTracker';
 
 interface ProfileSettingsProps {
   isOpen: boolean;
@@ -142,6 +143,26 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
       // Refresh profile in AuthContext
       if (refreshProfile) {
         await refreshProfile();
+      }
+      
+      // Track profile settings update
+      try {
+        console.log('%c🔄 Tracking settings update activity', 'background: #2d3748; color: #38b2ac; padding: 2px; border-radius: 2px;');
+        await trackActivity({
+          user_id: profile.id,
+          action: ActivityType.SETTINGS_UPDATE,
+          details: {
+            description: 'User updated profile settings',
+            updated_fields: {
+              full_name: fullName !== profile.full_name,
+              avatar: !!avatarFile,
+              timestamp: new Date().toISOString()
+            }
+          }
+        });
+      } catch (trackError) {
+        console.error('Failed to track settings update activity:', trackError);
+        // Don't block the UI flow for tracking errors
       }
       
       setMessage({ type: 'success', text: 'Profile updated successfully!' });

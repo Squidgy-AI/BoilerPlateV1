@@ -148,3 +148,5 @@ node_modules
 .next/
 Code/squidgy-frontend/.next
 run-dev.bat
+next-env.d.ts
+Code/squidgy-frontend/next-env.d.ts
