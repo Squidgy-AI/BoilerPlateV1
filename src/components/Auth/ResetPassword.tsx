@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { trackActivity, ActivityType } from '@/utils/activityTracker';
 
 const ResetPassword: React.FC = () => {
   const router = useRouter();
@@ -24,8 +25,16 @@ const ResetPassword: React.FC = () => {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      const { data, error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
+      
+      // Track password reset completion
+      await trackActivity({
+        user_id: data.user?.id,
+        action: ActivityType.PASSWORD_RESET_COMPLETE,
+        details: { description: 'Password reset completed successfully' }
+      });
+      
       setSuccess('Password has been reset! You can now log in.');
       setTimeout(() => router.push('/'), 2000);
     } catch (err: any) {

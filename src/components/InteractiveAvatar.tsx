@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { trackActivity, ActivityType } from '@/utils/activityTracker';
 import StreamingAvatar, {
   AvatarQuality,
   StreamingEvents,
@@ -327,7 +328,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         handleAvatarFailure(new Error("Avatar initialization timeout"));
         initializationInProgressRef.current = false;
       }
-    }, 15000); // 15 second timeout
+    }, 30000); // 30 second timeout
     
     try {
       console.log("🚀 Initializing avatar with session ID:", sessionId, "and avatar ID:", avatarId);
@@ -545,6 +546,15 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       
       console.log("✅ Avatar initialization complete with LiveKit transport");
       console.log("💰 Credit optimization active - Max session: 5min, Idle timeout: 2min");
+      
+      // Track avatar initialization success
+      trackActivity({
+        action: ActivityType.AVATAR_INITIALIZED,
+        details: { 
+          description: 'Avatar initialized successfully',
+          avatarId: avatarId
+        }
+      }).catch(err => console.error('Failed to track avatar initialization:', err));
       
       // Clear the timeout since initialization succeeded
       clearTimeout(initTimeout);
