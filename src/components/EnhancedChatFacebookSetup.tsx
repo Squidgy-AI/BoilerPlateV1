@@ -459,12 +459,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
             <p className="text-sm text-gray-500">3-step process to connect your Facebook pages</p>
           </div>
         </div>
-        <button
-          onClick={onSkip}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          Skip for now
-        </button>
+        {/* Skip button removed - all steps are mandatory */}
       </div>
 
       {/* Chat Messages */}
@@ -608,15 +603,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
           </div>
         )}
 
-        {/* Skip Button */}
-        {integrationStatus !== 'completed' && (
-          <button
-            onClick={onSkip}
-            className="w-full text-gray-500 hover:text-gray-700 transition-colors py-2"
-          >
-            Skip Facebook Integration for now
-          </button>
-        )}
+        {/* All steps are mandatory - Skip button removed */}
       </div>
     </div>
   );

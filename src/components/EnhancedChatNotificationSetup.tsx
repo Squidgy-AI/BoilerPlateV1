@@ -35,18 +35,18 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     quiet_hours_end: '08:00',
     timezone: 'America/New_York',
     // Notification types for each channel
-    email_booking: true,
-    email_reminder: true,
-    email_cancellation: true,
-    email_reschedule: true,
-    sms_booking: false,
-    sms_reminder: false,
-    sms_cancellation: false,
-    sms_reschedule: false,
-    whatsapp_booking: false,
-    whatsapp_reminder: false,
-    whatsapp_cancellation: false,
-    whatsapp_reschedule: false
+    email_appointment_reminders: true,
+    email_booking_confirmations: true,
+    email_cancellations: true,
+    email_reschedules: true,
+    sms_appointment_reminders: false,
+    sms_booking_confirmations: false,
+    sms_cancellations: false,
+    sms_reschedules: false,
+    whatsapp_appointment_reminders: false,
+    whatsapp_booking_confirmations: false,
+    whatsapp_cancellations: false,
+    whatsapp_reschedules: false
   });
 
   const notificationChannels = [
@@ -355,12 +355,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
           )}
         </button>
         
-        <button
-          onClick={onSkip}
-          className="px-3 py-2 border border-gray-300 hover:border-gray-400 text-gray-700 rounded-md text-sm transition-colors"
-        >
-          Skip
-        </button>
+        {/* Skip button removed - all steps are mandatory */}
       </div>
     </div>
   );

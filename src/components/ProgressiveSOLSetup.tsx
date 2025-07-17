@@ -143,7 +143,8 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       
       // Check for specific RLS/permission errors
       if (error && typeof error === 'object' && 'message' in error) {
-        if (error.message.includes('406') || error.message.includes('Not Acceptable')) {
+        const errorMessage = error.message as string;
+        if (errorMessage.includes('406') || errorMessage.includes('Not Acceptable')) {
           console.warn('🚫 Database access denied (406) - possible RLS policy issue on squidgy_agent_business_setup table');
         }
       }
@@ -301,23 +302,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const handleSkipStage = async () => {
-    // Progress to next stage if skipping individual steps
-    if (currentStage === 'solar') {
-      setCurrentStage('calendar');
-    } else if (currentStage === 'calendar') {
-      setCurrentStage('notifications');
-    } else if (currentStage === 'notifications') {
-      setCurrentStage('ghl');
-    } else if (currentStage === 'ghl') {
-      setCurrentStage('facebook');
-    } else {
-      // For Facebook stage or final skip, skip to the end
-      await addCompletionMessageToChat(
-        'skipped',
-        'Setup was skipped. You can always complete the configuration later by saying "configure solar business" in the chat.'
-      );
-      onSkip();
-    }
+    // This function is kept but disabled since all steps are mandatory
+    console.log('Skip functionality has been disabled - all setup steps are mandatory');
+    // No stage advancement or skip actions will be performed
+    return;
   };
 
   console.log('🔍 ProgressiveSOLSetup RENDER DEBUG:');

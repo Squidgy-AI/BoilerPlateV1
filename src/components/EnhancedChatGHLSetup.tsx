@@ -610,12 +610,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
             <p className="text-sm text-gray-500">Enter your business details to get started</p>
           </div>
         </div>
-        <button
-          onClick={onSkip}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          Skip for now
-        </button>
+        {/* Skip button removed - all steps are mandatory */}
       </div>
 
       {/* Chat Messages */}
@@ -839,13 +834,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           </div>
         )}
 
-        {/* Skip Button */}
-        <button
-          onClick={onSkip}
-          className="w-full text-gray-500 hover:text-gray-700 transition-colors py-2"
-        >
-          Skip Business Setup for now
-        </button>
+        {/* All steps are mandatory - Skip button removed */}
       </div>
     </div>
   );

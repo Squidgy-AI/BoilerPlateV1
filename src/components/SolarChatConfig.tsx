@@ -52,11 +52,13 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
           console.log('✅ Solar config saved to database successfully!');
           
           // Enable the SOL Agent since setup is complete
-          import('@/config/agents').then(({ updateAgentEnabledStatus }) => {
-            const agentEnabled = updateAgentEnabledStatus('SOLAgent', true);
-            if (agentEnabled) {
-              console.log('✅ SOL Agent has been enabled and will appear in the agents tab!');
-            }
+          import('@/services/agentService').then(({ updateAgentEnabledStatus }) => {
+            // Update the SOLAgent with setup type 'SOLAgent' to enabled status
+            updateAgentEnabledStatus('SOLAgent', 'SOLAgent', true).then(agentEnabled => {
+              if (agentEnabled) {
+                console.log('✅ SOL Agent has been enabled and will appear in the agents tab!');
+              }
+            });
           });
         } else {
           console.warn('⚠️ Failed to save to database, but localStorage saved');
@@ -206,12 +208,7 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
 
       {/* Action Buttons */}
       <div className="flex justify-between items-center">
-        <button
-          onClick={handleSkip}
-          className="text-gray-500 hover:text-gray-700 font-medium transition-colors"
-        >
-          Skip Setup
-        </button>
+        {/* Skip button removed - all steps are mandatory */}
 
         <button
           onClick={handleNext}
