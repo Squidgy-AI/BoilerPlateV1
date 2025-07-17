@@ -41,33 +41,20 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   onConfigurationComplete,
   onSkip,
   sessionId,
-  locationId = "rlRJ1n5Hoy3X53WDOJlq", // Updated to correct location_id
-  userId = "MHwz5yMaG0JrTfGXjvxB", // Updated to correct user_id
+  locationId, // Dynamic location_id from GHL setup
+  userId, // Dynamic user_id from GHL setup
   ghlCredentials
 }) => {
   const [isSaving, setSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      sender: 'bot',
-      message: '👋 Hi! I\'ll help you connect Facebook using your GoHighLevel credentials.',
-      timestamp: new Date()
-    },
-    {
-      id: '2', 
-      sender: 'bot',
-      message: `📍 **Using your GHL Account:**\n• Location ID: ${locationId}\n• User ID: ${userId}\n\n**Facebook Integration Steps:**\n**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy`,
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [generatedOAuthUrl, setGeneratedOAuthUrl] = useState<string | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<'idle' | 'step1_oauth' | 'step2_getting_pages' | 'step3_selecting_pages' | 'completed'>('idle');
   const [facebookPages, setFacebookPages] = useState<any[]>([]);
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
   const [oauthCompleted, setOauthCompleted] = useState(false);
   const [storedJwtToken, setStoredJwtToken] = useState<string | null>(null);
-  const [actualLocationId, setActualLocationId] = useState<string>(locationId); // Track actual location_id from backend
+  const [actualLocationId, setActualLocationId] = useState<string>(locationId || ''); // Track actual location_id from backend
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -75,6 +62,26 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    // Initialize messages with dynamic values
+    if (locationId && userId && messages.length === 0) {
+      setMessages([
+        {
+          id: '1',
+          sender: 'bot',
+          message: '👋 Hi! I\'ll help you connect Facebook using your GoHighLevel credentials.',
+          timestamp: new Date()
+        },
+        {
+          id: '2', 
+          sender: 'bot',
+          message: `📍 **Using your GHL Account:**\n• Location ID: ${locationId}\n• User ID: ${userId}\n• Automation Email: ${ghlCredentials?.email || 'Not provided'}\n\n**Facebook Integration Steps:**\n**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy`,
+          timestamp: new Date()
+        }
+      ]);
+    }
+  }, [locationId, userId, ghlCredentials]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -246,7 +253,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         body: JSON.stringify({
           location_id: locationId,
           user_id: userId,
-          email: ghlCredentials?.email || 'ovi.chand@gmail.com',
+          email: ghlCredentials?.email || 'somashekhar34+demo@gmail.com',
           password: ghlCredentials?.password || 'Dummy@123',
           firm_user_id: await getUserId().then(r => r.user_id),
           step: 'get_pages_only'

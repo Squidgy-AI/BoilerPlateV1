@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Building2, Users, CheckCircle, Loader, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
+import { getGHLCredentials } from '@/constants/ghlCredentials';
 
 interface EnhancedChatGHLSetupProps {
   onConfigurationComplete: (config: GHLSetupConfig) => void;
@@ -20,6 +21,9 @@ interface GHLSetupConfig {
   user_email: string;
   setup_status: 'pending' | 'creating' | 'completed' | 'failed';
   created_at?: string;
+  // GHL automation credentials (for Facebook integration)
+  ghl_automation_email?: string;
+  ghl_automation_password?: string;
 }
 
 interface ChatMessage {
@@ -236,6 +240,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         const businessUser = result.business_user;
         const somaUser = result.soma_user;
         
+        // Get GHL automation credentials
+        const ghlCreds = getGHLCredentials();
+        
         const realGHLConfig: GHLSetupConfig = {
           location_id: realLocationId,
           user_id: businessUser.user_id, // Primary business user
@@ -243,14 +250,17 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           user_name: businessUser.details.name || "Solar Sales Manager",
           user_email: businessUser.details.email || `sa+${randomNum}@squidgy.ai`,
           setup_status: 'completed',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          // Add GHL automation credentials for Facebook integration
+          ghl_automation_email: ghlCreds.email,
+          ghl_automation_password: ghlCreds.password
         };
 
         setGhlConfig(realGHLConfig);
         setSetupStatus('completed');
         
         addMessage('bot', '✅ Account created successfully!', true, 'creation_complete');
-        addMessage('bot', `🎉 **Dual User Account Details:**\n📍 **Location ID:** ${realGHLConfig.location_id}\n🏢 **Location Name:** ${realGHLConfig.location_name}\n👤 **Business User:** ${realGHLConfig.user_name} (${realGHLConfig.user_email})\n👤 **Soma User:** ${somaUser.details.name} (${somaUser.details.email})\n\nBoth accounts are created and ready for Facebook integration!`);
+        addMessage('bot', `🎉 **Dynamic Account Details:**\n📍 **Location ID:** ${realGHLConfig.location_id}\n🏢 **Location Name:** ${realGHLConfig.location_name}\n👤 **Business User:** ${realGHLConfig.user_name} (${realGHLConfig.user_email})\n🔧 **Automation Email:** ${realGHLConfig.ghl_automation_email}\n\n✨ Account created with dynamic credentials ready for Facebook integration!`);
       } else {
         throw new Error('Backend returned failure status');
       }
@@ -262,71 +272,28 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   };
 
   const useExistingCredentials = async () => {
-    // Use the same working credentials that we use for Facebook integration
-    // These are the verified working credentials that successfully handle 2FA
-    const workingCredentials = {
+    // Use hardcoded working credentials (keep this unchanged)
+    addMessage('user', 'Use Working Credentials');
+    addMessage('bot', '✅ Using known working credentials for testing...');
+    
+    // Set hardcoded working config directly
+    const workingConfig: GHLSetupConfig = {
       location_id: 'rlRJ1n5Hoy3X53WDOJlq',
       user_id: 'MHwz5yMaG0JrTfGXjvxB',
-      email: 'somashekhar34+rlRJ1n5H@gmail.com',
-      businessName: 'Solar Business rlRJ1n5H',
-      businessEmail: 'somashekhar34+rlRJ1n5H@gmail.com',
-      phone: '+1-555-SOLAR-1',
-      website: 'https://solar-business.com',
-      address: '123 Solar Business Ave',
-      city: 'Solar City', 
-      state: 'CA',
-      country: 'US',
-      postalCode: '90210'
+      location_name: 'Solar Demo Location',
+      user_name: 'Solar Sales Specialist',
+      user_email: 'somashekhar34+rlRJ1n5H@gmail.com',
+      setup_status: 'completed',
+      created_at: new Date().toISOString(),
+      // Keep hardcoded automation credentials for working demo
+      ghl_automation_email: 'somashekhar34+rlRJ1n5H@gmail.com',
+      ghl_automation_password: 'Dummy@123'
     };
     
-    // Update form data with working credentials
-    setFormData({
-      businessName: workingCredentials.businessName,
-      businessEmail: workingCredentials.businessEmail,
-      phone: workingCredentials.phone,
-      website: workingCredentials.website,
-      address: workingCredentials.address,
-      city: workingCredentials.city,
-      state: workingCredentials.state,
-      country: workingCredentials.country,
-      postalCode: workingCredentials.postalCode
-    });
+    setGhlConfig(workingConfig);
+    setSetupStatus('completed');
     
-    addMessage('user', 'Use Existing Working Credentials');
-    addMessage('bot', '🔑 Using the same working credentials from Facebook integration...');
-    addMessage('bot', `📍 **Location ID:** ${workingCredentials.location_id}\n👤 **User ID:** ${workingCredentials.user_id}\n📧 **Email:** ${workingCredentials.email}`);
-    
-    // Create GHL config directly with existing working credentials
-    try {
-      setIsCreating(true);
-      setSetupStatus('creating');
-      
-      const workingGHLConfig: GHLSetupConfig = {
-        location_id: workingCredentials.location_id,
-        user_id: workingCredentials.user_id,
-        location_name: `SolarBusiness_${workingCredentials.location_id}`,
-        user_name: "Solar Sales Manager",
-        user_email: workingCredentials.email,
-        setup_status: 'completed',
-        created_at: new Date().toISOString()
-      };
-
-      setGhlConfig(workingGHLConfig);
-      setSetupStatus('completed');
-      
-      addMessage('bot', '✅ Using existing working account successfully!', true, 'using_existing');
-      addMessage('bot', `🎉 **Account Details:**\n📍 **Location ID:** ${workingGHLConfig.location_id}\n🏢 **Location Name:** ${workingGHLConfig.location_name}\n👤 **User:** ${workingGHLConfig.user_name}\n📧 **Email:** ${workingGHLConfig.user_email}\n\n✨ This account is already verified and ready for Facebook integration!`);
-      
-      // Save configuration to database
-      await saveFinalConfiguration(workingGHLConfig);
-      
-    } catch (error) {
-      console.error('Error with existing credentials setup:', error);
-      addMessage('bot', '❌ Error setting up existing credentials. Please try again.');
-      setSetupStatus('idle');
-    } finally {
-      setIsCreating(false);
-    }
+    addMessage('bot', `🎯 **Working Credentials Applied:**\n📍 **Location ID:** ${workingConfig.location_id}\n👤 **User ID:** ${workingConfig.user_id}\n📧 **Email:** ${workingConfig.user_email}\n\n✅ Ready for Facebook integration with tested credentials!`);
   };
 
   const saveFinalConfiguration = async (config: GHLSetupConfig) => {
@@ -471,6 +438,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         setShowInlineForm(false);
         setSetupStatus('completed');
         
+        // Get GHL automation credentials for Facebook integration
+        const ghlCreds = getGHLCredentials();
+        
         const newConfig: GHLSetupConfig = {
           location_id: result.subaccount.location_id,
           user_id: businessUser.user_id, // Use business user as primary
@@ -478,11 +448,14 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           user_name: businessUser.details.name || formData.businessName,
           user_email: businessUser.details.email || formData.businessEmail,
           setup_status: 'completed',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          // Add GHL automation credentials for Facebook integration
+          ghl_automation_email: ghlCreds.email,
+          ghl_automation_password: ghlCreds.password
         };
         setGhlConfig(newConfig);
         
-        addMessage('bot', `🎉 **Dual User Account Details:**\n📍 **Location ID:** ${newConfig.location_id}\n🏢 **Business:** ${newConfig.location_name}\n👤 **Business User:** ${newConfig.user_name} (${newConfig.user_email})\n👤 **Soma User:** ${somaUser.details.name} (${somaUser.details.email})\n\nBoth users are created and ready for Facebook integration!`);
+        addMessage('bot', `🎉 **Dynamic Business Account Created:**\n📍 **Location ID:** ${newConfig.location_id}\n🏢 **Business:** ${newConfig.location_name}\n👤 **Business User:** ${newConfig.user_name} (${newConfig.user_email})\n🔧 **Automation Email:** ${newConfig.ghl_automation_email}\n\n✨ Account created with dynamic credentials ready for Facebook integration!`);
       } else {
         // Check if it's a "user already exists" error
         const errorMessage = result.detail || result.message || 'Unknown error';

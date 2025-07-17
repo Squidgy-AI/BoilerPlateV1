@@ -50,7 +50,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     ghl_completed: false,
     facebook_completed: false
   });
-  const [ghlCredentials, setGhlCredentials] = useState<{location_id: string, user_id: string, user_name: string, user_email: string} | null>(null);
+  const [ghlCredentials, setGhlCredentials] = useState<{location_id: string, user_id: string, user_name: string, user_email: string, ghl_automation_email?: string, ghl_automation_password?: string} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -262,7 +262,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       location_id: config.location_id,
       user_id: config.user_id,
       user_name: config.user_name,
-      user_email: config.user_email
+      user_email: config.user_email,
+      ghl_automation_email: config.ghl_automation_email,
+      ghl_automation_password: config.ghl_automation_password
     });
     
     // Update progress state immediately
@@ -487,8 +489,8 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           locationId={ghlCredentials?.location_id}
           userId={ghlCredentials?.user_id}
           ghlCredentials={{
-            email: ghlCredentials?.user_email || '',
-            password: 'auto-generated' // GHL manages password automatically
+            email: ghlCredentials?.ghl_automation_email || ghlCredentials?.user_email || '',
+            password: ghlCredentials?.ghl_automation_password || 'Dummy@123'
           }}
         />
       )}
