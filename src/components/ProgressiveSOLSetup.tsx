@@ -33,7 +33,7 @@ interface SetupProgress {
   facebook_completed_at?: string;
 }
 
-type SetupStage = 'solar' | 'calendar' | 'notifications' | 'ghl' | 'facebook' | 'complete';
+type SetupStage = 'solar' | 'ghl' | 'calendar' | 'notifications' | 'facebook' | 'complete';
 
 const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   onComplete,
@@ -134,12 +134,12 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       // Determine current stage based on database status
       if (!solarCompleted) {
         setCurrentStage('solar');
+      } else if (!ghlCompleted) {
+        setCurrentStage('ghl');
       } else if (!calendarCompleted) {
         setCurrentStage('calendar');
       } else if (!notificationsCompleted) {
         setCurrentStage('notifications');
-      } else if (!ghlCompleted) {
-        setCurrentStage('ghl');
       } else if (!facebookCompleted) {
         setCurrentStage('facebook');
       } else {
@@ -165,12 +165,12 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         
         if (!parsedProgress.solar_completed) {
           setCurrentStage('solar');
+        } else if (!parsedProgress.ghl_completed) {
+          setCurrentStage('ghl');
         } else if (!parsedProgress.calendar_completed) {
           setCurrentStage('calendar');
         } else if (!parsedProgress.notifications_completed) {
           setCurrentStage('notifications');
-        } else if (!parsedProgress.ghl_completed) {
-          setCurrentStage('ghl');
         } else if (!parsedProgress.facebook_completed) {
           setCurrentStage('facebook');
         } else {
@@ -238,11 +238,11 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     // Add completion message to chat (only on first-time completion)
     await addCompletionMessageToChat(
       'solar',
-      '🌞 **Solar Information Setup Complete!** ✅\n\nGreat! I now have all your solar business information configured. This includes your pricing, financing options, and energy rates. I can now provide accurate solar calculations and quotes for your customers.\n\n*Moving to the next step: Calendar Setup*',
+      '🌞 **Solar Information Setup Complete!** ✅\n\nGreat! I now have all your solar business information configured. This includes your pricing, financing options, and energy rates. I can now provide accurate solar calculations and quotes for your customers.\n\n*Moving to the next step: GoHighLevel Account Setup*',
       isFirstTimeCompletion
     );
     
-    setCurrentStage('calendar');
+    setCurrentStage('ghl');
   };
 
   const handleCalendarComplete = async (setup: CalendarSetupType) => {
@@ -282,11 +282,11 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     // Add completion message to chat (only on first-time completion)
     await addCompletionMessageToChat(
       'notifications',
-      '🔔 **Notification Preferences Setup Complete!** ✅\n\nExcellent! Your notification system is now configured. You\'ll receive alerts about appointments, leads, and system updates through your preferred channels.\n\n*Moving to the next step: GoHighLevel Account Setup*',
+      '🔔 **Notification Preferences Setup Complete!** ✅\n\nExcellent! Your notification system is now configured. You\'ll receive alerts about appointments, leads, and system updates through your preferred channels.\n\n*Moving to the final step: Facebook Integration*',
       isFirstTimeCompletion
     );
     
-    setCurrentStage('ghl');
+    setCurrentStage('facebook');
   };
 
   const handleGHLComplete = async (config: any) => {
@@ -314,11 +314,11 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     // Add completion message to chat (only on first-time completion)
     await addCompletionMessageToChat(
       'ghl',
-      '🏢 **GoHighLevel Account Setup Complete!** ✅\n\nPerfect! Your GoHighLevel sub-account and user credentials are now configured. This enables all integrations including Facebook, customer management, and automation.\n\n📍 **Location ID:** ' + config.location_id + '\n👤 **User ID:** ' + config.user_id + '\n\n*Moving to the final step: Facebook Integration*',
+      '🏢 **GoHighLevel Account Setup Complete!** ✅\n\nPerfect! Your GoHighLevel sub-account and user credentials are now configured. This enables all integrations including Facebook, customer management, and automation.\n\n📍 **Location ID:** ' + config.location_id + '\n👤 **User ID:** ' + config.user_id + '\n\n*Moving to the next step: Calendar Setup*',
       isFirstTimeCompletion
     );
     
-    setCurrentStage('facebook');
+    setCurrentStage('calendar');
   };
 
   const handleFacebookComplete = async (config: any) => {
@@ -353,7 +353,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
 
   const canNavigateToStep = (targetStage: SetupStage): boolean => {
     // Can always go to current or previous steps
-    const stageOrder = ['solar', 'calendar', 'notifications', 'ghl', 'facebook'];
+    const stageOrder = ['solar', 'ghl', 'calendar', 'notifications', 'facebook'];
     const currentIndex = stageOrder.indexOf(currentStage);
     const targetIndex = stageOrder.indexOf(targetStage);
     
@@ -361,10 +361,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     if (targetIndex <= currentIndex) return true;
     
     // Can navigate to next step only if previous steps are completed
-    if (targetStage === 'calendar' && progress.solar_completed) return true;
+    if (targetStage === 'ghl' && progress.solar_completed) return true;
+    if (targetStage === 'calendar' && progress.ghl_completed) return true;
     if (targetStage === 'notifications' && progress.calendar_completed) return true;
-    if (targetStage === 'ghl' && progress.notifications_completed) return true;
-    if (targetStage === 'facebook' && progress.ghl_completed) return true;
+    if (targetStage === 'facebook' && progress.notifications_completed) return true;
     
     return false;
   };
@@ -397,7 +397,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800">Setup Progress</h3>
         <span className="text-sm text-gray-600">
-          Step {currentStage === 'solar' ? 1 : currentStage === 'calendar' ? 2 : currentStage === 'notifications' ? 3 : currentStage === 'ghl' ? 4 : currentStage === 'facebook' ? 5 : 5} of 5
+          Step {currentStage === 'solar' ? 1 : currentStage === 'ghl' ? 2 : currentStage === 'calendar' ? 3 : currentStage === 'notifications' ? 4 : currentStage === 'facebook' ? 5 : 5} of 5
         </span>
       </div>
       
@@ -420,6 +420,25 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
             </div>
           ) : <Clock size={16} />}
           <span className="mt-1 font-medium">Solar</span>
+        </button>
+        
+        <button
+          onClick={() => navigateToStep('ghl')}
+          disabled={!canNavigateToStep('ghl')}
+          title={progress.ghl_completed ? "✅ Completed - Click to edit" : currentStage === 'ghl' ? "Current step" : "Not yet available"}
+          className={`relative flex flex-col items-center text-xs transition-all ${
+            progress.ghl_completed ? 'text-green-600 hover:text-green-700' : 
+            currentStage === 'ghl' ? 'text-blue-600' : 
+            'text-gray-400'
+          } ${canNavigateToStep('ghl') ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'}`}
+        >
+          {progress.ghl_completed ? (
+            <div className="relative">
+              <CheckCircle size={16} />
+              <Edit3 size={8} className="absolute -top-1 -right-1 text-green-500 bg-white rounded-full" />
+            </div>
+          ) : <Clock size={16} />}
+          <span className="mt-1 font-medium">Set Up</span>
         </button>
         
         <button
@@ -461,25 +480,6 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         </button>
         
         <button
-          onClick={() => navigateToStep('ghl')}
-          disabled={!canNavigateToStep('ghl')}
-          title={progress.ghl_completed ? "✅ Completed - Click to edit" : currentStage === 'ghl' ? "Current step" : "Not yet available"}
-          className={`relative flex flex-col items-center text-xs transition-all ${
-            progress.ghl_completed ? 'text-green-600 hover:text-green-700' : 
-            currentStage === 'ghl' ? 'text-blue-600' : 
-            'text-gray-400'
-          } ${canNavigateToStep('ghl') ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'}`}
-        >
-          {progress.ghl_completed ? (
-            <div className="relative">
-              <CheckCircle size={16} />
-              <Edit3 size={8} className="absolute -top-1 -right-1 text-green-500 bg-white rounded-full" />
-            </div>
-          ) : <Clock size={16} />}
-          <span className="mt-1 font-medium">Set Up</span>
-        </button>
-        
-        <button
           onClick={() => navigateToStep('facebook')}
           disabled={!canNavigateToStep('facebook')}
           title={progress.facebook_completed ? "✅ Completed - Click to edit" : currentStage === 'facebook' ? "Current step" : "Not yet available"}
@@ -505,9 +505,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           style={{ 
             width: `${
               currentStage === 'solar' ? 10 :
-              currentStage === 'calendar' ? 25 :
-              currentStage === 'notifications' ? 45 :
-              currentStage === 'ghl' ? 65 :
+              currentStage === 'ghl' ? 25 :
+              currentStage === 'calendar' ? 45 :
+              currentStage === 'notifications' ? 65 :
               currentStage === 'facebook' ? 85 :
               100
             }%` 
