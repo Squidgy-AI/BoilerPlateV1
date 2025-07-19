@@ -1,7 +1,7 @@
 // src/components/EnhancedChatNotificationSetup.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Mail, MessageSquare, Phone, MessageCircle, Check } from 'lucide-react';
 import { NotificationPreferences as NotificationPrefsType } from '@/config/calendarNotificationConfig';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
   sessionId
 }) => {
   const [isSaving, setSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Default notification preferences with smart defaults
   const [prefs, setPrefs] = useState<NotificationPrefsType>({
@@ -48,6 +49,50 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     whatsapp_cancellation: false,
     whatsapp_reschedule: false
   });
+
+  // Load existing notification preferences on component mount
+  useEffect(() => {
+    const loadExistingPreferences = async () => {
+      try {
+        const userIdResult = await getUserId();
+        if (!userIdResult.success || !userIdResult.user_id) {
+          console.log('No user ID available, using defaults');
+          setIsLoading(false);
+          return;
+        }
+
+        // Query database for existing notification setup
+        const { data, error } = await supabase
+          .from('squidgy_agent_business_setup')
+          .select('setup_json')
+          .eq('firm_user_id', userIdResult.user_id)
+          .eq('agent_id', 'SOLAgent')
+          .eq('setup_type', 'NotificationSetup')
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log('No existing notification setup found, using defaults');
+          } else {
+            console.error('Error loading notification preferences:', error);
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        if (data?.setup_json) {
+          console.log('✅ Loading existing notification preferences:', data.setup_json);
+          setPrefs(data.setup_json as NotificationPrefsType);
+        }
+      } catch (error) {
+        console.error('Failed to load notification preferences:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExistingPreferences();
+  }, []);
 
   const notificationChannels = [
     {
@@ -201,6 +246,20 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
       onComplete(prefs);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4 max-w-sm">
+        <div className="flex items-center mb-4">
+          <Bell className="text-purple-500 mr-2" size={20} />
+          <h3 className="font-semibold text-gray-800">Notification Setup</h3>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-sm text-gray-600">Loading saved preferences...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4 max-w-sm">

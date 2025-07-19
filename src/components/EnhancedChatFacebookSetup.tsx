@@ -47,6 +47,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
 }) => {
   const [isSaving, setSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [generatedOAuthUrl, setGeneratedOAuthUrl] = useState<string | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<'idle' | 'step1_oauth' | 'step2_getting_pages' | 'step3_selecting_pages' | 'completed'>('idle');
@@ -55,6 +56,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   const [oauthCompleted, setOauthCompleted] = useState(false);
   const [storedJwtToken, setStoredJwtToken] = useState<string | null>(null);
   const [actualLocationId, setActualLocationId] = useState<string>(locationId || ''); // Track actual location_id from backend
+  const [existingFacebookConfig, setExistingFacebookConfig] = useState<FacebookIntegrationConfig | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -63,25 +65,90 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     scrollToBottom();
   }, [messages]);
 
+  // Load existing Facebook setup on component mount
+  useEffect(() => {
+    const loadExistingFacebookSetup = async () => {
+      try {
+        const userIdResult = await getUserId();
+        if (!userIdResult.success || !userIdResult.user_id) {
+          console.log('No user ID available for Facebook setup');
+          setIsLoading(false);
+          return;
+        }
+
+        // Query database for existing Facebook setup
+        const { data, error } = await supabase
+          .from('squidgy_agent_business_setup')
+          .select('setup_json')
+          .eq('firm_user_id', userIdResult.user_id)
+          .eq('agent_id', 'SOLAgent')
+          .eq('setup_type', 'FacebookSetup')
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log('No existing Facebook setup found');
+          } else {
+            console.error('Error loading Facebook setup:', error);
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        if (data?.setup_json) {
+          console.log('✅ Loading existing Facebook setup:', data.setup_json);
+          const config = data.setup_json as FacebookIntegrationConfig;
+          setExistingFacebookConfig(config);
+          setIntegrationStatus('completed');
+          setOauthCompleted(true);
+          if (config.facebook_pages) {
+            setFacebookPages(config.facebook_pages);
+          }
+          if (config.selected_page_ids) {
+            setSelectedPageIds(config.selected_page_ids);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load Facebook setup:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExistingFacebookSetup();
+  }, []);
+
   useEffect(() => {
     // Initialize messages with dynamic values
-    if (locationId && userId && messages.length === 0) {
-      setMessages([
+    if (locationId && userId && messages.length === 0 && !isLoading) {
+      const initialMessages = [
         {
           id: '1',
-          sender: 'bot',
+          sender: 'bot' as const,
           message: '👋 Hi! I\'ll help you connect Facebook using your GoHighLevel credentials.',
           timestamp: new Date()
-        },
-        {
-          id: '2', 
-          sender: 'bot',
+        }
+      ];
+
+      if (existingFacebookConfig) {
+        initialMessages.push({
+          id: '2',
+          sender: 'bot' as const,
+          message: `✅ **Found existing Facebook integration!**\n• Status: ${existingFacebookConfig.integration_status}\n• Connected Pages: ${existingFacebookConfig.facebook_pages?.length || 0}\n• Selected Pages: ${existingFacebookConfig.selected_page_ids?.length || 0}`,
+          timestamp: new Date()
+        });
+      } else {
+        initialMessages.push({
+          id: '2',
+          sender: 'bot' as const,
           message: `📍 **Using your GHL Account:**\n• Location ID: ${locationId}\n• User ID: ${userId}\n• Automation Email: ${ghlCredentials?.email || 'Not provided'}\n\n**Facebook Integration Steps:**\n**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy`,
           timestamp: new Date()
-        }
-      ]);
+        });
+      }
+
+      setMessages(initialMessages);
     }
-  }, [locationId, userId, ghlCredentials]);
+  }, [locationId, userId, ghlCredentials, isLoading, existingFacebookConfig]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -449,6 +516,27 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
 
     onConfigurationComplete(config);
   };
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+              <Facebook className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Facebook Integration</h3>
+              <p className="text-sm text-gray-500">Loading existing integration...</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-sm text-gray-600">Loading saved integration...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col">
