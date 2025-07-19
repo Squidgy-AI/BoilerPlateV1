@@ -15,19 +15,21 @@ import {
 
 interface SolarChatConfigProps {
   onComplete: (config: SolarBusinessConfig) => void;
-  onSkip: () => void;
+  onSkip: () => void; // Keep for backward compatibility
+  existingData?: SolarBusinessConfig | null;
 }
 
 const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
   onComplete,
-  onSkip
+  onSkip,
+  existingData
 }) => {
   console.log('🔥 SolarChatConfig COMPONENT RENDERED!');
   console.log('- onComplete:', typeof onComplete);
   console.log('- onSkip:', typeof onSkip);
   
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [config, setConfig] = useState<SolarBusinessConfig>(getSolarConfig());
+  const [config, setConfig] = useState<SolarBusinessConfig>(existingData || getSolarConfig());
   const [isCompleted, setIsCompleted] = useState(false);
 
   const currentParameter = SOLAR_BUSINESS_PARAMETERS[currentQuestionIndex];
@@ -72,9 +74,7 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
     }
   };
 
-  const handleSkip = () => {
-    onSkip();
-  };
+  // Skip functionality removed for mandatory setup
 
   const getCurrentValue = () => {
     return config[currentParameter.key as keyof SolarBusinessConfig];
@@ -205,14 +205,7 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-between items-center">
-        <button
-          onClick={handleSkip}
-          className="text-gray-500 hover:text-gray-700 font-medium transition-colors"
-        >
-          Skip Setup
-        </button>
-
+      <div className="flex justify-end items-center">
         <button
           onClick={handleNext}
           className="flex items-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
