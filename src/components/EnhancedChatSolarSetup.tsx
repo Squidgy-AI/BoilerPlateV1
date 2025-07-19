@@ -70,10 +70,10 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
       console.log('✅ Solar Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
       console.log('🔧 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
-      // Insert into public schema table using profile.user_id
+      // Upsert into public schema table using profile.user_id with proper conflict resolution
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .insert({
+        .upsert({
           firm_id: null,
           firm_user_id,
           agent_id,
@@ -81,7 +81,11 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
           setup_type,
           setup_json: solarConfig,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          is_enabled: true
+          is_enabled: true,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
         })
         .select();
 

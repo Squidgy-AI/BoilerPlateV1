@@ -3,13 +3,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, getAgentSetup, checkSOLAgentEnabled, initializePersonalAssistant, enableSOLAgent } from '@/services/agentService';
+import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, initializePersonalAssistant, enableSOLAgent } from '@/services/agentService';
 import type { Agent } from '@/services/agentService';
 import { 
   User, 
   Users, 
   Bot, 
-  MessageSquare, 
   Send, 
   Video, 
   Mic, 
@@ -17,9 +16,7 @@ import {
   LogOut, 
   UserPlus, 
   FolderPlus, 
-  X,
-  Code2,
-  Sun
+  X
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import ProfileSettings from '../ProfileSettings';
@@ -27,7 +24,7 @@ import GroupManagement from '../Groups/GroupManagement';
 import InteractiveAvatar from '../InteractiveAvatar';
 import WebSocketService from '@/services/WebSocketService';
 import StreamingAvatar from "@heygen/streaming-avatar";
-import WebSocketDebugger from '../WebSocketDebugger';
+// import WebSocketDebugger from '../WebSocketDebugger'; // Removed debug console
 import AgentGreeting from '../AgentGreeting';
 import SquidgyLogo from '../Auth/SquidgyLogo';
 import SpeechToText from '../SpeechToText';
@@ -60,7 +57,7 @@ const EnhancedDashboard: React.FC = () => {
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
-  const [showDebugConsole, setShowDebugConsole] = useState(false);
+  // const [showDebugConsole, setShowDebugConsole] = useState(false); // Removed debug console
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -1685,15 +1682,6 @@ Let's begin with your Solar Business Setup! ☀️`;
         
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => setShowDebugConsole(!showDebugConsole)}
-            className={`p-2 hover:bg-gray-700 rounded transition-colors ${
-              showDebugConsole ? 'bg-gray-700 text-green-400' : 'text-gray-400'
-            }`}
-            title="Toggle WebSocket Debug Console"
-          >
-            <Code2 size={20} />
-          </button>
-          <button 
             onClick={() => setShowProfileSettings(true)}
             className="p-2 hover:bg-gray-700 rounded"
           >
@@ -2127,40 +2115,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                       </div>
                     )}
                     
-                    {/* DEBUG: Show current state */}
-                    {selectedAgent?.id === 'SOLAgent' && (
-                      <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded text-sm">
-                        <strong>🔍 DEBUG INFO:</strong><br/>
-                        • selectedAgent.id: {selectedAgent?.id}<br/>
-                        • showSOLSetup: {showSOLSetup ? 'true' : 'false'}<br/>
-                        • Will render ProgressiveSOLSetup: {selectedAgent?.id === 'SOLAgent' && showSOLSetup ? 'YES' : 'NO'}<br/>
-                        • currentSessionId: {currentSessionId}
-                      </div>
-                    )}
 
-                    {/* UNIVERSAL DEBUG: Show regardless of agent */}
-                    <div className="mb-4 border-2 border-blue-500 p-4 rounded bg-blue-50">
-                      <h3 className="text-blue-700 font-bold mb-2">🔍 UNIVERSAL DEBUG</h3>
-                      <div className="text-sm text-blue-600">
-                        <p>selectedAgent?.id: "{selectedAgent?.id}"</p>
-                        <p>selectedAgent?.name: "{selectedAgent?.name}"</p>
-                        <p>showSOLSetup: {String(showSOLSetup)}</p>
-                        <p>Is SOL Agent?: {selectedAgent?.id === 'SOLAgent' ? 'YES' : 'NO'}</p>
-                        <p>currentSessionId: {currentSessionId}</p>
-                        <button 
-                          onClick={() => {
-                            console.log('🔧 FULL DEBUG STATE:');
-                            console.log('- selectedAgent:', selectedAgent);
-                            console.log('- showSOLSetup:', showSOLSetup);
-                            console.log('- currentSessionId:', currentSessionId);
-                            setShowSOLSetup(true);
-                          }}
-                          className="bg-blue-500 text-white px-3 py-1 rounded text-sm mt-2"
-                        >
-                          Force Enable Setup & Log
-                        </button>
-                      </div>
-                    </div>
                     
                     {/* SOL Agent Setup Rendering */}
                     {selectedAgent?.id === 'SOLAgent' && showSOLSetup && (
@@ -2293,17 +2248,6 @@ Let's begin with your Solar Business Setup! ☀️`;
             </div>
           </div>
 
-          {/* WebSocket Debug Console */}
-          {showDebugConsole && (
-            <div className="border-t border-gray-700">
-              <WebSocketDebugger 
-                websocket={websocket?.rawWebSocket || null} 
-                status={connectionStatus} 
-                logs={websocketLogs}
-                className="bg-black"
-              />
-            </div>
-          )}
         </div>
       </div>
       

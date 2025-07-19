@@ -426,7 +426,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
       selected_page_ids: selectedPageIds
     };
 
-    // Save to database
+    // Save to database with proper conflict resolution
     const { error } = await supabase
       .from('squidgy_agent_business_setup')
       .upsert({
@@ -437,7 +437,10 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         setup_json: config,
         is_enabled: true,
         session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-        created_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'firm_user_id,agent_id,setup_type',
+        ignoreDuplicates: false
       });
 
     if (error) {

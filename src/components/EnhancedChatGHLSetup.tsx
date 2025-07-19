@@ -323,10 +323,13 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       
       console.log('🔍 Database payload:', dbPayload);
 
-      // Save to database
+      // Save to database with proper conflict resolution
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .upsert(dbPayload);
+        .upsert(dbPayload, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
+        });
 
       console.log('🔍 Database response:', { data, error });
 
@@ -532,7 +535,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
 
       console.log('✅ GHL Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
 
-      // Save to the squidgy_agent_business_setup table
+      // Save to the squidgy_agent_business_setup table with proper conflict resolution
       const { error } = await supabase
         .from('squidgy_agent_business_setup')
         .upsert({
@@ -543,7 +546,10 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           setup_json: ghlConfig,
           is_enabled: true,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          created_at: new Date().toISOString()
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
         });
 
       if (error) {

@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, ArrowRight } from 'lucide-react';
+import { CheckCircle, Clock, ArrowRight, Edit3 } from 'lucide-react';
 import SolarChatConfig from './SolarChatConfig';
 import EnhancedChatCalendarSetup from './EnhancedChatCalendarSetup';
 import EnhancedChatNotificationSetup from './EnhancedChatNotificationSetup';
@@ -187,31 +187,36 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     localStorage.setItem('sol_agent_setup_progress', JSON.stringify(updatedProgress));
   };
 
-  const addCompletionMessageToChat = async (stage: string, message: string) => {
+  const addCompletionMessageToChat = async (stage: string, message: string, isFirstTimeCompletion = true) => {
     try {
+      // Only add chat message on first-time completion, not on edits
+      if (!isFirstTimeCompletion) {
+        console.log(`⚠️ Skipping chat message for ${stage} - this is an edit, not first-time completion`);
+        return;
+      }
+
       const userIdResult = await getUserId();
       if (!userIdResult.success || !userIdResult.user_id) {
         console.error('Failed to get user ID:', userIdResult.error);
         return;
       }
 
-      // Add completion message to chat history
-      const { error } = await supabase
-        .from('chat_history')
-        .insert({
-          user_id: userIdResult.user_id,
-          session_id: sessionId,
-          agent_id: 'SOLAgent',
-          agent_name: 'Solar Sales Specialist',
-          sender: 'agent',
-          message: message,
-          timestamp: new Date().toISOString()
+      // Use safe insert function to prevent duplicates
+      const { data, error } = await supabase
+        .rpc('safe_insert_chat_history', {
+          p_session_id: sessionId,
+          p_user_id: userIdResult.user_id,
+          p_sender: 'agent',
+          p_message: message,
+          p_timestamp: new Date().toISOString()
         });
 
       if (error) {
         console.error('Error adding completion message to chat:', error);
+      } else if (data) {
+        console.log(`✅ Added ${stage} completion message to chat history (ID: ${data})`);
       } else {
-        console.log(`✅ Added ${stage} completion message to chat history`);
+        console.log(`ℹ️ ${stage} completion message already exists in chat history - duplicate prevented`);
       }
     } catch (error) {
       console.error('Error saving completion message:', error);
@@ -221,16 +226,20 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const handleSolarComplete = async (config: SolarBusinessConfig) => {
     console.log('🌞 Solar setup completed');
     
+    // Check if this is first-time completion or an edit
+    const isFirstTimeCompletion = !progress.solar_completed;
+    
     // Save form data
     setFormData(prev => ({ ...prev, solar: config }));
     
     // Update progress state immediately
     setProgress(prev => ({ ...prev, solar_completed: true, solar_completed_at: new Date().toISOString() }));
     
-    // Add completion message to chat
+    // Add completion message to chat (only on first-time completion)
     await addCompletionMessageToChat(
       'solar',
-      '🌞 **Solar Information Setup Complete!** ✅\n\nGreat! I now have all your solar business information configured. This includes your pricing, financing options, and energy rates. I can now provide accurate solar calculations and quotes for your customers.\n\n*Moving to the next step: Calendar Setup*'
+      '🌞 **Solar Information Setup Complete!** ✅\n\nGreat! I now have all your solar business information configured. This includes your pricing, financing options, and energy rates. I can now provide accurate solar calculations and quotes for your customers.\n\n*Moving to the next step: Calendar Setup*',
+      isFirstTimeCompletion
     );
     
     setCurrentStage('calendar');
@@ -239,16 +248,20 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const handleCalendarComplete = async (setup: CalendarSetupType) => {
     console.log('📅 Calendar setup completed');
     
+    // Check if this is first-time completion or an edit
+    const isFirstTimeCompletion = !progress.calendar_completed;
+    
     // Save form data
     setFormData(prev => ({ ...prev, calendar: setup }));
     
     // Update progress state immediately
     setProgress(prev => ({ ...prev, calendar_completed: true, calendar_completed_at: new Date().toISOString() }));
     
-    // Add completion message to chat
+    // Add completion message to chat (only on first-time completion)
     await addCompletionMessageToChat(
       'calendar',
-      '📅 **Calendar Setup Complete!** ✅\n\nPerfect! Your calendar system is now configured with your business hours, appointment durations, and booking rules. Customers can now schedule appointments directly through our chat interface.\n\n*Moving to the next step: Notification Preferences*'
+      '📅 **Calendar Setup Complete!** ✅\n\nPerfect! Your calendar system is now configured with your business hours, appointment durations, and booking rules. Customers can now schedule appointments directly through our chat interface.\n\n*Moving to the next step: Notification Preferences*',
+      isFirstTimeCompletion
     );
     
     setCurrentStage('notifications');
@@ -257,16 +270,20 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const handleNotificationsComplete = async (prefs: NotificationPrefsType) => {
     console.log('🔔 Notification setup completed');
     
+    // Check if this is first-time completion or an edit
+    const isFirstTimeCompletion = !progress.notifications_completed;
+    
     // Save form data
     setFormData(prev => ({ ...prev, notifications: prefs }));
     
     // Update progress state immediately
     setProgress(prev => ({ ...prev, notifications_completed: true, notifications_completed_at: new Date().toISOString() }));
     
-    // Add completion message to chat
+    // Add completion message to chat (only on first-time completion)
     await addCompletionMessageToChat(
       'notifications',
-      '🔔 **Notification Preferences Setup Complete!** ✅\n\nExcellent! Your notification system is now configured. You\'ll receive alerts about appointments, leads, and system updates through your preferred channels.\n\n*Moving to the next step: GoHighLevel Account Setup*'
+      '🔔 **Notification Preferences Setup Complete!** ✅\n\nExcellent! Your notification system is now configured. You\'ll receive alerts about appointments, leads, and system updates through your preferred channels.\n\n*Moving to the next step: GoHighLevel Account Setup*',
+      isFirstTimeCompletion
     );
     
     setCurrentStage('ghl');
@@ -274,6 +291,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
 
   const handleGHLComplete = async (config: any) => {
     console.log('🏢 GHL setup completed');
+    
+    // Check if this is first-time completion or an edit
+    const isFirstTimeCompletion = !progress.ghl_completed;
     
     // Save form data
     setFormData(prev => ({ ...prev, ghl: config }));
@@ -291,10 +311,11 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     // Update progress state immediately
     setProgress(prev => ({ ...prev, ghl_completed: true, ghl_completed_at: new Date().toISOString() }));
     
-    // Add completion message to chat
+    // Add completion message to chat (only on first-time completion)
     await addCompletionMessageToChat(
       'ghl',
-      '🏢 **GoHighLevel Account Setup Complete!** ✅\n\nPerfect! Your GoHighLevel sub-account and user credentials are now configured. This enables all integrations including Facebook, customer management, and automation.\n\n📍 **Location ID:** ' + config.location_id + '\n👤 **User ID:** ' + config.user_id + '\n\n*Moving to the final step: Facebook Integration*'
+      '🏢 **GoHighLevel Account Setup Complete!** ✅\n\nPerfect! Your GoHighLevel sub-account and user credentials are now configured. This enables all integrations including Facebook, customer management, and automation.\n\n📍 **Location ID:** ' + config.location_id + '\n👤 **User ID:** ' + config.user_id + '\n\n*Moving to the final step: Facebook Integration*',
+      isFirstTimeCompletion
     );
     
     setCurrentStage('facebook');
@@ -303,16 +324,20 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const handleFacebookComplete = async (config: any) => {
     console.log('📘 Facebook integration completed');
     
+    // Check if this is first-time completion or an edit
+    const isFirstTimeCompletion = !progress.facebook_completed;
+    
     // Save form data
     setFormData(prev => ({ ...prev, facebook: config }));
     
     // Update progress state immediately
     setProgress(prev => ({ ...prev, facebook_completed: true, facebook_completed_at: new Date().toISOString() }));
     
-    // Add completion message to chat
+    // Add completion message to chat (only on first-time completion)
     await addCompletionMessageToChat(
       'facebook',
-      '📘 **Facebook Integration Complete!** ✅\n\n🎉 **Congratulations! Your Solar Sales Specialist is now fully configured and ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Manage your Facebook pages and social media posting\n• Answer questions about solar energy and financing\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.'
+      '📘 **Facebook Integration Complete!** ✅\n\n🎉 **Congratulations! Your Solar Sales Specialist is now fully configured and ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Manage your Facebook pages and social media posting\n• Answer questions about solar energy and financing\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.',
+      isFirstTimeCompletion
     );
     
     // GHL account was already created during the GHL setup step
@@ -381,65 +406,95 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         <button
           onClick={() => navigateToStep('solar')}
           disabled={!canNavigateToStep('solar')}
-          className={`flex flex-col items-center text-xs transition-all ${
-            progress.solar_completed ? 'text-green-600' : 
+          title={progress.solar_completed ? "✅ Completed - Click to edit" : currentStage === 'solar' ? "Current step" : "Not yet available"}
+          className={`relative flex flex-col items-center text-xs transition-all ${
+            progress.solar_completed ? 'text-green-600 hover:text-green-700' : 
             currentStage === 'solar' ? 'text-blue-600' : 
             'text-gray-400'
           } ${canNavigateToStep('solar') ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'}`}
         >
-          {progress.solar_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          {progress.solar_completed ? (
+            <div className="relative">
+              <CheckCircle size={16} />
+              <Edit3 size={8} className="absolute -top-1 -right-1 text-green-500 bg-white rounded-full" />
+            </div>
+          ) : <Clock size={16} />}
           <span className="mt-1 font-medium">Solar</span>
         </button>
         
         <button
           onClick={() => navigateToStep('calendar')}
           disabled={!canNavigateToStep('calendar')}
-          className={`flex flex-col items-center text-xs transition-all ${
-            progress.calendar_completed ? 'text-green-600' : 
+          title={progress.calendar_completed ? "✅ Completed - Click to edit" : currentStage === 'calendar' ? "Current step" : "Not yet available"}
+          className={`relative flex flex-col items-center text-xs transition-all ${
+            progress.calendar_completed ? 'text-green-600 hover:text-green-700' : 
             currentStage === 'calendar' ? 'text-blue-600' : 
             'text-gray-400'
           } ${canNavigateToStep('calendar') ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'}`}
         >
-          {progress.calendar_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          {progress.calendar_completed ? (
+            <div className="relative">
+              <CheckCircle size={16} />
+              <Edit3 size={8} className="absolute -top-1 -right-1 text-green-500 bg-white rounded-full" />
+            </div>
+          ) : <Clock size={16} />}
           <span className="mt-1 font-medium">Calendar</span>
         </button>
         
         <button
           onClick={() => navigateToStep('notifications')}
           disabled={!canNavigateToStep('notifications')}
-          className={`flex flex-col items-center text-xs transition-all ${
-            progress.notifications_completed ? 'text-green-600' : 
+          title={progress.notifications_completed ? "✅ Completed - Click to edit" : currentStage === 'notifications' ? "Current step" : "Not yet available"}
+          className={`relative flex flex-col items-center text-xs transition-all ${
+            progress.notifications_completed ? 'text-green-600 hover:text-green-700' : 
             currentStage === 'notifications' ? 'text-blue-600' : 
             'text-gray-400'
           } ${canNavigateToStep('notifications') ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'}`}
         >
-          {progress.notifications_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          {progress.notifications_completed ? (
+            <div className="relative">
+              <CheckCircle size={16} />
+              <Edit3 size={8} className="absolute -top-1 -right-1 text-green-500 bg-white rounded-full" />
+            </div>
+          ) : <Clock size={16} />}
           <span className="mt-1 font-medium">Notify</span>
         </button>
         
         <button
           onClick={() => navigateToStep('ghl')}
           disabled={!canNavigateToStep('ghl')}
-          className={`flex flex-col items-center text-xs transition-all ${
-            progress.ghl_completed ? 'text-green-600' : 
+          title={progress.ghl_completed ? "✅ Completed - Click to edit" : currentStage === 'ghl' ? "Current step" : "Not yet available"}
+          className={`relative flex flex-col items-center text-xs transition-all ${
+            progress.ghl_completed ? 'text-green-600 hover:text-green-700' : 
             currentStage === 'ghl' ? 'text-blue-600' : 
             'text-gray-400'
           } ${canNavigateToStep('ghl') ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'}`}
         >
-          {progress.ghl_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          {progress.ghl_completed ? (
+            <div className="relative">
+              <CheckCircle size={16} />
+              <Edit3 size={8} className="absolute -top-1 -right-1 text-green-500 bg-white rounded-full" />
+            </div>
+          ) : <Clock size={16} />}
           <span className="mt-1 font-medium">Set Up</span>
         </button>
         
         <button
           onClick={() => navigateToStep('facebook')}
           disabled={!canNavigateToStep('facebook')}
-          className={`flex flex-col items-center text-xs transition-all ${
-            progress.facebook_completed ? 'text-green-600' : 
+          title={progress.facebook_completed ? "✅ Completed - Click to edit" : currentStage === 'facebook' ? "Current step" : "Not yet available"}
+          className={`relative flex flex-col items-center text-xs transition-all ${
+            progress.facebook_completed ? 'text-green-600 hover:text-green-700' : 
             currentStage === 'facebook' ? 'text-blue-600' : 
             'text-gray-400'
           } ${canNavigateToStep('facebook') ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'}`}
         >
-          {progress.facebook_completed ? <CheckCircle size={16} /> : <Clock size={16} />}
+          {progress.facebook_completed ? (
+            <div className="relative">
+              <CheckCircle size={16} />
+              <Edit3 size={8} className="absolute -top-1 -right-1 text-green-500 bg-white rounded-full" />
+            </div>
+          ) : <Clock size={16} />}
           <span className="mt-1 font-medium">Facebook</span>
         </button>
       </div>

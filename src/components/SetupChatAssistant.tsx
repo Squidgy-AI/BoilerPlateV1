@@ -365,8 +365,13 @@ const SetupChatAssistant: React.FC<SetupChatAssistantProps> = ({
           firm_user_id: userIdResult.user_id,
           agent_id: agentId,
           agent_name: agentName,
+          setup_type: 'agent_config',
           is_enabled: true,
-          setup_json: setupData
+          setup_json: setupData,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
         });
 
       addMessage('system', 'Setup data has been saved successfully. Your agent is now active!');

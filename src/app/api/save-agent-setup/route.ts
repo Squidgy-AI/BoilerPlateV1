@@ -17,12 +17,12 @@ export async function POST(request: NextRequest) {
 
     // Get request body
     const body = await request.json();
-    const { agent_id, agent_name, setup_json, firm_id } = body;
+    const { agent_id, agent_name, setup_json, firm_id, setup_type } = body;
 
     // Validate required fields
-    if (!agent_id || !agent_name || !setup_json) {
+    if (!agent_id || !agent_name || !setup_json || !setup_type) {
       return NextResponse.json(
-        { error: 'Missing required fields: agent_id, agent_name, setup_json' },
+        { error: 'Missing required fields: agent_id, agent_name, setup_json, setup_type' },
         { status: 400 }
       );
     }
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Use provided firm_id or null as default
     const actual_firm_id = firm_id || null;
 
-    // Insert or update the agent setup
+    // Insert or update the agent setup using correct conflict resolution
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
       .upsert({
@@ -41,10 +41,11 @@ export async function POST(request: NextRequest) {
         firm_user_id: firm_user_id,
         agent_id: agent_id,
         agent_name: agent_name,
+        setup_type: setup_type,
         setup_json: setup_json,
         updated_at: new Date().toISOString()
       }, {
-        onConflict: 'firm_id,firm_user_id,agent_id',
+        onConflict: 'firm_user_id,agent_id,setup_type',
         ignoreDuplicates: false
       })
       .select()
@@ -97,25 +98,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get agent_id from query params
+    // Get agent_id and setup_type from query params
     const { searchParams } = new URL(request.url);
     const agent_id = searchParams.get('agent_id');
+    const setup_type = searchParams.get('setup_type');
     
-    if (!agent_id) {
+    if (!agent_id || !setup_type) {
       return NextResponse.json(
-        { error: 'Missing required parameter: agent_id' },
+        { error: 'Missing required parameters: agent_id and setup_type' },
         { status: 400 }
       );
     }
 
     const firm_user_id = userIdResult.user_id;
 
-    // Retrieve the agent setup
+    // Retrieve the agent setup using the unique constraint
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
       .select('*')
       .eq('firm_user_id', firm_user_id)
       .eq('agent_id', agent_id)
+      .eq('setup_type', setup_type)
       .single();
 
     if (error) {

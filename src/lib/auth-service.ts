@@ -132,14 +132,17 @@ export class AuthService {
 
         const { error: agentError } = await supabase
           .from('squidgy_agent_business_setup')
-          .insert({
+          .upsert({
             firm_user_id: profile.user_id, // Use the profile's user_id (UUID)
             agent_id: 'PersonalAssistant',
             agent_name: 'Personal Assistant Bot',
             setup_type: 'agent_config',
             setup_json: personalAssistantConfig,
             is_enabled: true,
-            created_at: new Date().toISOString()
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'firm_user_id,agent_id,setup_type',
+            ignoreDuplicates: false
           });
 
         if (agentError) {
