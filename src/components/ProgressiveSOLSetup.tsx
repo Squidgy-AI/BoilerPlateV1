@@ -68,6 +68,14 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     loadSetupProgress();
   }, []);
 
+  // Auto-load GHL credentials when Facebook stage is reached
+  useEffect(() => {
+    if (currentStage === 'facebook' && !ghlCredentials && !isLoading) {
+      console.log('🔄 Facebook stage reached: Auto-loading GHL credentials...');
+      loadGHLCredentialsFromDatabase();
+    }
+  }, [currentStage, ghlCredentials, isLoading]);
+
   const loadSetupProgress = async () => {
     try {
       setIsLoading(true);
@@ -127,6 +135,20 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       };
 
       setProgress(progressFromDB);
+      
+      // Load GHL credentials from database if GHL setup is completed
+      if (ghlCompleted && ghlResult.data?.setup_json) {
+        const ghlConfig = ghlResult.data.setup_json;
+        console.log('🔄 Loading GHL credentials from database:', ghlConfig);
+        setGhlCredentials({
+          location_id: ghlConfig.location_id,
+          user_id: ghlConfig.user_id,
+          user_name: ghlConfig.user_name,
+          user_email: ghlConfig.user_email,
+          ghl_automation_email: ghlConfig.ghl_automation_email,
+          ghl_automation_password: ghlConfig.ghl_automation_password
+        });
+      }
       
       // Also save to localStorage for backup
       localStorage.setItem('sol_agent_setup_progress', JSON.stringify(progressFromDB));
@@ -369,9 +391,45 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     return false;
   };
 
-  const navigateToStep = (targetStage: SetupStage) => {
+  const navigateToStep = async (targetStage: SetupStage) => {
     if (canNavigateToStep(targetStage)) {
+      // If navigating to Facebook and GHL credentials are missing, load them from database
+      if (targetStage === 'facebook' && !ghlCredentials) {
+        console.log('🔄 Facebook navigation: Loading missing GHL credentials...');
+        await loadGHLCredentialsFromDatabase();
+      }
       setCurrentStage(targetStage);
+    }
+  };
+
+  const loadGHLCredentialsFromDatabase = async () => {
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) return;
+
+      const { data, error } = await supabase
+        .from('squidgy_agent_business_setup')
+        .select('setup_json')
+        .eq('firm_user_id', userIdResult.user_id)
+        .eq('agent_id', 'SOLAgent')
+        .eq('setup_type', 'GHLSetup')
+        .eq('is_enabled', true)
+        .single();
+
+      if (!error && data?.setup_json) {
+        const ghlConfig = data.setup_json;
+        console.log('✅ Loaded GHL credentials for Facebook:', ghlConfig.location_id);
+        setGhlCredentials({
+          location_id: ghlConfig.location_id,
+          user_id: ghlConfig.user_id,
+          user_name: ghlConfig.user_name,
+          user_email: ghlConfig.user_email,
+          ghl_automation_email: ghlConfig.ghl_automation_email,
+          ghl_automation_password: ghlConfig.ghl_automation_password
+        });
+      }
+    } catch (error) {
+      console.error('❌ Failed to load GHL credentials:', error);
     }
   };
 
