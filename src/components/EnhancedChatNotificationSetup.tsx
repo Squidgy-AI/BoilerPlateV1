@@ -144,10 +144,10 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
       console.log('✅ Notification Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
       console.log('🔔 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
-      // Insert into public schema table using profile.user_id
+      // Upsert into public schema table using profile.user_id with proper conflict resolution
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .insert({
+        .upsert({
           firm_id: null,
           firm_user_id,
           agent_id,
@@ -155,7 +155,11 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
           setup_type,
           setup_json: notificationPrefs,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          is_enabled: true
+          is_enabled: true,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
         })
         .select();
 

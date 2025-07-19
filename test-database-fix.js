@@ -67,7 +67,10 @@ async function testDatabaseAndFix() {
         
         const { data: insertData, error: insertError } = await supabase
             .from('squidgy_agent_business_setup')
-            .insert(testRecord)
+            .upsert(testRecord, {
+                onConflict: 'firm_user_id,agent_id,setup_type',
+                ignoreDuplicates: false
+            })
             .select();
             
         if (insertError) {
