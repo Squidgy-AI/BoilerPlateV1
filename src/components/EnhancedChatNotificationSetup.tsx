@@ -47,7 +47,11 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     whatsapp_booking: false,
     whatsapp_reminder: false,
     whatsapp_cancellation: false,
-    whatsapp_reschedule: false
+    whatsapp_reschedule: false,
+    // General notification types (the three checkboxes)
+    notification_confirmations: true,
+    notification_reminders: true,
+    notification_cancellations: true
   });
 
   // Load existing notification preferences on component mount
@@ -156,6 +160,10 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
 
   const handleContactInfoChange = (field: keyof NotificationPrefsType, value: string) => {
     setPrefs(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleNotificationTypeToggle = (field: keyof NotificationPrefsType, enabled: boolean) => {
+    setPrefs(prev => ({ ...prev, [field]: enabled }));
   };
 
   const saveToDatabase = async (notificationPrefs: NotificationPrefsType, sessionId?: string) => {
@@ -369,7 +377,8 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
               <input 
                 type="checkbox" 
                 className="mr-2 text-purple-600" 
-                defaultChecked 
+                checked={prefs.notification_confirmations}
+                onChange={(e) => handleNotificationTypeToggle('notification_confirmations', e.target.checked)}
               />
               Appointment confirmations
             </label>
@@ -377,7 +386,8 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
               <input 
                 type="checkbox" 
                 className="mr-2 text-purple-600" 
-                defaultChecked 
+                checked={prefs.notification_reminders}
+                onChange={(e) => handleNotificationTypeToggle('notification_reminders', e.target.checked)}
               />
               Appointment reminders (24hrs before)
             </label>
@@ -385,7 +395,8 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
               <input 
                 type="checkbox" 
                 className="mr-2 text-purple-600" 
-                defaultChecked 
+                checked={prefs.notification_cancellations}
+                onChange={(e) => handleNotificationTypeToggle('notification_cancellations', e.target.checked)}
               />
               Cancellations & reschedules
             </label>
