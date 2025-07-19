@@ -306,17 +306,21 @@ export const saveSolarConfigAsync = async (config: SolarBusinessConfig): Promise
     console.log('- setup_type: SolarSetup');
     console.log('- config keys:', Object.keys(config));
     
-    // Insert into public schema table using profile.user_id
+    // Upsert into public schema table using profile.user_id with proper conflict resolution
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
-      .insert({
+      .upsert({
         firm_id: null,
         firm_user_id: userIdResult.user_id,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
-        setup_type: 'SolarSetup',  // This was missing in original code!
+        setup_type: 'SolarSetup',
         setup_json: config,
-        is_enabled: true
+        is_enabled: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'firm_user_id,agent_id,setup_type',
+        ignoreDuplicates: false
       })
       .select();
     
@@ -406,17 +410,21 @@ export const testDatabaseInsert = async (): Promise<boolean> => {
     // Use direct Supabase for test insert
     const { supabase } = await import('@/lib/supabase');
 
-    // Insert into public schema table using profile.user_id with proper setup_type
+    // Upsert into public schema table using profile.user_id with proper conflict resolution
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
-      .insert({
+      .upsert({
         firm_id: null,
         firm_user_id: userIdResult.user_id,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
-        setup_type: 'SolarSetup',  // This was missing in original code!
+        setup_type: 'SolarSetup',
         setup_json: testConfig,
-        is_enabled: true
+        is_enabled: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'firm_user_id,agent_id,setup_type',
+        ignoreDuplicates: false
       })
       .select();
 
