@@ -29,7 +29,7 @@ const safeAddEventListener: EventHandler = (avatar, eventName, callback) => {
 
 // Constants for session management and credit optimization
 const SESSION_MAX_DURATION_MS = 5 * 60 * 1000; // 5 minutes
-const IDLE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds - CRITICAL: Prevent credit waste
 const DEBOUNCE_DELAY_MS = 500; // 500ms debounce for initialization
 
 interface InteractiveAvatarProps {
@@ -83,7 +83,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
 
   // Constants for credit optimization
   const SESSION_MAX_DURATION_MS = 5 * 60 * 1000; // 5 minutes
-  const IDLE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+  const IDLE_TIMEOUT_MS = 30 * 1000; // 30 seconds - CRITICAL: Prevent credit waste
   const DEBOUNCE_DELAY_MS = 500; // 500ms
 
   // Initialize activity timestamp after component mounts to prevent hydration mismatch
@@ -535,16 +535,18 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         }
         
         if (sessionStartTimeRef.current && sessionDuration > SESSION_MAX_DURATION_MS) {
-          console.log("⚠️ Session exceeding max duration, restarting to save credits");
-          initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
+          console.log("🚨 CRITICAL: Session exceeding max duration (5 minutes), ending session to prevent credit waste");
+          console.log("💰 Credit protection activated - session terminated due to duration limit");
+          endSession();
         } else if (idleDuration > IDLE_TIMEOUT_MS) {
-          console.log("⚠️ Session idle timeout exceeded, restarting to save credits");
-          initializeAvatar(sessionId, avatarId).catch(handleAvatarFailure);
+          console.log("🚨 CRITICAL: Session idle timeout exceeded (30 seconds), ending session to prevent credit waste");
+          console.log("💰 Credit protection activated - session terminated due to inactivity");
+          endSession();
         }
-      }, 60000); // Check every minute
+      }, 15000); // Check every 15 seconds for 30-second timeout
       
       console.log("✅ Avatar initialization complete with LiveKit transport");
-      console.log("💰 Credit optimization active - Max session: 5min, Idle timeout: 2min");
+      console.log("💰 CREDIT PROTECTION ACTIVE - Max session: 5min, Idle timeout: 30sec - Sessions will auto-terminate");
       
       // Clear the timeout since initialization succeeded
       clearTimeout(initTimeout);
