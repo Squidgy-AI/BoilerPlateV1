@@ -191,7 +191,7 @@ const FeedbackReminderConfig: React.FC<FeedbackReminderConfigProps> = ({
                         max="60"
                         value={config.initial_reminder_minutes}
                         onChange={(e) => handleInputChange('initial_reminder_minutes', parseInt(e.target.value) || 2)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                         placeholder="2"
                       />
                       <p className="text-xs text-gray-500 mt-1">
@@ -211,7 +211,7 @@ const FeedbackReminderConfig: React.FC<FeedbackReminderConfigProps> = ({
                         max="120"
                         value={config.resend_reminder_minutes}
                         onChange={(e) => handleInputChange('resend_reminder_minutes', parseInt(e.target.value) || 5)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
                         placeholder="5"
                       />
                       <p className="text-xs text-gray-500 mt-1">
