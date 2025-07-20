@@ -217,7 +217,7 @@ const FeedbackDropdown: React.FC<FeedbackDropdownProps> = ({
                     className={`w-full p-3 border rounded-lg transition-colors flex items-center space-x-3 ${
                       wantsCall 
                         ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                        : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-700'
                     }`}
                   >
                     <Phone className="w-4 h-4" />
@@ -229,7 +229,7 @@ const FeedbackDropdown: React.FC<FeedbackDropdownProps> = ({
                     className={`w-full p-3 border rounded-lg transition-colors flex items-center space-x-3 ${
                       !wantsCall 
                         ? 'border-gray-400 bg-gray-50 text-gray-700' 
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700'
                     }`}
                   >
                     <MessageSquare className="w-4 h-4" />
