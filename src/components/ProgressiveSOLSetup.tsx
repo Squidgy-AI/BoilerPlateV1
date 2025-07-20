@@ -374,19 +374,28 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const canNavigateToStep = (targetStage: SetupStage): boolean => {
-    // Can always go to current or previous steps
+    // Can always navigate to completed steps
+    if (targetStage === 'solar' && progress.solar_completed) return true;
+    if (targetStage === 'ghl' && progress.ghl_completed) return true;
+    if (targetStage === 'calendar' && progress.calendar_completed) return true;
+    if (targetStage === 'notifications' && progress.notifications_completed) return true;
+    if (targetStage === 'facebook' && progress.facebook_completed) return true;
+    
+    // Can navigate to current step
+    if (targetStage === currentStage) return true;
+    
+    // Can navigate to next step only if current step requirements are met
     const stageOrder = ['solar', 'ghl', 'calendar', 'notifications', 'facebook'];
     const currentIndex = stageOrder.indexOf(currentStage);
     const targetIndex = stageOrder.indexOf(targetStage);
     
-    // Can navigate to any previous step or current step
-    if (targetIndex <= currentIndex) return true;
-    
-    // Can navigate to next step only if previous steps are completed
-    if (targetStage === 'ghl' && progress.solar_completed) return true;
-    if (targetStage === 'calendar' && progress.ghl_completed) return true;
-    if (targetStage === 'notifications' && progress.calendar_completed) return true;
-    if (targetStage === 'facebook' && progress.notifications_completed) return true;
+    // Allow navigation to the next step if it's just one step ahead and prerequisites are met
+    if (targetIndex === currentIndex + 1) {
+      if (targetStage === 'ghl' && progress.solar_completed) return true;
+      if (targetStage === 'calendar' && progress.ghl_completed) return true;
+      if (targetStage === 'notifications' && progress.calendar_completed) return true;
+      if (targetStage === 'facebook' && progress.notifications_completed) return true;
+    }
     
     return false;
   };
@@ -438,6 +447,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   console.log('- currentStage:', currentStage);
   console.log('- progress:', progress);
   console.log('- sessionId:', sessionId);
+  console.log('🔍 CALENDAR DEBUG:');
+  console.log('- progress.calendar_completed:', progress.calendar_completed);
+  console.log('- canNavigateToStep(calendar):', canNavigateToStep('calendar'));
+  console.log('- currentStage === calendar:', currentStage === 'calendar');
 
   if (isLoading) {
     console.log('🔄 ProgressiveSOLSetup showing loading state...');
