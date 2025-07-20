@@ -47,6 +47,14 @@ interface GHLFormData {
   postalCode: string;
 }
 
+interface LogoState {
+  faviconUrl: string | null;
+  faviconStatus: 'loading' | 'found' | 'error' | 'not_found';
+  userApprovedFavicon: boolean | null;
+  uploadedLogoUrl: string | null;
+  showLogoUpload: boolean;
+}
+
 interface FormErrors {
   [key: string]: string;
 }
@@ -91,6 +99,15 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   
+  // Logo handling state
+  const [logoState, setLogoState] = useState<LogoState>({
+    faviconUrl: null,
+    faviconStatus: 'not_found',
+    userApprovedFavicon: null,
+    uploadedLogoUrl: null,
+    showLogoUpload: false
+  });
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -101,6 +118,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   useEffect(() => {
     // Check if we already have GHL credentials
     checkExistingGHLSetup();
+    // Check if we have existing business profile with logo
+    checkExistingBusinessProfile();
   }, []);
 
   const scrollToBottom = () => {
@@ -146,6 +165,52 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       }
     } catch (error) {
       console.error('Error checking existing GHL setup:', error);
+    }
+  };
+
+  const checkExistingBusinessProfile = async () => {
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        return;
+      }
+
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      const response = await fetch(`${backendUrl}/api/business/profile/${userIdResult.user_id}`);
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.business_profile) {
+        const profile = result.business_profile;
+        
+        // Pre-fill form with existing data
+        setFormData({
+          businessName: profile.business_name || '',
+          businessEmail: profile.business_email || '',
+          phone: profile.phone || '',
+          website: profile.website || '',
+          address: profile.address || '',
+          city: profile.city || '',
+          state: profile.state || '',
+          country: profile.country || 'US',
+          postalCode: profile.postal_code || ''
+        });
+
+        // Set logo state if we have logos
+        if (profile.logo_url || profile.favicon_url) {
+          setLogoState(prev => ({
+            ...prev,
+            faviconUrl: profile.favicon_url,
+            uploadedLogoUrl: profile.logo_url,
+            faviconStatus: profile.favicon_url ? 'found' : 'not_found',
+            userApprovedFavicon: profile.logo_url ? null : (profile.favicon_url ? true : null)
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing business profile:', error);
     }
   };
 
@@ -458,6 +523,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         };
         setGhlConfig(newConfig);
         
+        // Save business profile with logo information
+        await saveBusinessProfile(newConfig);
+        
         addMessage('bot', `🎉 **Dynamic Business Account Created:**\n📍 **Location ID:** ${newConfig.location_id}\n🏢 **Business:** ${newConfig.location_name}\n👤 **Business User:** ${newConfig.user_name} (${newConfig.user_email})\n🔧 **Automation Email:** ${newConfig.ghl_automation_email}\n\n✨ Account created with dynamic credentials ready for Facebook integration!`);
       } else {
         // Check if it's a "user already exists" error
@@ -498,6 +566,210 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
+    
+    // Auto-capture favicon when website URL is entered
+    if (field === 'website' && value && value.startsWith('http')) {
+      captureFavicon(value);
+    }
+  };
+
+  const captureFavicon = async (websiteUrl: string) => {
+    setLogoState(prev => ({ ...prev, faviconStatus: 'loading' }));
+    
+    try {
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      const response = await fetch(`${backendUrl}/api/website/favicon`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: websiteUrl,
+          session_id: sessionId
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.favicon_url) {
+        setLogoState(prev => ({
+          ...prev,
+          faviconUrl: result.favicon_url,
+          faviconStatus: 'found'
+        }));
+        addMessage('bot', '🎨 Found your website logo! Please check if this looks good for your business.');
+      } else {
+        setLogoState(prev => ({
+          ...prev,
+          faviconStatus: 'not_found',
+          showLogoUpload: true
+        }));
+        addMessage('bot', '📷 Could not find a logo on your website. You can upload your business logo below.');
+      }
+    } catch (error) {
+      console.error('Error capturing favicon:', error);
+      setLogoState(prev => ({
+        ...prev,
+        faviconStatus: 'error',
+        showLogoUpload: true
+      }));
+      addMessage('bot', '⚠️ Could not capture logo from website. Please upload your business logo.');
+    }
+  };
+
+  const handleLogoApproval = (approved: boolean) => {
+    setLogoState(prev => ({
+      ...prev,
+      userApprovedFavicon: approved,
+      showLogoUpload: !approved
+    }));
+    
+    if (approved) {
+      addMessage('bot', '✅ Great! We\'ll use your website logo.');
+    } else {
+      addMessage('bot', '📁 Please upload your business logo below.');
+    }
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    try {
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      const formData = new FormData();
+      formData.append('logo', file);
+      formData.append('session_id', sessionId || '');
+
+      const response = await fetch(`${backendUrl}/api/business/upload-logo`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.logo_url) {
+        setLogoState(prev => ({
+          ...prev,
+          uploadedLogoUrl: result.logo_url,
+          showLogoUpload: false
+        }));
+        addMessage('bot', '✅ Logo uploaded successfully!');
+        
+        // Auto-save to business profile if we have user data
+        await updateLogoInDatabase(result.logo_url);
+      } else {
+        addMessage('bot', '❌ Failed to upload logo. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      addMessage('bot', '❌ Error uploading logo. Please try again.');
+    }
+  };
+
+  const updateLogoInDatabase = async (logoUrl: string) => {
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        return;
+      }
+
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      // Get existing business profile or create minimal one with logo
+      const businessProfileData = {
+        firm_user_id: userIdResult.user_id,
+        business_name: formData.businessName || 'My Business',
+        business_email: formData.businessEmail || 'contact@mybusiness.com',
+        phone: formData.phone,
+        website: formData.website,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country || 'US',
+        postal_code: formData.postalCode,
+        logo_url: logoUrl,
+        favicon_url: logoState.faviconUrl
+      };
+
+      const response = await fetch(`${backendUrl}/api/business/save-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(businessProfileData)
+      });
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        console.log('✅ Logo updated in business profile successfully');
+      } else {
+        console.error('❌ Failed to update logo in business profile:', result);
+      }
+    } catch (error) {
+      console.error('Error updating logo in database:', error);
+    }
+  };
+
+  const saveBusinessProfile = async (ghlConfig: GHLSetupConfig) => {
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        throw new Error('Failed to get user ID');
+      }
+
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      // Determine which logo to use
+      const logoUrl = logoState.userApprovedFavicon && logoState.faviconUrl 
+        ? logoState.faviconUrl 
+        : logoState.uploadedLogoUrl;
+
+      const businessProfileData = {
+        firm_user_id: userIdResult.user_id,
+        business_name: formData.businessName,
+        business_email: formData.businessEmail,
+        phone: formData.phone,
+        website: formData.website,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
+        postal_code: formData.postalCode,
+        logo_url: logoUrl,
+        screenshot_url: null, // Will be captured later if needed
+        favicon_url: logoState.faviconUrl
+      };
+
+      const response = await fetch(`${backendUrl}/api/business/save-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(businessProfileData)
+      });
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        console.log('✅ Business profile saved successfully:', result);
+        addMessage('bot', '💾 Business profile saved successfully!');
+      } else {
+        console.error('❌ Failed to save business profile:', result);
+        addMessage('bot', '⚠️ Warning: Failed to save business profile details.');
+      }
+    } catch (error) {
+      console.error('Error saving business profile:', error);
+      addMessage('bot', '⚠️ Warning: Could not save business profile details.');
     }
   };
 
@@ -623,6 +895,113 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Logo Section - Always Visible */}
+      <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <h4 className="text-sm font-medium text-gray-700 mb-3">Business Logo</h4>
+        
+        {/* Show existing logo if found */}
+        {(logoState.faviconUrl || logoState.uploadedLogoUrl) ? (
+          <div className="space-y-3">
+            {/* Current Logo Display */}
+            <div className="flex items-center space-x-4 p-3 bg-white border rounded-lg">
+              <img 
+                src={logoState.uploadedLogoUrl || logoState.faviconUrl} 
+                alt="Business logo" 
+                className="w-16 h-16 object-contain border rounded-lg bg-gray-50 p-2"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-800">
+                  {logoState.uploadedLogoUrl ? 'Uploaded Business Logo' : 'Website Logo'}
+                </p>
+                <p className="text-xs text-gray-600">
+                  {logoState.uploadedLogoUrl ? 'Custom logo you uploaded' : 'Captured from your website'}
+                </p>
+              </div>
+              <div className="text-green-600">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+            </div>
+            
+            {/* Ask if this is correct */}
+            {logoState.userApprovedFavicon === null && logoState.faviconUrl && !logoState.uploadedLogoUrl && (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-700">Is this your business logo?</p>
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => handleLogoApproval(true)}
+                    className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
+                  >
+                    ✅ Yes, use this
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLogoApproval(false)}
+                    className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+                  >
+                    ❌ No, upload different
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Option to change logo */}
+            <button
+              type="button"
+              onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: true }))}
+              className="text-xs text-orange-600 hover:text-orange-700 underline"
+            >
+              Upload a different logo
+            </button>
+          </div>
+        ) : (
+          /* No logo found - Show upload option */
+          <div className="text-center py-6 border-2 border-dashed border-gray-300 rounded-lg">
+            <div className="text-gray-400 mb-2">
+              <Building2 className="w-8 h-8 mx-auto" />
+            </div>
+            <p className="text-sm text-gray-600 mb-3">No business logo found</p>
+            <button
+              type="button"
+              onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: true }))}
+              className="px-4 py-2 bg-orange-500 text-white text-sm rounded hover:bg-orange-600 transition-colors"
+            >
+              Upload Business Logo
+            </button>
+          </div>
+        )}
+
+        {/* Logo Upload Modal/Section */}
+        {logoState.showLogoUpload && (
+          <div className="mt-4 p-4 border border-orange-200 bg-orange-50 rounded-lg">
+            <h5 className="text-sm font-medium text-orange-800 mb-3">Upload Business Logo</h5>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleLogoUpload(file);
+                  setLogoState(prev => ({ ...prev, showLogoUpload: false }));
+                }
+              }}
+              className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white"
+            />
+            <p className="text-xs text-orange-600 mt-2">Supported: JPG, PNG, GIF (max 5MB)</p>
+            <button
+              type="button"
+              onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: false }))}
+              className="mt-2 text-xs text-orange-600 hover:text-orange-700 underline"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Inline GHL Form */}
       {showInlineForm && (
         <div className="p-4 border-t border-gray-200 bg-gray-50">
@@ -673,6 +1052,103 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                   placeholder="Enter your website URL"
                 />
+              </div>
+
+              {/* Logo Section */}
+              <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+                <h4 className="text-sm font-medium text-gray-700">Business Logo</h4>
+                
+                {/* Favicon Loading State */}
+                {logoState.faviconStatus === 'loading' && (
+                  <div className="flex items-center space-x-2 text-blue-600">
+                    <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                    <span className="text-sm">Capturing logo from website...</span>
+                  </div>
+                )}
+
+                {/* Favicon Found - Show for Approval */}
+                {logoState.faviconStatus === 'found' && logoState.faviconUrl && logoState.userApprovedFavicon === null && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600">We found this logo on your website:</p>
+                    <div className="flex items-center space-x-4">
+                      <img 
+                        src={logoState.faviconUrl} 
+                        alt="Website favicon" 
+                        className="w-16 h-16 object-contain border rounded-lg bg-white p-2"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          setLogoState(prev => ({ ...prev, faviconStatus: 'error' }));
+                        }}
+                      />
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-700">Is this your business logo?</p>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleLogoApproval(true)}
+                            className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                          >
+                            ✅ Yes, use this
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleLogoApproval(false)}
+                            className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                          >
+                            ❌ No, upload different
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show Approved Favicon */}
+                {logoState.userApprovedFavicon === true && logoState.faviconUrl && (
+                  <div className="flex items-center space-x-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <img 
+                      src={logoState.faviconUrl} 
+                      alt="Approved website logo" 
+                      className="w-12 h-12 object-contain border rounded bg-white p-1"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-green-800">✅ Website logo approved</p>
+                      <p className="text-xs text-green-600">This logo will be used for your business</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Logo Upload Section */}
+                {(logoState.showLogoUpload || logoState.faviconStatus === 'not_found' || logoState.faviconStatus === 'error') && !logoState.uploadedLogoUrl && logoState.userApprovedFavicon !== true && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600">Upload your business logo:</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleLogoUpload(file);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                    />
+                    <p className="text-xs text-gray-500">Supported formats: JPG, PNG, GIF (max 5MB)</p>
+                  </div>
+                )}
+
+                {/* Show Uploaded Logo */}
+                {logoState.uploadedLogoUrl && (
+                  <div className="flex items-center space-x-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <img 
+                      src={logoState.uploadedLogoUrl} 
+                      alt="Uploaded business logo" 
+                      className="w-12 h-12 object-contain border rounded bg-white p-1"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">✅ Logo uploaded successfully</p>
+                      <p className="text-xs text-blue-600">This logo will be used for your business</p>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div>
