@@ -6,6 +6,7 @@ import { Calendar, Clock, Settings, ArrowRight, Check } from 'lucide-react';
 import { CalendarSetup as CalendarSetupType } from '@/config/calendarNotificationConfig';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
+import { getGHLCredentials } from '@/utils/getGHLCredentials';
 
 interface EnhancedChatCalendarSetupProps {
   onComplete: (setup: CalendarSetupType) => void;
@@ -144,6 +145,19 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
       console.log('✅ Calendar Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
       console.log('📅 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
+      // Get GHL credentials to include in the record
+      const ghlResult = await getGHLCredentials();
+      let ghl_location_id = null;
+      let ghl_user_id = null;
+      
+      if (ghlResult.success && ghlResult.credentials) {
+        ghl_location_id = ghlResult.credentials.location_id;
+        ghl_user_id = ghlResult.credentials.user_id;
+        console.log('✅ Including GHL credentials in Calendar setup:', { ghl_location_id, ghl_user_id });
+      } else {
+        console.warn('⚠️ GHL credentials not available for Calendar setup:', ghlResult.error);
+      }
+      
       // Upsert into public schema table using profile.user_id with proper conflict resolution
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
@@ -156,7 +170,9 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
           setup_json: calendarSetup,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
           is_enabled: true,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          ghl_location_id,
+          ghl_user_id
         }, {
           onConflict: 'firm_user_id,agent_id,setup_type',
           ignoreDuplicates: false

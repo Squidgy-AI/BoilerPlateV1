@@ -536,6 +536,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       console.log('✅ GHL Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
 
       // Save to the squidgy_agent_business_setup table with proper conflict resolution
+      // Include GHL credentials in its own columns
       const { error } = await supabase
         .from('squidgy_agent_business_setup')
         .upsert({
@@ -546,7 +547,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           setup_json: ghlConfig,
           is_enabled: true,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          ghl_location_id: ghlConfig.location_id,
+          ghl_user_id: ghlConfig.user_id
         }, {
           onConflict: 'firm_user_id,agent_id,setup_type',
           ignoreDuplicates: false

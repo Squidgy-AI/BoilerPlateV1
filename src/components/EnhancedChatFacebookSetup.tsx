@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Facebook, ExternalLink, CheckCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
+import { getGHLCredentials } from '@/utils/getGHLCredentials';
 
 interface EnhancedChatFacebookSetupProps {
   onConfigurationComplete: (config: FacebookIntegrationConfig) => void;
@@ -493,6 +494,19 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
       selected_page_ids: selectedPageIds
     };
 
+    // Get GHL credentials to include in the record
+    const ghlResult = await getGHLCredentials();
+    let ghl_location_id = null;
+    let ghl_user_id = null;
+    
+    if (ghlResult.success && ghlResult.credentials) {
+      ghl_location_id = ghlResult.credentials.location_id;
+      ghl_user_id = ghlResult.credentials.user_id;
+      console.log('✅ Including GHL credentials in Facebook setup:', { ghl_location_id, ghl_user_id });
+    } else {
+      console.warn('⚠️ GHL credentials not available for Facebook setup:', ghlResult.error);
+    }
+
     // Save to database with proper conflict resolution
     const { error } = await supabase
       .from('squidgy_agent_business_setup')
@@ -500,11 +514,13 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         firm_user_id: userIdResult.user_id,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
-        setup_type: 'FacebookIntegration',
+        setup_type: 'FacebookSetup',
         setup_json: config,
         is_enabled: true,
         session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        ghl_location_id,
+        ghl_user_id
       }, {
         onConflict: 'firm_user_id,agent_id,setup_type',
         ignoreDuplicates: false
