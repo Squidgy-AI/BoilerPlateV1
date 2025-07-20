@@ -23,7 +23,7 @@
 ## 📸 Available Snapshots in Your Account
 
 1. **App to Consult** (ID: 24o1XQZcg0PSD5YX1W3J) - Most Recent
-2. **SOL - Solar Assistant** (ID: 7oAH6Cmto5ZcWAaEsrrq)
+2. **SOL - Solar Assistant** (ID: bInwX5BtZM6oEepAsUwo)
 3. **The Ai Team** (ID: jnzVoI6xb6HSwnX125uP)
 4. **Ai Team - Warmup Bot** (ID: dPQCn84TbHFRoDeUXzco)
 5. **GHLM - Core 4 AI v3.1.4 Snapshot** (ID: jTDuX7Po285dxQYoWLpZ)

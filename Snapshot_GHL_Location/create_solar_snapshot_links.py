@@ -3,7 +3,7 @@
 🌞 CREATE SHARE LINKS FOR SOL - SOLAR ASSISTANT SNAPSHOT
 =======================================================
 Creates share links for the existing Solar Assistant snapshot
-Snapshot ID: 7oAH6Cmto5ZcWAaEsrrq (from location JUTFTny8EXQOSB5NcvAA)
+Snapshot ID: bInwX5BtZM6oEepAsUwo (from location JUTFTny8EXQOSB5NcvAA) - UPDATED
 """
 
 import httpx
@@ -16,7 +16,8 @@ AGENCY_TOKEN = "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69"
 COMPANY_ID = "lp2p1q27DrdGta1qGDJd"
 
 # SOLAR ASSISTANT SNAPSHOT
-SOLAR_SNAPSHOT_ID = "7oAH6Cmto5ZcWAaEsrrq"  # SOL - Solar Assistant
+# OLD: SOLAR_SNAPSHOT_ID = "bInwX5BtZM6oEepAsUwo"  # SOL - Solar Assistant (2024-11-04)
+SOLAR_SNAPSHOT_ID = "bInwX5BtZM6oEepAsUwo"  # SOL - Solar Assistant (2025-07-06) - UPDATED
 SOLAR_LOCATION_ID = "JUTFTny8EXQOSB5NcvAA"  # Original location (DO NOT MODIFY!)
 
 # TEST LOCATION (COMMENTED OUT AS REQUESTED)

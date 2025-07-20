@@ -186,7 +186,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       // Use form data if available, otherwise use demo values
       const requestPayload = {
         company_id: "lp2p1q27DrdGta1qGDJd",
-        snapshot_id: "7oAH6Cmto5ZcWAaEsrrq",
+        snapshot_id: "bInwX5BtZM6oEepAsUwo",
         agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
         subaccount_name: formData.businessName || `DemoSolarBusiness_${randomNum}`,
         prospect_email: formData.businessEmail || `demo+${randomNum}@example.com`,
@@ -385,7 +385,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     // Use the combined endpoint that creates BOTH sub-account AND user
     const requestPayload = {
       company_id: "lp2p1q27DrdGta1qGDJd",
-      snapshot_id: "7oAH6Cmto5ZcWAaEsrrq",  // SOL - Solar Assistant snapshot
+      snapshot_id: "bInwX5BtZM6oEepAsUwo",  // SOL - Solar Assistant snapshot
       agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
       subaccount_name: formData.businessName,
       prospect_email: formData.businessEmail,

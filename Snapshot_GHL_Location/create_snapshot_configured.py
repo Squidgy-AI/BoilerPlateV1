@@ -24,7 +24,8 @@ LOCATION_ID = "lBPqgBowX1CsjHay12LY"
 
 # Available snapshots:
 # - 24o1XQZcg0PSD5YX1W3J: "App to Consult" (newest)
-# - 7oAH6Cmto5ZcWAaEsrrq: "SOL - Solar Assistant" 
+# OLD: - bInwX5BtZM6oEepAsUwo: "SOL - Solar Assistant" (2024-11-04)
+# - bInwX5BtZM6oEepAsUwo: "SOL - Solar Assistant" (2025-07-06) - UPDATED
 # - jnzVoI6xb6HSwnX125uP: "The Ai Team"
 
 

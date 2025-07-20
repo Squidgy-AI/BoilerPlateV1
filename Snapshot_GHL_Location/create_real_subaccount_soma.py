@@ -15,7 +15,8 @@ from datetime import datetime
 # CONFIGURATION
 AGENCY_TOKEN = "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69"
 COMPANY_ID = "lp2p1q27DrdGta1qGDJd"
-SOLAR_SNAPSHOT_ID = "7oAH6Cmto5ZcWAaEsrrq"  # SOL - Solar Assistant snapshot
+# OLD: SOLAR_SNAPSHOT_ID = "bInwX5BtZM6oEepAsUwo"  # SOL - Solar Assistant snapshot (2024-11-04)
+SOLAR_SNAPSHOT_ID = "bInwX5BtZM6oEepAsUwo"  # SOL - Solar Assistant snapshot (2025-07-06) - UPDATED
 
 # Sub-account details
 SUBACCOUNT_NAME = "SomaAdda_SOL_Clone_SB"
