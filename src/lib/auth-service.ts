@@ -121,6 +121,28 @@ export class AuthService {
         throw new Error('Failed to create user profile. Please try again.');
       }
 
+      // Create business_profiles record automatically
+      try {
+        const { error: businessProfileError } = await supabase
+          .from('business_profiles')
+          .insert({
+            firm_user_id: profile.user_id, // Use the profile's user_id (UUID)
+            business_name: userData.fullName.trim(), // Use their name as initial business name
+            business_email: userData.email.toLowerCase() // Use their email as initial business email
+          });
+
+        if (businessProfileError) {
+          console.error('Business profile creation failed:', businessProfileError);
+          // Don't fail the entire signup process, but log the error
+          console.warn('User profile created successfully, but business profile creation failed');
+        } else {
+          console.log('✅ Business profile record created automatically for new user');
+        }
+      } catch (businessProfileCreationError) {
+        console.error('Error creating business profile:', businessProfileCreationError);
+        // Don't fail the signup process
+      }
+
       // Create PersonalAssistant agent record automatically
       try {
         const personalAssistantConfig = {
