@@ -578,27 +578,50 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     setLogoState(prev => ({ ...prev, faviconStatus: 'loading' }));
     
     try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        throw new Error('User ID required for favicon capture');
+      }
+
       const backendUrl = process.env.NODE_ENV === 'production' 
         ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
         : 'http://localhost:8000';
 
-      const response = await fetch(`${backendUrl}/api/website/favicon`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: websiteUrl,
-          session_id: sessionId
+      // Capture both favicon and screenshot in parallel
+      const [faviconResponse, screenshotResponse] = await Promise.all([
+        fetch(`${backendUrl}/api/website/favicon`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: websiteUrl,
+            session_id: sessionId,
+            user_id: userIdResult.user_id  // Add user_id for database storage
+          })
+        }),
+        fetch(`${backendUrl}/api/website/screenshot`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: websiteUrl,
+            session_id: sessionId,
+            user_id: userIdResult.user_id  // Add user_id for database storage
+          })
         })
-      });
+      ]);
 
-      const result = await response.json();
+      const [faviconResult, screenshotResult] = await Promise.all([
+        faviconResponse.json(),
+        screenshotResponse.json()
+      ]);
       
-      if (result.status === 'success' && result.favicon_url) {
+      if (faviconResult.status === 'success' && faviconResult.favicon_url) {
         setLogoState(prev => ({
           ...prev,
-          faviconUrl: result.favicon_url,
+          faviconUrl: faviconResult.favicon_url,
           faviconStatus: 'found'
         }));
         addMessage('bot', '🎨 Found your website logo! Please check if this looks good for your business.');
