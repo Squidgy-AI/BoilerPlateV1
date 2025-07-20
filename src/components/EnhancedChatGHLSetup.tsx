@@ -774,7 +774,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>Use Working Credentials</span>
+              <span>Use Working Demo Credentials</span>
             </button>
             <p className="text-center text-xs text-gray-500">or</p>
             <button
@@ -782,7 +782,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               className="w-full flex items-center justify-center space-x-2 bg-orange-500 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors"
             >
               <Building2 className="w-4 h-4" />
-              <span>Enter Business Information</span>
+              <span>Create New Business Account</span>
             </button>
           </div>
         )}
@@ -805,14 +805,25 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               </div>
             </div>
             
-            <button
-              onClick={completeSetup}
-              disabled={isSaving}
-              className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
-            >
-              <Users className="w-4 h-4" />
-              <span>{isSaving ? 'Saving...' : 'Continue to Facebook Integration'}</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setSetupStatus('idle');
+                  setGhlConfig(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Edit Setup
+              </button>
+              <button
+                onClick={completeSetup}
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+              >
+                <Users className="w-4 h-4" />
+                <span>{isSaving ? 'Saving...' : 'Continue to Solar Setup'}</span>
+              </button>
+            </div>
           </div>
         )}
 
