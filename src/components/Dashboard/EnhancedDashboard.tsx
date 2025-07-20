@@ -16,7 +16,8 @@ import {
   LogOut, 
   UserPlus, 
   FolderPlus, 
-  X
+  X,
+  MessageSquare
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import ProfileSettings from '../ProfileSettings';
@@ -28,6 +29,9 @@ import StreamingAvatar from "@heygen/streaming-avatar";
 import AgentGreeting from '../AgentGreeting';
 import SquidgyLogo from '../Auth/SquidgyLogo';
 import SpeechToText from '../SpeechToText';
+import FeedbackReminderConfig from '../FeedbackReminderConfig';
+import FeedbackDropdown from '../FeedbackDropdown';
+import { useFeedbackReminder } from '@/hooks/useFeedbackReminder';
 import MessageContent from '../Chat/MessageContent';
 import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
@@ -50,6 +54,7 @@ const EnhancedDashboard: React.FC = () => {
   const [isGroupSession, setIsGroupSession] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showGroupManagement, setShowGroupManagement] = useState(false);
+  const [showFeedbackConfig, setShowFeedbackConfig] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAddPeopleModal, setShowAddPeopleModal] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -192,6 +197,16 @@ const EnhancedDashboard: React.FC = () => {
   
     // Speech recognition state for microphone button
   const [isListening, setIsListening] = useState(false);
+
+  // Feedback reminder system
+  const {
+    showFeedbackDropdown,
+    isResendReminder,
+    config: feedbackConfig,
+    hideFeedbackDropdown,
+    handleFeedbackResponse,
+    updateConfig: updateFeedbackConfig
+  } = useFeedbackReminder();
   const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -1682,8 +1697,16 @@ Let's begin with your Solar Business Setup! ☀️`;
         
         <div className="flex items-center gap-4">
           <button 
+            onClick={() => setShowFeedbackConfig(true)}
+            className="p-2 hover:bg-gray-700 rounded"
+            title="Feedback Reminder Settings"
+          >
+            <MessageSquare size={20} />
+          </button>
+          <button 
             onClick={() => setShowProfileSettings(true)}
             className="p-2 hover:bg-gray-700 rounded"
+            title="Profile Settings"
           >
             <Settings size={20} />
           </button>
@@ -2413,6 +2436,23 @@ Let's begin with your Solar Business Setup! ☀️`;
           onClose={() => setShowProfileSettings(false)} 
         />
       )}
+      
+      {/* Feedback Reminder Configuration Modal */}
+      {showFeedbackConfig && (
+        <FeedbackReminderConfig
+          isOpen={showFeedbackConfig}
+          onClose={() => setShowFeedbackConfig(false)}
+          onConfigUpdate={updateFeedbackConfig}
+        />
+      )}
+      
+      {/* Feedback Reminder Dropdown */}
+      <FeedbackDropdown
+        isVisible={showFeedbackDropdown}
+        onClose={hideFeedbackDropdown}
+        onResponse={handleFeedbackResponse}
+        isResend={isResendReminder}
+      />
       
       {/* Group Management Modal */}
       {showGroupManagement && currentSessionId && isGroupSession && (
