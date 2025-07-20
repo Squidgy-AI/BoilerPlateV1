@@ -81,14 +81,17 @@ const FeedbackDropdown: React.FC<FeedbackDropdownProps> = ({
         wants_feedback_call: wantsCall
       };
 
-      // Update the feedback record
+      // Upsert the feedback record (handles case where record doesn't exist yet)
       const { error } = await supabase
         .from('followup_feedback_on_firm_user')
-        .update({
+        .upsert({
+          firm_user_id: userIdResult.user_id,
           ...updateData,
           updated_at: now
-        })
-        .eq('firm_user_id', userIdResult.user_id);
+        }, {
+          onConflict: 'firm_user_id',
+          ignoreDuplicates: false
+        });
 
       if (error) {
         throw error;
@@ -127,11 +130,14 @@ const FeedbackDropdown: React.FC<FeedbackDropdownProps> = ({
 
         await supabase
           .from('followup_feedback_on_firm_user')
-          .update({
+          .upsert({
+            firm_user_id: userIdResult.user_id,
             ...updateData,
             updated_at: now
-          })
-          .eq('firm_user_id', userIdResult.user_id);
+          }, {
+            onConflict: 'firm_user_id',
+            ignoreDuplicates: false
+          });
       }
     } catch (error) {
       console.error('Failed to save dismissal:', error);
