@@ -918,112 +918,6 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Logo Section - Always Visible */}
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">Business Logo</h4>
-        
-        {/* Show existing logo if found */}
-        {(logoState.faviconUrl || logoState.uploadedLogoUrl) ? (
-          <div className="space-y-3">
-            {/* Current Logo Display */}
-            <div className="flex items-center space-x-4 p-3 bg-white border rounded-lg">
-              <img 
-                src={logoState.uploadedLogoUrl || logoState.faviconUrl} 
-                alt="Business logo" 
-                className="w-16 h-16 object-contain border rounded-lg bg-gray-50 p-2"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800">
-                  {logoState.uploadedLogoUrl ? 'Uploaded Business Logo' : 'Website Logo'}
-                </p>
-                <p className="text-xs text-gray-600">
-                  {logoState.uploadedLogoUrl ? 'Custom logo you uploaded' : 'Captured from your website'}
-                </p>
-              </div>
-              <div className="text-green-600">
-                <CheckCircle className="w-5 h-5" />
-              </div>
-            </div>
-            
-            {/* Ask if this is correct */}
-            {logoState.userApprovedFavicon === null && logoState.faviconUrl && !logoState.uploadedLogoUrl && (
-              <div className="space-y-2">
-                <p className="text-sm text-gray-700">Is this your business logo?</p>
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => handleLogoApproval(true)}
-                    className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
-                  >
-                    ✅ Yes, use this
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLogoApproval(false)}
-                    className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
-                  >
-                    ❌ No, upload different
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {/* Option to change logo */}
-            <button
-              type="button"
-              onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: true }))}
-              className="text-xs text-orange-600 hover:text-orange-700 underline"
-            >
-              Upload a different logo
-            </button>
-          </div>
-        ) : (
-          /* No logo found - Show upload option */
-          <div className="text-center py-6 border-2 border-dashed border-gray-300 rounded-lg">
-            <div className="text-gray-400 mb-2">
-              <Building2 className="w-8 h-8 mx-auto" />
-            </div>
-            <p className="text-sm text-gray-600 mb-3">No business logo found</p>
-            <button
-              type="button"
-              onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: true }))}
-              className="px-4 py-2 bg-orange-500 text-white text-sm rounded hover:bg-orange-600 transition-colors"
-            >
-              Upload Business Logo
-            </button>
-          </div>
-        )}
-
-        {/* Logo Upload Modal/Section */}
-        {logoState.showLogoUpload && (
-          <div className="mt-4 p-4 border border-orange-200 bg-orange-50 rounded-lg">
-            <h5 className="text-sm font-medium text-orange-800 mb-3">Upload Business Logo</h5>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  handleLogoUpload(file);
-                  setLogoState(prev => ({ ...prev, showLogoUpload: false }));
-                }
-              }}
-              className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white"
-            />
-            <p className="text-xs text-orange-600 mt-2">Supported: JPG, PNG, GIF (max 5MB)</p>
-            <button
-              type="button"
-              onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: false }))}
-              className="mt-2 text-xs text-orange-600 hover:text-orange-700 underline"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Inline GHL Form */}
       {showInlineForm && (
@@ -1077,6 +971,112 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
                 />
               </div>
 
+              {/* Business Logo Section */}
+              <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Business Logo</h4>
+                
+                {/* Show existing logo if found */}
+                {(logoState.faviconUrl || logoState.uploadedLogoUrl) ? (
+                  <div className="space-y-3">
+                    {/* Current Logo Display */}
+                    <div className="flex items-center space-x-4 p-3 bg-white border rounded-lg">
+                      <img 
+                        src={logoState.uploadedLogoUrl || logoState.faviconUrl} 
+                        alt="Business logo" 
+                        className="w-16 h-16 object-contain border rounded-lg bg-gray-50 p-2"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800">
+                          {logoState.uploadedLogoUrl ? 'Uploaded Business Logo' : 'Website Logo'}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {logoState.uploadedLogoUrl ? 'Custom logo you uploaded' : 'Captured from your website'}
+                        </p>
+                      </div>
+                      <div className="text-green-600">
+                        <CheckCircle className="w-5 h-5" />
+                      </div>
+                    </div>
+                    
+                    {/* Ask if this is correct */}
+                    {logoState.userApprovedFavicon === null && logoState.faviconUrl && !logoState.uploadedLogoUrl && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-700">Is this your business logo?</p>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleLogoApproval(true)}
+                            className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
+                          >
+                            ✅ Yes, use this
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleLogoApproval(false)}
+                            className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+                          >
+                            ❌ No, upload different
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Option to change logo */}
+                    <button
+                      type="button"
+                      onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: true }))}
+                      className="text-xs text-orange-600 hover:text-orange-700 underline"
+                    >
+                      Upload a different logo
+                    </button>
+                  </div>
+                ) : (
+                  /* No logo found - Show upload option */
+                  <div className="text-center py-6 border-2 border-dashed border-gray-300 rounded-lg">
+                    <div className="text-gray-400 mb-2">
+                      <Building2 className="w-8 h-8 mx-auto" />
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">No business logo found</p>
+                    <button
+                      type="button"
+                      onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: true }))}
+                      className="px-4 py-2 bg-orange-500 text-white text-sm rounded hover:bg-orange-600 transition-colors"
+                    >
+                      Upload Business Logo
+                    </button>
+                  </div>
+                )}
+
+                {/* Logo Upload Modal/Section */}
+                {logoState.showLogoUpload && (
+                  <div className="mt-4 p-4 border border-orange-200 bg-orange-50 rounded-lg">
+                    <h5 className="text-sm font-medium text-orange-800 mb-3">Upload Business Logo</h5>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleLogoUpload(file);
+                          setLogoState(prev => ({ ...prev, showLogoUpload: false }));
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white"
+                    />
+                    <p className="text-xs text-orange-600 mt-2">Supported: JPG, PNG, GIF (max 5MB)</p>
+                    <button
+                      type="button"
+                      onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: false }))}
+                      className="mt-2 text-xs text-orange-600 hover:text-orange-700 underline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
