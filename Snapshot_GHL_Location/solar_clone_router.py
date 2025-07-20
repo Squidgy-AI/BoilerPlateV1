@@ -41,7 +41,7 @@ router = APIRouter(prefix="/api/ghl", tags=["Solar Clone"])
 clone_operations: Dict[str, SolarCloneResponse] = {}
 
 # Configuration
-DEFAULT_AGENCY_TOKEN = "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69"
+DEFAULT_AGENCY_TOKEN = "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe"
 DEFAULT_COMPANY_ID = "lp2p1q27DrdGta1qGDJd"
 SOURCE_LOCATION_ID = "JUTFTny8EXQOSB5NcvAA"  # Original Solar location
 # OLD: SOLAR_SNAPSHOT_ID = "bInwX5BtZM6oEepAsUwo"  # SOL - Solar Assistant (2024-11-04)

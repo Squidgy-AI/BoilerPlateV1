@@ -13,7 +13,7 @@ from datetime import datetime
 
 
 # CONFIGURATION
-AGENCY_TOKEN = "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69"
+AGENCY_TOKEN = "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe"
 COMPANY_ID = "lp2p1q27DrdGta1qGDJd"
 # OLD: SOLAR_SNAPSHOT_ID = "bInwX5BtZM6oEepAsUwo"  # SOL - Solar Assistant snapshot (2024-11-04)
 SOLAR_SNAPSHOT_ID = "bInwX5BtZM6oEepAsUwo"  # SOL - Solar Assistant snapshot (2025-07-06) - UPDATED

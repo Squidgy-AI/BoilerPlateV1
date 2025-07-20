@@ -16,8 +16,8 @@ class GHLAgencyTokenTest:
     
     def __init__(self):
         # Your agency credentials from constants.py
-        self.agency_access_key = 'pit-c4e9d6af-8956-4a84-9b83-554fb6801a69'  # OAuth access token
-        self.agency_api_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb21wYW55X2lkIjoibHAycDFxMjdEcmRHdGExcUdESmQiLCJ2ZXJzaW9uIjoxLCJpYXQiOjE3MzE3NzMzOTIzNTgsInN1YiI6Ik11VklrS3NEVm12YnRTUlliTzRiIn0.2PIUrvtQYpmKxQXoss1IV9vdIU1VnmbDHcpFw2dodLo'
+        self.agency_access_key = 'pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe'  # OAuth access token
+        self.agency_api_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb21wYW55X2lkIjoibHAycDFxMjdEcmRHdGExcUdESmQiLCJ2ZXJzaW9uIjoxLCJpYXQiOjE3NTI5NzkyOTg1MTQsInN1YiI6ImFaMG40ZXRyTkNFQjI5c29uYThNIn0.zt2d4Nrb8PDciLxYyaGLHnYl9TsODUcCWalGc74n1AQ'
         self.company_id = 'lp2p1q27DrdGta1qGDJd'
         
         # Available location IDs from your constants

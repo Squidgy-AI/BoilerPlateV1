@@ -187,7 +187,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       const requestPayload = {
         company_id: "lp2p1q27DrdGta1qGDJd",
         snapshot_id: "bInwX5BtZM6oEepAsUwo",
-        agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
+        agency_token: "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe",
         subaccount_name: formData.businessName || `DemoSolarBusiness_${randomNum}`,
         prospect_email: formData.businessEmail || `demo+${randomNum}@example.com`,
         prospect_first_name: formData.businessName?.split(' ')[0] || 'Demo',
@@ -386,7 +386,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     const requestPayload = {
       company_id: "lp2p1q27DrdGta1qGDJd",
       snapshot_id: "bInwX5BtZM6oEepAsUwo",  // SOL - Solar Assistant snapshot
-      agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
+      agency_token: "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe",
       subaccount_name: formData.businessName,
       prospect_email: formData.businessEmail,
       prospect_first_name: formData.businessName.split(' ')[0] || 'Business',

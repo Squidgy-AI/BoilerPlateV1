@@ -17,7 +17,7 @@ from datetime import datetime
 
 # CONFIGURATION - UPDATE THESE
 # ============================
-AGENCY_TOKEN = "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69"  # Your agency token
+AGENCY_TOKEN = "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe"  # Your agency token
 SNAPSHOT_ID = "24o1XQZcg0PSD5YX1W3J"  # App to Consult snapshot (most recent)
 COMPANY_ID = "lp2p1q27DrdGta1qGDJd"
 LOCATION_ID = "lBPqgBowX1CsjHay12LY"
