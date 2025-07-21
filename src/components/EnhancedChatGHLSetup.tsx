@@ -887,11 +887,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
             <p className="text-sm text-gray-500">Enter your business details to get started</p>
           </div>
         </div>
-<<<<<<< HEAD
-        {/* Skip button removed - all steps are mandatory */}
-=======
         {/* Skip removed for mandatory setup */}
->>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
       </div>
 
       {/* Chat Messages */}
@@ -1234,11 +1230,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           </div>
         )}
 
-<<<<<<< HEAD
-        {/* All steps are mandatory - Skip button removed */}
-=======
         {/* Skip removed for mandatory setup */}
->>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
       </div>
     </div>
   );

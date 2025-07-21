@@ -374,13 +374,6 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     }, 3000); // Increased delay to allow time to read GHL messages
   };
 
-<<<<<<< HEAD
-  const handleSkipStage = async () => {
-    // This function is kept but disabled since all steps are mandatory
-    console.log('Skip functionality has been disabled - all setup steps are mandatory');
-    // No stage advancement or skip actions will be performed
-    return;
-=======
   const canNavigateToStep = (targetStage: SetupStage): boolean => {
     // Can always navigate to completed steps
     if (targetStage === 'solar' && progress.solar_completed) return true;
@@ -448,7 +441,6 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     } catch (error) {
       console.error('❌ Failed to load GHL credentials:', error);
     }
->>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
   };
 
   console.log('🔍 ProgressiveSOLSetup RENDER DEBUG:');

@@ -207,13 +207,7 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
       </div>
 
       {/* Action Buttons */}
-<<<<<<< HEAD
-      <div className="flex justify-between items-center">
-        {/* Skip button removed - all steps are mandatory */}
-
-=======
       <div className="flex justify-end items-center">
->>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
         <button
           onClick={handleNext}
           className="flex items-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"

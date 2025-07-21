@@ -37,20 +37,6 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     quiet_hours_end: '08:00',
     timezone: 'America/New_York',
     // Notification types for each channel
-<<<<<<< HEAD
-    email_appointment_reminders: true,
-    email_booking_confirmations: true,
-    email_cancellations: true,
-    email_reschedules: true,
-    sms_appointment_reminders: false,
-    sms_booking_confirmations: false,
-    sms_cancellations: false,
-    sms_reschedules: false,
-    whatsapp_appointment_reminders: false,
-    whatsapp_booking_confirmations: false,
-    whatsapp_cancellations: false,
-    whatsapp_reschedules: false
-=======
     email_booking: true,
     email_reminder: true,
     email_cancellation: true,
@@ -67,7 +53,6 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     notification_confirmations: true,
     notification_reminders: true,
     notification_cancellations: true
->>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
   });
 
   // Load existing notification preferences on component mount
@@ -460,11 +445,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
           )}
         </button>
         
-<<<<<<< HEAD
-        {/* Skip button removed - all steps are mandatory */}
-=======
         {/* Skip removed for mandatory setup */}
->>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
       </div>
     </div>
   );
