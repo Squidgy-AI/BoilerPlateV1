@@ -55,7 +55,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   voiceEnabled = true,
   avatarId = 'PersonalAssistant',
   onAvatarError,
-  avatarTimeout = 60000, // 60 seconds default timeout (increased from 10s)
+  avatarTimeout = 180000, // 180 seconds default timeout (3 minutes)
   retryTrigger = 0,
   cleanupTrigger = 0,
   onTextToSpeech
@@ -68,6 +68,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const [avatarFailed, setAvatarFailed] = useState<boolean>(false);
   const [fallbackAvatarUrl, setFallbackAvatarUrl] = useState<string>("");
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+  const [deactivatedForInactivity, setDeactivatedForInactivity] = useState<boolean>(false);
 
   // Refs for managing avatar state and preventing race conditions
   const localAvatarRef = useRef<StreamingAvatar | null>(null);
@@ -81,6 +82,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   const lastInitAttemptTimeRef = useRef<number>(0);
   const lastActivityTimeRef = useRef<number>(0); // Track last user activity - initialized in useEffect
   const lastRetryTriggerRef = useRef<number>(0); // Track last processed retry trigger
+  const initializationSuccessRef = useRef<boolean>(false); // Track if initialization has succeeded
 
   // Constants for credit optimization
   const SESSION_MAX_DURATION_MS = 5 * 60 * 1000; // 5 minutes
@@ -257,19 +259,59 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     console.log("Setting up comprehensive event listeners...");
     
     // Use safeAddEventListener to avoid TypeScript errors
+    console.log("🔍 Setting up critical stream_ready event listener");
     safeAddEventListener(avatar, 'stream_ready', (event: any) => {
-      console.log("🎥 Stream ready event received:", event.detail);
+      console.log("🎬 Stream ready event received:", event);
       
-      // Validate the stream
-      if (event.detail && event.detail instanceof MediaStream) {
-        console.log("✅ Valid MediaStream received with", event.detail.getTracks().length, "tracks");
-        event.detail.getTracks().forEach((track: MediaStreamTrack, index: number) => {
-          console.log(`Track ${index}: ${track.kind} - ${track.label} (enabled: ${track.enabled})`);
+      // Extract stream from CustomEvent or direct event
+      // For CustomEvent, the stream is in event.detail
+      // For direct events, it might be in event.stream
+      const stream = event?.detail instanceof MediaStream ? event.detail : 
+                    event?.stream instanceof MediaStream ? event.stream : null;
+      
+      console.log("🔍 Stream extraction attempt:", {
+        hasEvent: !!event,
+        isCustomEvent: event instanceof CustomEvent,
+        hasDetail: !!event?.detail,
+        detailIsStream: event?.detail instanceof MediaStream,
+        hasStreamProperty: !!event?.stream,
+        streamPropertyIsStream: event?.stream instanceof MediaStream,
+        extractedStream: !!stream
+      });
+      
+      // Validate the MediaStream
+      if (stream instanceof MediaStream) {
+        console.log("✅ Valid MediaStream received with " + stream.getTracks().length + " tracks");
+        
+        // Log track details for debugging
+        stream.getTracks().forEach((track: MediaStreamTrack, index: number) => {
+          console.log(`Track ${index}: ${track.kind} - ${track.id} (enabled: ${track.enabled})`);
+          // Ensure video tracks are enabled
+          if (track.kind === 'video' && !track.enabled) {
+            console.log(`🔄 Enabling disabled video track: ${track.id}`);
+            track.enabled = true;
+          }
         });
-        setStream(event.detail);
+        
         console.log("📺 Stream state updated, video should now be visible");
         
-        // Track successful avatar initialization
+        // Store the extracted stream for use in the component
+        console.log("🔄 Setting stream state with MediaStream:", stream);
+        setStream(stream);
+        console.log("✅ Avatar stream ready - initialization complete");
+        
+        // Force a re-render check after state update
+        setTimeout(() => {
+          console.log("🔍 Post-setState stream check - current stream state should be set");
+        }, 100);
+      }
+      
+      // Mark initialization as successful - CRITICAL FLAG
+      initializationSuccessRef.current = true;
+      initializationInProgressRef.current = false;
+      
+      // Track successful avatar initialization
+      if (stream instanceof MediaStream) {
         try {
           console.log('%c🎭 Tracking avatar initialization success', 'background: #2d3748; color: #4ade80; padding: 2px; border-radius: 2px;');
           trackActivity({
@@ -285,14 +327,24 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
           console.error('Error tracking avatar initialization:', trackError);
         }
         
-        // Notify parent component that avatar is ready and video is visible
+        // Notify parent component that avatar is ready
         if (onAvatarReady) {
-          console.log("🎯 Calling onAvatarReady - video stream is now visible");
+          console.log("🎯 Calling onAvatarReady callback - video stream is now visible");
           onAvatarReady();
         }
       } else {
-        console.warn("⚠️ Invalid stream received:", event.detail);
+        // This is likely a secondary notification or status update event
+        // Log as info instead of warning since we've handled the main stream event
+        console.log("💬 Secondary stream_ready event received without stream data - this is normal");
       }
+      
+      // Reset error state if it was previously set
+      setError("");
+      setErrorType("");
+      setAvatarFailed(false);
+      
+      // Update activity timestamp
+      updateActivity();
     });
     
     safeAddEventListener(avatar, 'avatar_start_talking', () => {
@@ -352,16 +404,28 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     
     // Update initialization state
     initializationInProgressRef.current = true;
+    initializationSuccessRef.current = false; // Reset success flag when starting new initialization
     lastInitAttemptTimeRef.current = Date.now();
     
     // Set up a timeout to prevent forever loading
     const initTimeout = setTimeout(() => {
-      if (initializationInProgressRef.current) {
+      // Only force failure if initialization is in progress AND success flag is not set
+      if (initializationInProgressRef.current && !initializationSuccessRef.current) {
         console.log("⏱️ Avatar initialization timeout - forcing failure");
+        console.log("🔍 Timeout debug info:", {
+          initializationInProgress: initializationInProgressRef.current,
+          initializationSuccess: initializationSuccessRef.current,
+          timeElapsed: Date.now() - lastInitAttemptTimeRef.current,
+          timeoutValue: avatarTimeout || 180000
+        });
         handleAvatarFailure(new Error("Avatar initialization timeout"));
         initializationInProgressRef.current = false;
+      } else if (initializationSuccessRef.current) {
+        console.log("✅ Initialization already succeeded - ignoring timeout");
+      } else {
+        console.log("ℹ️ Initialization no longer in progress - ignoring timeout");
       }
-    }, avatarTimeout || 60000); // Use prop timeout or 60 seconds as fallback (increased from 30s)
+    }, avatarTimeout || 180000); // Use prop timeout or 180 seconds as fallback
     
     try {
       console.log("🚀 Initializing avatar with session ID:", sessionId, "and avatar ID:", avatarId);
@@ -575,6 +639,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
         } else if (idleDuration > IDLE_TIMEOUT_MS) {
           console.log("🚨 CRITICAL: Session idle timeout exceeded (30 seconds), ending session to prevent credit waste");
           console.log("💰 Credit protection activated - session terminated due to inactivity");
+          setDeactivatedForInactivity(true);
           endSession();
         }
       }, 15000); // Check every 15 seconds for 30-second timeout
@@ -630,8 +695,8 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       });
       
       // If we have an active session and the new session ID is just a timestamp variation,
-      // don't reinitialize unnecessarily
-      if (sessionActive && currentSessionIdRef.current && sessionId) {
+      // don't reinitialize unnecessarily - BUT ONLY if the avatar ID hasn't changed
+      if (sessionActive && currentSessionIdRef.current && sessionId && currentAvatarIdRef.current === avatarId) {
         const baseSessionId = currentSessionIdRef.current.split('_')[0];
         const newBaseSessionId = sessionId.split('_')[0];
         if (baseSessionId === newBaseSessionId) {
@@ -652,10 +717,47 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       });
       // Set transitioning state for smooth UI
       setIsTransitioning(true);
+      
+      // Force reset any previous failure state when switching avatars
+      if (avatarFailed) {
+        console.log("🔄 Resetting failed state due to avatar change");
+        setAvatarFailed(false);
+        setError('');
+        setErrorType('');
+      }
+      
+      // Reset inactivity state when switching avatars
+      if (deactivatedForInactivity) {
+        console.log("🔄 Resetting inactivity state due to avatar change");
+        setDeactivatedForInactivity(false);
+      }
     }
     
-    if (shouldReinitialize && !avatarFailed) {
-      // Only auto-initialize if avatar hasn't failed - prevent automatic retries on errors
+    // Always initialize when avatar ID changes, regardless of other conditions
+    if (currentAvatarIdRef.current !== avatarId && enabled && sessionId && avatarId) {
+      console.log("🚀 Forcing initialization due to avatar change");
+      
+      // Clear any existing timeout
+      if (timeoutId) clearTimeout(timeoutId);
+      
+      // Add a small delay to ensure previous avatar cleanup completes
+      timeoutId = setTimeout(async () => {
+        // Clear errors and set transitioning state
+        setError('');
+        setErrorType('');
+        setIsTransitioning(true);
+        
+        try {
+          await initializeAvatar(sessionId, avatarId);
+          setIsTransitioning(false);
+        } catch (error) {
+          handleAvatarFailure(error);
+          setIsTransitioning(false);
+        }
+      }, 800); // Slightly longer delay for agent switches
+      
+    } else if (shouldReinitialize && !avatarFailed) {
+      // Standard initialization for session ID changes
       console.log("🚀 Auto-initializing avatar (no previous failure)");
       
       // Debounce initialization to prevent rapid session creation/destruction
@@ -687,7 +789,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [avatarId, enabled, endSession, handleAvatarFailure, initializeAvatar, sessionId]);
+  }, [sessionId, avatarId, enabled, sessionActive, avatarFailed, deactivatedForInactivity, endSession, initializeAvatar, handleAvatarFailure]);
 
   // Handle manual retry when retryTrigger changes
   // Manual retry effect - only triggers on explicit user retry button clicks
@@ -707,6 +809,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
       setError('');
       setErrorType('');
       setFallbackAvatarUrl('');
+      setDeactivatedForInactivity(false); // Reset inactivity deactivation state
       
       // Trigger reinitialization if we have session and avatar ID
       if (sessionId && avatarId && enabled) {
@@ -793,11 +896,34 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
     if (videoRef.current && stream) {
       console.log("🎥 Assigning MediaStream to video element");
       videoRef.current.srcObject = stream;
+      
+      // Force video to play when metadata is loaded
       videoRef.current.onloadedmetadata = () => {
         console.log("📺 Video metadata loaded, starting playback");
-        videoRef.current?.play().catch(err => {
-          console.warn("Video autoplay failed (expected in some browsers):", err);
-        });
+        
+        // Make sure autoplay works even with browser restrictions
+        const playPromise = videoRef.current?.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            console.log('✅ Video playback started successfully');
+          }).catch(err => {
+            console.warn("Video autoplay failed (trying muted playback):", err);
+            
+            // Try with muted as fallback (browsers often allow muted autoplay)
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              videoRef.current.play().then(() => {
+                console.log('✅ Muted video playback started as fallback');
+                // Unmute after a short delay (user gesture may be required)
+                setTimeout(() => {
+                  if (videoRef.current) videoRef.current.muted = false;
+                }, 1000);
+              }).catch(innerErr => {
+                console.error('Even muted playback failed:', innerErr);
+              });
+            }
+          });
+        }
       };
     } else if (videoRef.current && !stream) {
       console.log("🔌 Clearing video stream");
@@ -809,16 +935,54 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
   useEffect(() => {
     return () => {
       console.log("Component unmounting, cleaning up resources");
+      
+      // Clear monitoring interval
       if (sessionMonitorIntervalRef.current) {
         clearInterval(sessionMonitorIntervalRef.current);
+        sessionMonitorIntervalRef.current = null;
       }
-      // Direct cleanup without calling endSession to avoid dependency issues
+      
+      // Clear any active session
       if (localAvatarRef.current) {
-        (localAvatarRef.current as any).stopAvatar?.().catch(() => {});
+        console.log("🧹 Cleaning up avatar session on unmount");
+        
+        // Stop voice chat if active
+        if (voiceChatActiveRef.current) {
+          try {
+            (localAvatarRef.current as any).stopVoiceChat?.();
+            console.log('🔇 Voice chat stopped on unmount');
+            voiceChatActiveRef.current = false;
+          } catch (err) {
+            // Ignore errors on unmount
+          }
+        }
+        
+        // Stop avatar
+        try {
+          (localAvatarRef.current as any).stopAvatar?.();
+          console.log('🛑 Avatar session stopped on unmount');
+        } catch (err) {
+          // Ignore errors on unmount
+        }
+        
+        // Clear reference
         localAvatarRef.current = null;
       }
+      
+      // Clear video stream
+      if (videoRef.current && videoRef.current.srcObject) {
+        videoRef.current.srcObject = null;
+        console.log('🔌 Video stream cleared on unmount');
+      }
+      
+      // Reset all state refs for clean remount
+      initializationInProgressRef.current = false;
+      initializationSuccessRef.current = false;
+      sessionStartTimeRef.current = null;
+      currentSessionIdRef.current = undefined;
+      currentAvatarIdRef.current = undefined;
     };
-  }, []);
+  }, []); // Empty dependency array for unmount only
 
   // Streaming Task Methods for HeyGen API
   
@@ -1022,6 +1186,7 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
             {/* Debug info */}
             <div className="absolute top-2 left-2 text-white text-xs bg-black bg-opacity-50 p-1 rounded z-20">
               Stream: {stream ? 'Connected' : 'None'} | Session: {sessionActive ? 'Active' : 'Inactive'} | Failed: {avatarFailed ? 'Yes' : 'No'}
+              <br />Stream Object: {stream ? `${stream.constructor.name} (${stream.getTracks().length} tracks)` : 'null'}
             </div>
             
             <video
@@ -1043,8 +1208,35 @@ const InteractiveAvatar: React.FC<InteractiveAvatarProps> = ({
               onLoadedMetadata={() => console.log('📺 Video metadata loaded')}
             />
             
-            {/* Show placeholder when no stream and no error */}
-            {!stream && !avatarFailed && (
+            {/* Show inactivity deactivation message */}
+            {deactivatedForInactivity && (
+              <div className="absolute inset-0 flex items-center justify-center text-white bg-gray-800 bg-opacity-90">
+                <div className="text-center p-6">
+                  <div className="text-6xl mb-4">⏸️</div>
+                  <div className="text-xl mb-2">Avatar Deactivated</div>
+                  <div className="text-sm text-gray-300 mb-6">Session ended due to inactivity (30 seconds)</div>
+                  <button 
+                    onClick={() => {
+                      console.log('🔄 User clicked reactivate button after inactivity');
+                      setDeactivatedForInactivity(false);
+                      // Trigger a retry to reactivate the avatar
+                      if (sessionId && avatarId && enabled) {
+                        initializeAvatar(sessionId, avatarId).catch(error => {
+                          console.error('Failed to reactivate avatar:', error);
+                          handleAvatarFailure(error);
+                        });
+                      }
+                    }}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 mx-auto"
+                  >
+                    Reactivate Avatar
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Show placeholder when no stream and no error and not deactivated for inactivity */}
+            {!stream && !avatarFailed && !deactivatedForInactivity && (
               <div className="absolute inset-0 flex items-center justify-center text-white">
                 <div className="text-center">
                   <div className="text-6xl mb-4">📹</div>
