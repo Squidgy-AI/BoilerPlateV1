@@ -1,11 +1,12 @@
 // src/components/EnhancedChatNotificationSetup.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Mail, MessageSquare, Phone, MessageCircle, Check } from 'lucide-react';
 import { NotificationPreferences as NotificationPrefsType } from '@/config/calendarNotificationConfig';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
+import { getGHLCredentials } from '@/utils/getGHLCredentials';
 
 interface EnhancedChatNotificationSetupProps {
   onComplete: (prefs: NotificationPrefsType) => void;
@@ -19,6 +20,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
   sessionId
 }) => {
   const [isSaving, setSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Default notification preferences with smart defaults
   const [prefs, setPrefs] = useState<NotificationPrefsType>({
@@ -35,6 +37,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     quiet_hours_end: '08:00',
     timezone: 'America/New_York',
     // Notification types for each channel
+<<<<<<< HEAD
     email_appointment_reminders: true,
     email_booking_confirmations: true,
     email_cancellations: true,
@@ -47,7 +50,69 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     whatsapp_booking_confirmations: false,
     whatsapp_cancellations: false,
     whatsapp_reschedules: false
+=======
+    email_booking: true,
+    email_reminder: true,
+    email_cancellation: true,
+    email_reschedule: true,
+    sms_booking: false,
+    sms_reminder: false,
+    sms_cancellation: false,
+    sms_reschedule: false,
+    whatsapp_booking: false,
+    whatsapp_reminder: false,
+    whatsapp_cancellation: false,
+    whatsapp_reschedule: false,
+    // General notification types (the three checkboxes)
+    notification_confirmations: true,
+    notification_reminders: true,
+    notification_cancellations: true
+>>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
   });
+
+  // Load existing notification preferences on component mount
+  useEffect(() => {
+    const loadExistingPreferences = async () => {
+      try {
+        const userIdResult = await getUserId();
+        if (!userIdResult.success || !userIdResult.user_id) {
+          console.log('No user ID available, using defaults');
+          setIsLoading(false);
+          return;
+        }
+
+        // Query database for existing notification setup
+        const { data, error } = await supabase
+          .from('squidgy_agent_business_setup')
+          .select('setup_json')
+          .eq('firm_user_id', userIdResult.user_id)
+          .eq('agent_id', 'SOLAgent')
+          .eq('setup_type', 'NotificationSetup')
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log('No existing notification setup found, using defaults');
+          } else {
+            console.error('Error loading notification preferences:', error);
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        if (data?.setup_json) {
+          console.log('✅ Loading existing notification preferences:', data.setup_json);
+          setPrefs(data.setup_json as NotificationPrefsType);
+        }
+      } catch (error) {
+        console.error('Failed to load notification preferences:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExistingPreferences();
+  }, []);
 
   const notificationChannels = [
     {
@@ -113,6 +178,10 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     setPrefs(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleNotificationTypeToggle = (field: keyof NotificationPrefsType, enabled: boolean) => {
+    setPrefs(prev => ({ ...prev, [field]: enabled }));
+  };
+
   const saveToDatabase = async (notificationPrefs: NotificationPrefsType, sessionId?: string) => {
     try {
       const userIdResult = await getUserId();
@@ -144,10 +213,23 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
       console.log('✅ Notification Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
       console.log('🔔 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
-      // Insert into public schema table using profile.user_id
+      // Get GHL credentials to include in the record
+      const ghlResult = await getGHLCredentials();
+      let ghl_location_id = null;
+      let ghl_user_id = null;
+      
+      if (ghlResult.success && ghlResult.credentials) {
+        ghl_location_id = ghlResult.credentials.location_id;
+        ghl_user_id = ghlResult.credentials.user_id;
+        console.log('✅ Including GHL credentials in Notification setup:', { ghl_location_id, ghl_user_id });
+      } else {
+        console.warn('⚠️ GHL credentials not available for Notification setup:', ghlResult.error);
+      }
+      
+      // Upsert into public schema table using profile.user_id with proper conflict resolution
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .insert({
+        .upsert({
           firm_id: null,
           firm_user_id,
           agent_id,
@@ -155,7 +237,13 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
           setup_type,
           setup_json: notificationPrefs,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          is_enabled: true
+          is_enabled: true,
+          updated_at: new Date().toISOString(),
+          ghl_location_id,
+          ghl_user_id
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
         })
         .select();
 
@@ -197,6 +285,20 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
       onComplete(prefs);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4 max-w-sm">
+        <div className="flex items-center mb-4">
+          <Bell className="text-purple-500 mr-2" size={20} />
+          <h3 className="font-semibold text-gray-800">Notification Setup</h3>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-sm text-gray-600">Loading saved preferences...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4 max-w-sm">
@@ -306,7 +408,8 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
               <input 
                 type="checkbox" 
                 className="mr-2 text-purple-600" 
-                defaultChecked 
+                checked={prefs.notification_confirmations}
+                onChange={(e) => handleNotificationTypeToggle('notification_confirmations', e.target.checked)}
               />
               Appointment confirmations
             </label>
@@ -314,7 +417,8 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
               <input 
                 type="checkbox" 
                 className="mr-2 text-purple-600" 
-                defaultChecked 
+                checked={prefs.notification_reminders}
+                onChange={(e) => handleNotificationTypeToggle('notification_reminders', e.target.checked)}
               />
               Appointment reminders (24hrs before)
             </label>
@@ -322,7 +426,8 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
               <input 
                 type="checkbox" 
                 className="mr-2 text-purple-600" 
-                defaultChecked 
+                checked={prefs.notification_cancellations}
+                onChange={(e) => handleNotificationTypeToggle('notification_cancellations', e.target.checked)}
               />
               Cancellations & reschedules
             </label>
@@ -355,7 +460,11 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
           )}
         </button>
         
+<<<<<<< HEAD
         {/* Skip button removed - all steps are mandatory */}
+=======
+        {/* Skip removed for mandatory setup */}
+>>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
       </div>
     </div>
   );

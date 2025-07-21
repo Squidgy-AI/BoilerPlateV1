@@ -23,7 +23,7 @@
 ## 📸 Available Snapshots in Your Account
 
 1. **App to Consult** (ID: 24o1XQZcg0PSD5YX1W3J) - Most Recent
-2. **SOL - Solar Assistant** (ID: 7oAH6Cmto5ZcWAaEsrrq)
+2. **SOL - Solar Assistant** (ID: bInwX5BtZM6oEepAsUwo)
 3. **The Ai Team** (ID: jnzVoI6xb6HSwnX125uP)
 4. **Ai Team - Warmup Bot** (ID: dPQCn84TbHFRoDeUXzco)
 5. **GHLM - Core 4 AI v3.1.4 Snapshot** (ID: jTDuX7Po285dxQYoWLpZ)
@@ -33,7 +33,7 @@ Total: 76 snapshots in account (showing first 10)
 ## 🔧 Configuration Used
 
 ```python
-AGENCY_TOKEN = "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69"
+AGENCY_TOKEN = "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe"
 COMPANY_ID = "lp2p1q27DrdGta1qGDJd"
 LOCATION_ID = "lBPqgBowX1CsjHay12LY"
 SNAPSHOT_ID = "24o1XQZcg0PSD5YX1W3J"

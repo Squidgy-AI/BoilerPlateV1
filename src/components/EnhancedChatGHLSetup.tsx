@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Building2, Users, CheckCircle, Loader, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
+import { getGHLCredentials } from '@/constants/ghlCredentials';
 
 interface EnhancedChatGHLSetupProps {
   onConfigurationComplete: (config: GHLSetupConfig) => void;
@@ -20,6 +21,9 @@ interface GHLSetupConfig {
   user_email: string;
   setup_status: 'pending' | 'creating' | 'completed' | 'failed';
   created_at?: string;
+  // GHL automation credentials (for Facebook integration)
+  ghl_automation_email?: string;
+  ghl_automation_password?: string;
 }
 
 interface ChatMessage {
@@ -41,6 +45,14 @@ interface GHLFormData {
   state: string;
   country: string;
   postalCode: string;
+}
+
+interface LogoState {
+  faviconUrl: string | null;
+  faviconStatus: 'loading' | 'found' | 'error' | 'not_found';
+  userApprovedFavicon: boolean | null;
+  uploadedLogoUrl: string | null;
+  showLogoUpload: boolean;
 }
 
 interface FormErrors {
@@ -87,6 +99,15 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   
+  // Logo handling state
+  const [logoState, setLogoState] = useState<LogoState>({
+    faviconUrl: null,
+    faviconStatus: 'not_found',
+    userApprovedFavicon: null,
+    uploadedLogoUrl: null,
+    showLogoUpload: false
+  });
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -97,6 +118,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   useEffect(() => {
     // Check if we already have GHL credentials
     checkExistingGHLSetup();
+    // Check if we have existing business profile with logo
+    checkExistingBusinessProfile();
   }, []);
 
   const scrollToBottom = () => {
@@ -145,6 +168,52 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     }
   };
 
+  const checkExistingBusinessProfile = async () => {
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        return;
+      }
+
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      const response = await fetch(`${backendUrl}/api/business/profile/${userIdResult.user_id}`);
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.business_profile) {
+        const profile = result.business_profile;
+        
+        // Pre-fill form with existing data
+        setFormData({
+          businessName: profile.business_name || '',
+          businessEmail: profile.business_email || '',
+          phone: profile.phone || '',
+          website: profile.website || '',
+          address: profile.address || '',
+          city: profile.city || '',
+          state: profile.state || '',
+          country: profile.country || 'US',
+          postalCode: profile.postal_code || ''
+        });
+
+        // Set logo state if we have logos
+        if (profile.logo_url || profile.favicon_url) {
+          setLogoState(prev => ({
+            ...prev,
+            faviconUrl: profile.favicon_url,
+            uploadedLogoUrl: profile.logo_url,
+            faviconStatus: profile.favicon_url ? 'found' : 'not_found',
+            userApprovedFavicon: profile.logo_url ? null : (profile.favicon_url ? true : null)
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing business profile:', error);
+    }
+  };
+
   const startGHLCreation = async () => {
     setIsCreating(true);
     setSetupStatus('creating');
@@ -182,8 +251,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       // Use form data if available, otherwise use demo values
       const requestPayload = {
         company_id: "lp2p1q27DrdGta1qGDJd",
-        snapshot_id: "7oAH6Cmto5ZcWAaEsrrq",
-        agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
+        snapshot_id: "bInwX5BtZM6oEepAsUwo",
+        agency_token: "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe",
         subaccount_name: formData.businessName || `DemoSolarBusiness_${randomNum}`,
         prospect_email: formData.businessEmail || `demo+${randomNum}@example.com`,
         prospect_first_name: formData.businessName?.split(' ')[0] || 'Demo',
@@ -236,6 +305,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         const businessUser = result.business_user;
         const somaUser = result.soma_user;
         
+        // Get GHL automation credentials
+        const ghlCreds = getGHLCredentials();
+        
         const realGHLConfig: GHLSetupConfig = {
           location_id: realLocationId,
           user_id: businessUser.user_id, // Primary business user
@@ -243,14 +315,17 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           user_name: businessUser.details.name || "Solar Sales Manager",
           user_email: businessUser.details.email || `sa+${randomNum}@squidgy.ai`,
           setup_status: 'completed',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          // Add GHL automation credentials for Facebook integration
+          ghl_automation_email: ghlCreds.email,
+          ghl_automation_password: ghlCreds.password
         };
 
         setGhlConfig(realGHLConfig);
         setSetupStatus('completed');
         
         addMessage('bot', '✅ Account created successfully!', true, 'creation_complete');
-        addMessage('bot', `🎉 **Dual User Account Details:**\n📍 **Location ID:** ${realGHLConfig.location_id}\n🏢 **Location Name:** ${realGHLConfig.location_name}\n👤 **Business User:** ${realGHLConfig.user_name} (${realGHLConfig.user_email})\n👤 **Soma User:** ${somaUser.details.name} (${somaUser.details.email})\n\nBoth accounts are created and ready for Facebook integration!`);
+        addMessage('bot', `🎉 **Dynamic Account Details:**\n📍 **Location ID:** ${realGHLConfig.location_id}\n🏢 **Location Name:** ${realGHLConfig.location_name}\n👤 **Business User:** ${realGHLConfig.user_name} (${realGHLConfig.user_email})\n🔧 **Automation Email:** ${realGHLConfig.ghl_automation_email}\n\n✨ Account created with dynamic credentials ready for Facebook integration!`);
       } else {
         throw new Error('Backend returned failure status');
       }
@@ -262,71 +337,28 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   };
 
   const useExistingCredentials = async () => {
-    // Use the same working credentials that we use for Facebook integration
-    // These are the verified working credentials that successfully handle 2FA
-    const workingCredentials = {
+    // Use hardcoded working credentials (keep this unchanged)
+    addMessage('user', 'Use Working Credentials');
+    addMessage('bot', '✅ Using known working credentials for testing...');
+    
+    // Set hardcoded working config directly
+    const workingConfig: GHLSetupConfig = {
       location_id: 'rlRJ1n5Hoy3X53WDOJlq',
       user_id: 'MHwz5yMaG0JrTfGXjvxB',
-      email: 'somashekhar34+rlRJ1n5H@gmail.com',
-      businessName: 'Solar Business rlRJ1n5H',
-      businessEmail: 'somashekhar34+rlRJ1n5H@gmail.com',
-      phone: '+1-555-SOLAR-1',
-      website: 'https://solar-business.com',
-      address: '123 Solar Business Ave',
-      city: 'Solar City', 
-      state: 'CA',
-      country: 'US',
-      postalCode: '90210'
+      location_name: 'Solar Demo Location',
+      user_name: 'Solar Sales Specialist',
+      user_email: 'somashekhar34+rlRJ1n5H@gmail.com',
+      setup_status: 'completed',
+      created_at: new Date().toISOString(),
+      // Keep hardcoded automation credentials for working demo
+      ghl_automation_email: 'somashekhar34+rlRJ1n5H@gmail.com',
+      ghl_automation_password: 'Dummy@123'
     };
     
-    // Update form data with working credentials
-    setFormData({
-      businessName: workingCredentials.businessName,
-      businessEmail: workingCredentials.businessEmail,
-      phone: workingCredentials.phone,
-      website: workingCredentials.website,
-      address: workingCredentials.address,
-      city: workingCredentials.city,
-      state: workingCredentials.state,
-      country: workingCredentials.country,
-      postalCode: workingCredentials.postalCode
-    });
+    setGhlConfig(workingConfig);
+    setSetupStatus('completed');
     
-    addMessage('user', 'Use Existing Working Credentials');
-    addMessage('bot', '🔑 Using the same working credentials from Facebook integration...');
-    addMessage('bot', `📍 **Location ID:** ${workingCredentials.location_id}\n👤 **User ID:** ${workingCredentials.user_id}\n📧 **Email:** ${workingCredentials.email}`);
-    
-    // Create GHL config directly with existing working credentials
-    try {
-      setIsCreating(true);
-      setSetupStatus('creating');
-      
-      const workingGHLConfig: GHLSetupConfig = {
-        location_id: workingCredentials.location_id,
-        user_id: workingCredentials.user_id,
-        location_name: `SolarBusiness_${workingCredentials.location_id}`,
-        user_name: "Solar Sales Manager",
-        user_email: workingCredentials.email,
-        setup_status: 'completed',
-        created_at: new Date().toISOString()
-      };
-
-      setGhlConfig(workingGHLConfig);
-      setSetupStatus('completed');
-      
-      addMessage('bot', '✅ Using existing working account successfully!', true, 'using_existing');
-      addMessage('bot', `🎉 **Account Details:**\n📍 **Location ID:** ${workingGHLConfig.location_id}\n🏢 **Location Name:** ${workingGHLConfig.location_name}\n👤 **User:** ${workingGHLConfig.user_name}\n📧 **Email:** ${workingGHLConfig.user_email}\n\n✨ This account is already verified and ready for Facebook integration!`);
-      
-      // Save configuration to database
-      await saveFinalConfiguration(workingGHLConfig);
-      
-    } catch (error) {
-      console.error('Error with existing credentials setup:', error);
-      addMessage('bot', '❌ Error setting up existing credentials. Please try again.');
-      setSetupStatus('idle');
-    } finally {
-      setIsCreating(false);
-    }
+    addMessage('bot', `🎯 **Working Credentials Applied:**\n📍 **Location ID:** ${workingConfig.location_id}\n👤 **User ID:** ${workingConfig.user_id}\n📧 **Email:** ${workingConfig.user_email}\n\n✅ Ready for Facebook integration with tested credentials!`);
   };
 
   const saveFinalConfiguration = async (config: GHLSetupConfig) => {
@@ -356,10 +388,13 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       
       console.log('🔍 Database payload:', dbPayload);
 
-      // Save to database
+      // Save to database with proper conflict resolution
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .upsert(dbPayload);
+        .upsert(dbPayload, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
+        });
 
       console.log('🔍 Database response:', { data, error });
 
@@ -415,8 +450,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     // Use the combined endpoint that creates BOTH sub-account AND user
     const requestPayload = {
       company_id: "lp2p1q27DrdGta1qGDJd",
-      snapshot_id: "7oAH6Cmto5ZcWAaEsrrq",  // SOL - Solar Assistant snapshot
-      agency_token: "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
+      snapshot_id: "bInwX5BtZM6oEepAsUwo",  // SOL - Solar Assistant snapshot
+      agency_token: "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe",
       subaccount_name: formData.businessName,
       prospect_email: formData.businessEmail,
       prospect_first_name: formData.businessName.split(' ')[0] || 'Business',
@@ -471,6 +506,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         setShowInlineForm(false);
         setSetupStatus('completed');
         
+        // Get GHL automation credentials for Facebook integration
+        const ghlCreds = getGHLCredentials();
+        
         const newConfig: GHLSetupConfig = {
           location_id: result.subaccount.location_id,
           user_id: businessUser.user_id, // Use business user as primary
@@ -478,11 +516,17 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           user_name: businessUser.details.name || formData.businessName,
           user_email: businessUser.details.email || formData.businessEmail,
           setup_status: 'completed',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          // Add GHL automation credentials for Facebook integration
+          ghl_automation_email: ghlCreds.email,
+          ghl_automation_password: ghlCreds.password
         };
         setGhlConfig(newConfig);
         
-        addMessage('bot', `🎉 **Dual User Account Details:**\n📍 **Location ID:** ${newConfig.location_id}\n🏢 **Business:** ${newConfig.location_name}\n👤 **Business User:** ${newConfig.user_name} (${newConfig.user_email})\n👤 **Soma User:** ${somaUser.details.name} (${somaUser.details.email})\n\nBoth users are created and ready for Facebook integration!`);
+        // Save business profile with logo information
+        await saveBusinessProfile(newConfig);
+        
+        addMessage('bot', `🎉 **Dynamic Business Account Created:**\n📍 **Location ID:** ${newConfig.location_id}\n🏢 **Business:** ${newConfig.location_name}\n👤 **Business User:** ${newConfig.user_name} (${newConfig.user_email})\n🔧 **Automation Email:** ${newConfig.ghl_automation_email}\n\n✨ Account created with dynamic credentials ready for Facebook integration!`);
       } else {
         // Check if it's a "user already exists" error
         const errorMessage = result.detail || result.message || 'Unknown error';
@@ -523,6 +567,233 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: '' }));
     }
+    
+    // Auto-capture favicon when website URL is entered
+    if (field === 'website' && value && value.startsWith('http')) {
+      captureFavicon(value);
+    }
+  };
+
+  const captureFavicon = async (websiteUrl: string) => {
+    setLogoState(prev => ({ ...prev, faviconStatus: 'loading' }));
+    
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        throw new Error('User ID required for favicon capture');
+      }
+
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      // Capture both favicon and screenshot in parallel
+      const [faviconResponse, screenshotResponse] = await Promise.all([
+        fetch(`${backendUrl}/api/website/favicon`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: websiteUrl,
+            session_id: sessionId,
+            user_id: userIdResult.user_id  // Add user_id for database storage
+          })
+        }),
+        fetch(`${backendUrl}/api/website/screenshot`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: websiteUrl,
+            session_id: sessionId,
+            user_id: userIdResult.user_id  // Add user_id for database storage
+          })
+        })
+      ]);
+
+      const [faviconResult, screenshotResult] = await Promise.all([
+        faviconResponse.json(),
+        screenshotResponse.json()
+      ]);
+      
+      if (faviconResult.status === 'success' && faviconResult.favicon_url) {
+        setLogoState(prev => ({
+          ...prev,
+          faviconUrl: faviconResult.favicon_url,
+          faviconStatus: 'found'
+        }));
+        addMessage('bot', '🎨 Found your website logo! Please check if this looks good for your business.');
+      } else {
+        setLogoState(prev => ({
+          ...prev,
+          faviconStatus: 'not_found',
+          showLogoUpload: true
+        }));
+        addMessage('bot', '📷 Could not find a logo on your website. You can upload your business logo below.');
+      }
+    } catch (error) {
+      console.error('Error capturing favicon:', error);
+      setLogoState(prev => ({
+        ...prev,
+        faviconStatus: 'error',
+        showLogoUpload: true
+      }));
+      addMessage('bot', '⚠️ Could not capture logo from website. Please upload your business logo.');
+    }
+  };
+
+  const handleLogoApproval = (approved: boolean) => {
+    setLogoState(prev => ({
+      ...prev,
+      userApprovedFavicon: approved,
+      showLogoUpload: !approved
+    }));
+    
+    if (approved) {
+      addMessage('bot', '✅ Great! We\'ll use your website logo.');
+    } else {
+      addMessage('bot', '📁 Please upload your business logo below.');
+    }
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    try {
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      const formData = new FormData();
+      formData.append('logo', file);
+      formData.append('session_id', sessionId || '');
+
+      const response = await fetch(`${backendUrl}/api/business/upload-logo`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (result.status === 'success' && result.logo_url) {
+        setLogoState(prev => ({
+          ...prev,
+          uploadedLogoUrl: result.logo_url,
+          showLogoUpload: false
+        }));
+        addMessage('bot', '✅ Logo uploaded successfully!');
+        
+        // Auto-save to business profile if we have user data
+        await updateLogoInDatabase(result.logo_url);
+      } else {
+        addMessage('bot', '❌ Failed to upload logo. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      addMessage('bot', '❌ Error uploading logo. Please try again.');
+    }
+  };
+
+  const updateLogoInDatabase = async (logoUrl: string) => {
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        return;
+      }
+
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      // Get existing business profile or create minimal one with logo
+      const businessProfileData = {
+        firm_user_id: userIdResult.user_id,
+        business_name: formData.businessName || 'My Business',
+        business_email: formData.businessEmail || 'contact@mybusiness.com',
+        phone: formData.phone,
+        website: formData.website,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country || 'US',
+        postal_code: formData.postalCode,
+        logo_url: logoUrl,
+        favicon_url: logoState.faviconUrl
+      };
+
+      const response = await fetch(`${backendUrl}/api/business/save-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(businessProfileData)
+      });
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        console.log('✅ Logo updated in business profile successfully');
+      } else {
+        console.error('❌ Failed to update logo in business profile:', result);
+      }
+    } catch (error) {
+      console.error('Error updating logo in database:', error);
+    }
+  };
+
+  const saveBusinessProfile = async (ghlConfig: GHLSetupConfig) => {
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        throw new Error('Failed to get user ID');
+      }
+
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      // Determine which logo to use
+      const logoUrl = logoState.userApprovedFavicon && logoState.faviconUrl 
+        ? logoState.faviconUrl 
+        : logoState.uploadedLogoUrl;
+
+      const businessProfileData = {
+        firm_user_id: userIdResult.user_id,
+        business_name: formData.businessName,
+        business_email: formData.businessEmail,
+        phone: formData.phone,
+        website: formData.website,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
+        postal_code: formData.postalCode,
+        logo_url: logoUrl,
+        screenshot_url: null, // Will be captured later if needed
+        favicon_url: logoState.faviconUrl
+      };
+
+      const response = await fetch(`${backendUrl}/api/business/save-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(businessProfileData)
+      });
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        console.log('✅ Business profile saved successfully:', result);
+        addMessage('bot', '💾 Business profile saved successfully!');
+      } else {
+        console.error('❌ Failed to save business profile:', result);
+        addMessage('bot', '⚠️ Warning: Failed to save business profile details.');
+      }
+    } catch (error) {
+      console.error('Error saving business profile:', error);
+      addMessage('bot', '⚠️ Warning: Could not save business profile details.');
+    }
   };
 
   const completeSetup = async () => {
@@ -559,7 +830,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
 
       console.log('✅ GHL Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
 
-      // Save to the squidgy_agent_business_setup table
+      // Save to the squidgy_agent_business_setup table with proper conflict resolution
+      // Include GHL credentials in its own columns
       const { error } = await supabase
         .from('squidgy_agent_business_setup')
         .upsert({
@@ -570,7 +842,12 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           setup_json: ghlConfig,
           is_enabled: true,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          created_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          ghl_location_id: ghlConfig.location_id,
+          ghl_user_id: ghlConfig.user_id
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
         });
 
       if (error) {
@@ -610,7 +887,11 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
             <p className="text-sm text-gray-500">Enter your business details to get started</p>
           </div>
         </div>
+<<<<<<< HEAD
         {/* Skip button removed - all steps are mandatory */}
+=======
+        {/* Skip removed for mandatory setup */}
+>>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
       </div>
 
       {/* Chat Messages */}
@@ -640,6 +921,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         ))}
         <div ref={messagesEndRef} />
       </div>
+
 
       {/* Inline GHL Form */}
       {showInlineForm && (
@@ -691,6 +973,113 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
                   placeholder="Enter your website URL"
                 />
+              </div>
+
+              {/* Business Logo Section */}
+              <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Business Logo</h4>
+                
+                {/* Show existing logo if found */}
+                {(logoState.faviconUrl || logoState.uploadedLogoUrl) ? (
+                  <div className="space-y-3">
+                    {/* Current Logo Display */}
+                    <div className="flex items-center space-x-4 p-3 bg-white border rounded-lg">
+                      <img 
+                        src={logoState.uploadedLogoUrl || logoState.faviconUrl} 
+                        alt="Business logo" 
+                        className="w-16 h-16 object-contain border rounded-lg bg-gray-50 p-2"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-800">
+                          {logoState.uploadedLogoUrl ? 'Uploaded Business Logo' : 'Website Logo'}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {logoState.uploadedLogoUrl ? 'Custom logo you uploaded' : 'Captured from your website'}
+                        </p>
+                      </div>
+                      <div className="text-green-600">
+                        <CheckCircle className="w-5 h-5" />
+                      </div>
+                    </div>
+                    
+                    {/* Ask if this is correct */}
+                    {logoState.userApprovedFavicon === null && logoState.faviconUrl && !logoState.uploadedLogoUrl && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-gray-700">Is this your business logo?</p>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleLogoApproval(true)}
+                            className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
+                          >
+                            ✅ Yes, use this
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleLogoApproval(false)}
+                            className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+                          >
+                            ❌ No, upload different
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Option to change logo */}
+                    <button
+                      type="button"
+                      onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: true }))}
+                      className="text-xs text-orange-600 hover:text-orange-700 underline"
+                    >
+                      Upload a different logo
+                    </button>
+                  </div>
+                ) : (
+                  /* No logo found - Show upload option */
+                  <div className="text-center py-6 border-2 border-dashed border-gray-300 rounded-lg">
+                    <div className="text-gray-400 mb-2">
+                      <Building2 className="w-8 h-8 mx-auto" />
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">No business logo found</p>
+                    <button
+                      type="button"
+                      onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: true }))}
+                      className="px-4 py-2 bg-orange-500 text-white text-sm rounded hover:bg-orange-600 transition-colors"
+                    >
+                      Upload Business Logo
+                    </button>
+                  </div>
+                )}
+
+                {/* Logo Upload Modal/Section */}
+                {logoState.showLogoUpload && (
+                  <div className="mt-4 p-4 border border-orange-200 bg-orange-50 rounded-lg">
+                    <h5 className="text-sm font-medium text-orange-800 mb-3">Upload Business Logo</h5>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleLogoUpload(file);
+                          setLogoState(prev => ({ ...prev, showLogoUpload: false }));
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-white"
+                    />
+                    <p className="text-xs text-orange-600 mt-2">Supported: JPG, PNG, GIF (max 5MB)</p>
+                    <button
+                      type="button"
+                      onClick={() => setLogoState(prev => ({ ...prev, showLogoUpload: false }))}
+                      className="mt-2 text-xs text-orange-600 hover:text-orange-700 underline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
               
               <div>
@@ -792,7 +1181,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>Use Working Credentials</span>
+              <span>Use Working Demo Credentials</span>
             </button>
             <p className="text-center text-xs text-gray-500">or</p>
             <button
@@ -800,7 +1189,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               className="w-full flex items-center justify-center space-x-2 bg-orange-500 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors"
             >
               <Building2 className="w-4 h-4" />
-              <span>Enter Business Information</span>
+              <span>Create New Business Account</span>
             </button>
           </div>
         )}
@@ -823,18 +1212,33 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               </div>
             </div>
             
-            <button
-              onClick={completeSetup}
-              disabled={isSaving}
-              className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
-            >
-              <Users className="w-4 h-4" />
-              <span>{isSaving ? 'Saving...' : 'Continue to Facebook Integration'}</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setSetupStatus('idle');
+                  setGhlConfig(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Edit Setup
+              </button>
+              <button
+                onClick={completeSetup}
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+              >
+                <Users className="w-4 h-4" />
+                <span>{isSaving ? 'Saving...' : 'Continue to Solar Setup'}</span>
+              </button>
+            </div>
           </div>
         )}
 
+<<<<<<< HEAD
         {/* All steps are mandatory - Skip button removed */}
+=======
+        {/* Skip removed for mandatory setup */}
+>>>>>>> e5e832c012c8b497cd443ff26062e7ba1c5f903b
       </div>
     </div>
   );

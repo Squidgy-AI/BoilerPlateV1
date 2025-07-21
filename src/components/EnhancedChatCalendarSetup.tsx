@@ -1,11 +1,12 @@
 // src/components/EnhancedChatCalendarSetup.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Settings, ArrowRight, Check } from 'lucide-react';
 import { CalendarSetup as CalendarSetupType } from '@/config/calendarNotificationConfig';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
+import { getGHLCredentials } from '@/utils/getGHLCredentials';
 
 interface EnhancedChatCalendarSetupProps {
   onComplete: (setup: CalendarSetupType) => void;
@@ -20,6 +21,7 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
 }) => {
   const [currentTab, setCurrentTab] = useState<'basic' | 'hours' | 'rules'>('basic');
   const [isSaving, setSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Default setup data with smart defaults
   const [setup, setSetup] = useState<CalendarSetupType>({
@@ -50,6 +52,50 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
     confirmation_message: "Your solar consultation has been confirmed! We'll contact you 24 hours before to confirm details.",
     cancellation_policy: "Please provide at least 24 hours notice for cancellations or rescheduling."
   });
+
+  // Load existing calendar setup on component mount
+  useEffect(() => {
+    const loadExistingSetup = async () => {
+      try {
+        const userIdResult = await getUserId();
+        if (!userIdResult.success || !userIdResult.user_id) {
+          console.log('No user ID available, using defaults');
+          setIsLoading(false);
+          return;
+        }
+
+        // Query database for existing calendar setup
+        const { data, error } = await supabase
+          .from('squidgy_agent_business_setup')
+          .select('setup_json')
+          .eq('firm_user_id', userIdResult.user_id)
+          .eq('agent_id', 'SOLAgent')
+          .eq('setup_type', 'CalendarSetup')
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log('No existing calendar setup found, using defaults');
+          } else {
+            console.error('Error loading calendar setup:', error);
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        if (data?.setup_json) {
+          console.log('✅ Loading existing calendar setup:', data.setup_json);
+          setSetup(data.setup_json as CalendarSetupType);
+        }
+      } catch (error) {
+        console.error('Failed to load calendar setup:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExistingSetup();
+  }, []);
 
   const handleFieldChange = (field: keyof CalendarSetupType, value: any) => {
     setSetup(prev => ({ ...prev, [field]: value }));
@@ -99,10 +145,23 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
       console.log('✅ Calendar Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
       console.log('📅 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
-      // Insert into public schema table using profile.user_id
+      // Get GHL credentials to include in the record
+      const ghlResult = await getGHLCredentials();
+      let ghl_location_id = null;
+      let ghl_user_id = null;
+      
+      if (ghlResult.success && ghlResult.credentials) {
+        ghl_location_id = ghlResult.credentials.location_id;
+        ghl_user_id = ghlResult.credentials.user_id;
+        console.log('✅ Including GHL credentials in Calendar setup:', { ghl_location_id, ghl_user_id });
+      } else {
+        console.warn('⚠️ GHL credentials not available for Calendar setup:', ghlResult.error);
+      }
+      
+      // Upsert into public schema table using profile.user_id with proper conflict resolution
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .insert({
+        .upsert({
           firm_id: null,
           firm_user_id,
           agent_id,
@@ -110,7 +169,13 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
           setup_type,
           setup_json: calendarSetup,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          is_enabled: true
+          is_enabled: true,
+          updated_at: new Date().toISOString(),
+          ghl_location_id,
+          ghl_user_id
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
         })
         .select();
 
@@ -307,6 +372,20 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
     { id: 'rules', label: 'Rules', icon: Calendar }
   ];
 
+  if (isLoading) {
+    return (
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 max-w-sm">
+        <div className="flex items-center mb-4">
+          <Calendar className="text-blue-500 mr-2" size={20} />
+          <h3 className="font-semibold text-gray-800">Calendar Setup</h3>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-sm text-gray-600">Loading saved setup...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 max-w-sm">
       <div className="flex items-center mb-4">
@@ -370,6 +449,8 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
             )}
           </button>
         )}
+        
+        {/* Skip removed for mandatory setup */}
       </div>
     </div>
   );

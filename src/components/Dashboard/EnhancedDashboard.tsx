@@ -3,13 +3,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../Auth/AuthProvider';
-import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, getAgentSetup, checkSOLAgentEnabled, initializePersonalAssistant, enableSOLAgent } from '@/services/agentService';
+import { getUserAgents, getEnabledAgents, updateAgentEnabledStatus, initializePersonalAssistant, enableSOLAgent } from '@/services/agentService';
 import type { Agent } from '@/services/agentService';
 import { 
   User, 
   Users, 
   Bot, 
-  MessageSquare, 
   Send, 
   Video, 
   Mic, 
@@ -18,8 +17,7 @@ import {
   UserPlus, 
   FolderPlus, 
   X,
-  Code2,
-  Sun
+  MessageSquare
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { trackActivity, ActivityType } from '../../utils/activityTracker';
@@ -29,10 +27,13 @@ import GroupManagement from '../Groups/GroupManagement';
 import InteractiveAvatar from '../InteractiveAvatar';
 import WebSocketService from '@/services/WebSocketService';
 import StreamingAvatar from "@heygen/streaming-avatar";
-import WebSocketDebugger from '../WebSocketDebugger';
+// import WebSocketDebugger from '../WebSocketDebugger'; // Removed debug console
 import AgentGreeting from '../AgentGreeting';
 import SquidgyLogo from '../Auth/SquidgyLogo';
 import SpeechToText from '../SpeechToText';
+import FeedbackReminderConfig from '../FeedbackReminderConfig';
+import FeedbackDropdown from '../FeedbackDropdown';
+import { useFeedbackReminder } from '@/hooks/useFeedbackReminder';
 import MessageContent from '../Chat/MessageContent';
 import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
@@ -55,6 +56,7 @@ const EnhancedDashboard: React.FC = () => {
   const [isGroupSession, setIsGroupSession] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showGroupManagement, setShowGroupManagement] = useState(false);
+  const [showFeedbackConfig, setShowFeedbackConfig] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showAddPeopleModal, setShowAddPeopleModal] = useState(false);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
@@ -62,7 +64,7 @@ const EnhancedDashboard: React.FC = () => {
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
-  const [showDebugConsole, setShowDebugConsole] = useState(false);
+  // const [showDebugConsole, setShowDebugConsole] = useState(false); // Removed debug console
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [agentThinking, setAgentThinking] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -197,6 +199,16 @@ const EnhancedDashboard: React.FC = () => {
   
     // Speech recognition state for microphone button
   const [isListening, setIsListening] = useState(false);
+
+  // Feedback reminder system
+  const {
+    showFeedbackDropdown,
+    isResendReminder,
+    config: feedbackConfig,
+    hideFeedbackDropdown,
+    handleFeedbackResponse,
+    updateConfig: updateFeedbackConfig
+  } = useFeedbackReminder();
   const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -1687,17 +1699,16 @@ Let's begin with your Solar Business Setup! ☀️`;
         
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => setShowDebugConsole(!showDebugConsole)}
-            className={`p-2 hover:bg-gray-700 rounded transition-colors ${
-              showDebugConsole ? 'bg-gray-700 text-green-400' : 'text-gray-400'
-            }`}
-            title="Toggle WebSocket Debug Console"
+            onClick={() => setShowFeedbackConfig(true)}
+            className="p-2 hover:bg-gray-700 rounded"
+            title="Feedback Reminder Settings"
           >
-            <Code2 size={20} />
+            <MessageSquare size={20} />
           </button>
           <button 
             onClick={() => setShowProfileSettings(true)}
             className="p-2 hover:bg-gray-700 rounded"
+            title="Profile Settings"
           >
             <Settings size={20} />
           </button>
@@ -2161,40 +2172,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                       </div>
                     )}
                     
-                    {/* DEBUG: Show current state */}
-                    {selectedAgent?.id === 'SOLAgent' && (
-                      <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded text-sm">
-                        <strong>🔍 DEBUG INFO:</strong><br/>
-                        • selectedAgent.id: {selectedAgent?.id}<br/>
-                        • showSOLSetup: {showSOLSetup ? 'true' : 'false'}<br/>
-                        • Will render ProgressiveSOLSetup: {selectedAgent?.id === 'SOLAgent' && showSOLSetup ? 'YES' : 'NO'}<br/>
-                        • currentSessionId: {currentSessionId}
-                      </div>
-                    )}
 
-                    {/* UNIVERSAL DEBUG: Show regardless of agent */}
-                    <div className="mb-4 border-2 border-blue-500 p-4 rounded bg-blue-50">
-                      <h3 className="text-blue-700 font-bold mb-2">🔍 UNIVERSAL DEBUG</h3>
-                      <div className="text-sm text-blue-600">
-                        <p>selectedAgent?.id: "{selectedAgent?.id}"</p>
-                        <p>selectedAgent?.name: "{selectedAgent?.name}"</p>
-                        <p>showSOLSetup: {String(showSOLSetup)}</p>
-                        <p>Is SOL Agent?: {selectedAgent?.id === 'SOLAgent' ? 'YES' : 'NO'}</p>
-                        <p>currentSessionId: {currentSessionId}</p>
-                        <button 
-                          onClick={() => {
-                            console.log('🔧 FULL DEBUG STATE:');
-                            console.log('- selectedAgent:', selectedAgent);
-                            console.log('- showSOLSetup:', showSOLSetup);
-                            console.log('- currentSessionId:', currentSessionId);
-                            setShowSOLSetup(true);
-                          }}
-                          className="bg-blue-500 text-white px-3 py-1 rounded text-sm mt-2"
-                        >
-                          Force Enable Setup & Log
-                        </button>
-                      </div>
-                    </div>
                     
                     {/* SOL Agent Setup Rendering */}
                     {selectedAgent?.id === 'SOLAgent' && showSOLSetup && (
@@ -2327,17 +2305,6 @@ Let's begin with your Solar Business Setup! ☀️`;
             </div>
           </div>
 
-          {/* WebSocket Debug Console */}
-          {showDebugConsole && (
-            <div className="border-t border-gray-700">
-              <WebSocketDebugger 
-                websocket={websocket?.rawWebSocket || null} 
-                status={connectionStatus} 
-                logs={websocketLogs}
-                className="bg-black"
-              />
-            </div>
-          )}
         </div>
       </div>
       
@@ -2503,6 +2470,23 @@ Let's begin with your Solar Business Setup! ☀️`;
           onClose={() => setShowProfileSettings(false)} 
         />
       )}
+      
+      {/* Feedback Reminder Configuration Modal */}
+      {showFeedbackConfig && (
+        <FeedbackReminderConfig
+          isOpen={showFeedbackConfig}
+          onClose={() => setShowFeedbackConfig(false)}
+          onConfigUpdate={updateFeedbackConfig}
+        />
+      )}
+      
+      {/* Feedback Reminder Dropdown */}
+      <FeedbackDropdown
+        isVisible={showFeedbackDropdown}
+        onClose={hideFeedbackDropdown}
+        onResponse={handleFeedbackResponse}
+        isResend={isResendReminder}
+      />
       
       {/* Group Management Modal */}
       {showGroupManagement && currentSessionId && isGroupSession && (

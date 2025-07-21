@@ -83,6 +83,25 @@ export interface NotificationPreferences {
   quiet_hours_start: string | null; // "22:00"
   quiet_hours_end: string | null;   // "08:00"
   timezone: string;
+
+  // Legacy format for backwards compatibility (used in component state)
+  email_booking?: boolean;
+  email_reminder?: boolean;
+  email_cancellation?: boolean;
+  email_reschedule?: boolean;
+  sms_booking?: boolean;
+  sms_reminder?: boolean;
+  sms_cancellation?: boolean;
+  sms_reschedule?: boolean;
+  whatsapp_booking?: boolean;
+  whatsapp_reminder?: boolean;
+  whatsapp_cancellation?: boolean;
+  whatsapp_reschedule?: boolean;
+
+  // General notification types (the three checkboxes)
+  notification_confirmations?: boolean;
+  notification_reminders?: boolean;
+  notification_cancellations?: boolean;
 }
 
 // Default calendar setup

@@ -100,15 +100,21 @@ GRANT ALL ON public.squidgy_agent_business_setup TO anon, authenticated;
 
     console.log('✅ Table exists, proceeding with insert...');
 
-    // Insert using the correct profile user_id
+    // Upsert using the correct profile user_id with proper conflict resolution
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
-      .insert({
+      .upsert({
         firm_id: null,
         firm_user_id: testUserId,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
-        setup_json: DEFAULT_SOLAR_CONFIG
+        setup_type: 'SolarSetup',
+        setup_json: DEFAULT_SOLAR_CONFIG,
+        is_enabled: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'firm_user_id,agent_id,setup_type',
+        ignoreDuplicates: false
       })
       .select();
 

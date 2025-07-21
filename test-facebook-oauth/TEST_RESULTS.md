@@ -37,7 +37,7 @@
 ### 1. **Try Alternative Token**
 The updated test now includes your Agency Access Key:
 - **Current Token**: `pit-98e16ccd-8c1e-4e6f-a96d-57ef6cb2cf62` (Nestle Contacts/Conversations)
-- **Alternative Token**: `pit-ad700aa3-8481-4cff-b555-bcaac7532592` (Agency Access Key)
+- **Alternative Token**: `pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe` (Agency Access Key)
 
 ### 2. **Test Process:**
 1. Refresh the test page
@@ -54,7 +54,7 @@ The issue might be:
 ### 4. **Check Token Permissions**
 According to your constants, you have:
 - `Nestle_access_token = "pit-98e16ccd-8c1e-4e6f-a96d-57ef6cb2cf62"`
-- `Agency_Access_Key = "pit-ad700aa3-8481-4cff-b555-bcaac7532592"`
+- `Agency_Access_Key = "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe"`
 - `Nestle_Api_Key = "eyJhbGciOiJIUzI1NiIs..."`
 
 **Try the API Key instead of Bearer token if Agency token fails.**

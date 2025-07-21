@@ -1,11 +1,12 @@
 // src/components/EnhancedChatSolarSetup.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sun, DollarSign, MapPin, Check } from 'lucide-react';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
+import { getGHLCredentials } from '@/utils/getGHLCredentials';
 
 interface EnhancedChatSolarSetupProps {
   onConfigurationComplete: (config: SolarBusinessConfig) => void;
@@ -19,6 +20,7 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
   sessionId
 }) => {
   const [isSaving, setSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Enhanced solar configuration with more comprehensive defaults
   const [config, setConfig] = useState<Partial<SolarBusinessConfig>>({
@@ -34,6 +36,50 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
     markup_percentage: 20,
     local_energy_rate: 0.28
   });
+
+  // Load existing solar configuration on component mount
+  useEffect(() => {
+    const loadExistingConfig = async () => {
+      try {
+        const userIdResult = await getUserId();
+        if (!userIdResult.success || !userIdResult.user_id) {
+          console.log('No user ID available, using defaults');
+          setIsLoading(false);
+          return;
+        }
+
+        // Query database for existing solar setup
+        const { data, error } = await supabase
+          .from('squidgy_agent_business_setup')
+          .select('setup_json')
+          .eq('firm_user_id', userIdResult.user_id)
+          .eq('agent_id', 'SOLAgent')
+          .eq('setup_type', 'SolarSetup')
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log('No existing solar setup found, using defaults');
+          } else {
+            console.error('Error loading solar setup:', error);
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        if (data?.setup_json) {
+          console.log('✅ Loading existing solar setup:', data.setup_json);
+          setConfig(data.setup_json as Partial<SolarBusinessConfig>);
+        }
+      } catch (error) {
+        console.error('Failed to load solar setup:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExistingConfig();
+  }, []);
 
   const handleFieldChange = (field: string, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }));
@@ -70,10 +116,23 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
       console.log('✅ Solar Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
       console.log('🔧 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
-      // Insert into public schema table using profile.user_id
+      // Get GHL credentials to include in the record
+      const ghlResult = await getGHLCredentials();
+      let ghl_location_id = null;
+      let ghl_user_id = null;
+      
+      if (ghlResult.success && ghlResult.credentials) {
+        ghl_location_id = ghlResult.credentials.location_id;
+        ghl_user_id = ghlResult.credentials.user_id;
+        console.log('✅ Including GHL credentials in Solar setup:', { ghl_location_id, ghl_user_id });
+      } else {
+        console.warn('⚠️ GHL credentials not available for Solar setup:', ghlResult.error);
+      }
+      
+      // Upsert into public schema table using profile.user_id with proper conflict resolution
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .insert({
+        .upsert({
           firm_id: null,
           firm_user_id,
           agent_id,
@@ -81,7 +140,13 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
           setup_type,
           setup_json: solarConfig,
           session_id: sessionId && sessionId.includes('_') ? null : sessionId,
-          is_enabled: true
+          is_enabled: true,
+          updated_at: new Date().toISOString(),
+          ghl_location_id,
+          ghl_user_id
+        }, {
+          onConflict: 'firm_user_id,agent_id,setup_type',
+          ignoreDuplicates: false
         })
         .select();
 
@@ -136,6 +201,20 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
     { value: "NC", label: "North Carolina", incentive: 600 },
     { value: "NJ", label: "New Jersey", incentive: 1100 }
   ];
+
+  if (isLoading) {
+    return (
+      <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-4 max-w-sm">
+        <div className="flex items-center mb-4">
+          <Sun className="text-orange-500 mr-2" size={20} />
+          <h3 className="font-semibold text-gray-800">Solar Business Setup</h3>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-sm text-gray-600">Loading saved configuration...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-4 max-w-sm">

@@ -25,7 +25,7 @@
 
 ### API Tokens
 - **Location Access Token:** `pit-519ac848-5b7f-4de4-acd2-bde5065493ee`
-- **Agency Token (mentioned):** `pit-c4e9d6af-8956-4a84-9b83-554fb6801a69`
+- **Agency Token (mentioned):** `pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe`
 
 ## 🚀 Script Configuration Status
 

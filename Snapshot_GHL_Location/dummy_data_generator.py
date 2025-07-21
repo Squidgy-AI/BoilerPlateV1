@@ -522,7 +522,7 @@ if __name__ == "__main__":
         """Test the dummy data generator"""
         
         generator = SolarDummyDataGenerator(
-            agency_token="pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
+            agency_token="pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe",
             prefix="DEMO_"
         )
         

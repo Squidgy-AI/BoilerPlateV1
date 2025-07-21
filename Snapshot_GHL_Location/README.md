@@ -45,7 +45,7 @@ Restricted to specific sub-accounts/locations.
 
 Current configuration (update in scripts if needed):
 ```python
-AGENCY_TOKEN = "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69"
+AGENCY_TOKEN = "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe"
 COMPANY_ID = "lp2p1q27DrdGta1qGDJd"
 LOCATION_ID = "lBPqgBowX1CsjHay12LY"  # Nestle LLC - SOMA TEST
 ```

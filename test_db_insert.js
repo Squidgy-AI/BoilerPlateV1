@@ -47,15 +47,21 @@ async function testDatabaseInsert() {
 
     console.log('✅ User authenticated, profile user_id:', profile.user_id);
 
-    // Try to insert the record using profile.user_id
+    // Try to upsert the record using profile.user_id with proper conflict resolution
     const { data, error } = await supabase
       .from('squidgy_agent_business_setup')
-      .insert({
+      .upsert({
         firm_id: null, // Set as null
         firm_user_id: profile.user_id, // user_id from profiles table
         agent_id: 'SOLAgent', // String from agents.ts
         agent_name: 'Solar Sales Specialist', // Name from agents.ts
-        setup_json: testConfig // The 13 field responses as JSON
+        setup_type: 'SolarSetup', // Required field
+        setup_json: testConfig, // The 13 field responses as JSON
+        is_enabled: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'firm_user_id,agent_id,setup_type',
+        ignoreDuplicates: false
       })
       .select();
 

@@ -13,7 +13,7 @@ from datetime import datetime
 
 # Real GHL configuration
 GHL_CONFIG = {
-    "agency_token": "pit-c4e9d6af-8956-4a84-9b83-554fb6801a69",
+    "agency_token": "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe",
     "company_id": "lp2p1q27DrdGta1qGDJd",
     "source_location_id": "JUTFTny8EXQOSB5NcvAA",
     "test_location_id": "lBPqgBowX1CsjHay12LY"  # Nestle test location
