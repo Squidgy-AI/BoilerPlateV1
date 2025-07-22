@@ -107,19 +107,20 @@ export async function POST(request: NextRequest) {
       try {
         console.log('Attempting to send invitation email via Supabase...');
         
-        // Generate magic link for the invitation
+        // Generate invitation link using the correct format
         const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
           type: 'invite',
           email: email,
           options: {
+            redirect_to: inviteUrl,
             data: {
               invitation_token: token,
               sender_name: senderName,
               sender_id: senderId,
               company_id: companyId || null,
-              group_id: groupId || null
-            },
-            redirectTo: inviteUrl
+              group_id: groupId || null,
+              message: `You're invited to join by ${senderName}`
+            }
           }
         });
 
