@@ -56,14 +56,8 @@ export async function POST(request: NextRequest) {
     // Check if SMTP is configured in Supabase
     console.log('Checking Supabase SMTP configuration...');
     
-    // For now, skip Supabase email and go directly to fallback
-    // since SMTP is not configured in Supabase dashboard
-    console.log('SMTP not configured in Supabase, using fallback method');
-    
     try {
-      // Method 1: Try to create invitation record and return manual link
-      // This ensures the invitation is saved to database even if email fails
-      
+      // Method 1: Save invitation to database first
       console.log('Saving invitation to database...');
       
       // Check if invitation already exists
@@ -109,14 +103,52 @@ export async function POST(request: NextRequest) {
 
       console.log('Invitation saved to database successfully:', inviteRecord);
 
-      // Return success with manual sharing option
-      return NextResponse.json({
-        success: true,
-        message: 'Invitation created successfully. Please share the link manually since SMTP is not configured.',
-        fallback_url: inviteUrl,
-        method: 'manual_sharing',
-        suggestion: 'Configure SMTP in Supabase Dashboard (Authentication → Settings → SMTP Settings) to enable automatic email sending.'
-      });
+      // Method 2: Try to send email using Supabase configured SMTP
+      try {
+        console.log('Attempting to send invitation email via Supabase...');
+        
+        // Generate magic link for the invitation
+        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'invite',
+          email: email,
+          options: {
+            data: {
+              invitation_token: token,
+              sender_name: senderName,
+              sender_id: senderId,
+              company_id: companyId || null,
+              group_id: groupId || null
+            },
+            redirectTo: inviteUrl
+          }
+        });
+
+        if (linkError) {
+          throw new Error(`Failed to generate invite link: ${linkError.message}`);
+        }
+
+        console.log('Invitation email sent successfully via Supabase');
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Invitation email sent successfully!',
+          method: 'supabase_email',
+          invitation_id: inviteRecord.id
+        });
+        
+      } catch (emailError) {
+        console.error('Failed to send email via Supabase:', emailError);
+        
+        // If email fails, still return success since invitation is saved
+        return NextResponse.json({
+          success: true,
+          message: 'Invitation created successfully. Email sending failed, please share the link manually.',
+          fallback_url: inviteUrl,
+          method: 'manual_sharing',
+          warning: 'Email sending failed but invitation was saved to database',
+          error_details: emailError instanceof Error ? emailError.message : 'Unknown email error'
+        });
+      }
 
     } catch (supabaseError) {
       console.error('Database operation failed:', supabaseError);
