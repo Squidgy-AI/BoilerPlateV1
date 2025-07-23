@@ -16,7 +16,7 @@ type AuthContextType = {
   signIn: (provider: string, credentials?: { email?: string; password?: string }) => Promise<void>;
   signUp: (credentials: { email: string; password: string; fullName: string }) => Promise<void>;
   signOut: () => Promise<void>;
-  sendPasswordResetEmail: (email: string) => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<{ message: string }>;
   refreshProfile: () => Promise<void>;
   inviteUser: (email: string, groupId?: string) => Promise<{ status: string; message?: string }>;
 };
@@ -337,7 +337,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Send password reset email
   const sendPasswordResetEmail = async (email: string) => {
     try {
-      await authService.sendPasswordResetEmail({ email });
+      const result = await authService.sendPasswordResetEmail({ email });
+      return result;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to send reset email');
     }

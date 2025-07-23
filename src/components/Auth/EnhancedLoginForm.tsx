@@ -45,8 +45,8 @@ const EnhancedLoginForm: React.FC = () => {
           setMode('login');
         }, 2000);
       } else if (mode === 'forgotPassword') {
-        await sendPasswordResetEmail(email);
-        setMessage('Password reset link sent to your email!');
+        const result = await sendPasswordResetEmail(email);
+        setMessage(result.message || 'Password reset link sent to your email!');
       }
     } catch (err: any) {
       // Handle rate limiting specifically

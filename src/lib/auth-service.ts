@@ -269,27 +269,14 @@ export class AuthService {
 
       if (resetError) {
         console.error('Reset password error:', resetError);
-        
-        // Handle specific error types
-        if (resetError.message.includes('Failed to fetch') || 
-            resetError.message.includes('CORS') ||
-            resetError.message.includes('502') ||
-            resetError.message.includes('504') ||
-            resetError.message.includes('Gateway Timeout') ||
-            resetError.message.includes('Bad Gateway')) {
-          throw new Error('Supabase authentication service is temporarily down (504 Gateway Timeout). Please try again in a few minutes or check https://status.supabase.com for service status.');
-        }
-        
-        // Don't expose other errors to prevent email enumeration
-        return { message: 'If an account with this email exists, you will receive a password reset link' };
+        throw new Error(resetError.message || 'Failed to send password reset email');
       }
 
-      return { message: 'If an account with this email exists, you will receive a password reset link' };
+      return { message: 'Password reset link sent! Please check your email.' };
 
     } catch (error: any) {
       console.error('Password reset error:', error);
-      // Always return the same message for security
-      return { message: 'If an account with this email exists, you will receive a password reset link' };
+      throw error;
     }
   }
 
