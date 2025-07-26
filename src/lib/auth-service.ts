@@ -256,6 +256,20 @@ export class AuthService {
         throw new Error('Please enter a valid email address');
       }
 
+      // Check if user exists in profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', data.email.toLowerCase())
+        .single();
+
+      if (profileError || !profile) {
+        // For security reasons, don't reveal whether the email exists or not
+        // Always return success message to prevent email enumeration
+        console.log(`Password reset attempted for non-existent email: ${data.email}`);
+        return { message: 'If an account exists with this email, a password reset link has been sent.' };
+      }
+
       // Use Supabase Auth's built-in password reset
       // This handles everything including email sending
       const redirectUrl = typeof window !== 'undefined' 
@@ -274,7 +288,7 @@ export class AuthService {
         throw new Error(resetError.message || 'Failed to send password reset email');
       }
 
-      return { message: 'Password reset link sent! Please check your email.' };
+      return { message: 'If an account exists with this email, a password reset link has been sent.' };
 
     } catch (error: any) {
       console.error('Password reset error:', error);

@@ -433,6 +433,9 @@ public.users_forgot_password
 │
 ├── STEP 1: Reset Request
 │   ├── ✅ Email format validation passed
+│   ├── 🔍 DATABASE: Query profiles table
+│   │   └── WHERE email = "john@example.com"
+│   ├── ✅ User exists in profiles table
 │   ├── 📤 POST to supabase.auth.resetPasswordForEmail()
 │   ├── 🔍 DATABASE: Query auth.users
 │   │   └── WHERE email = "john@example.com"
@@ -508,6 +511,14 @@ public.users_forgot_password
 ├── 🛡️ Too many requests detected
 ├── ⏱️ Cooldown period: 5-10 minutes
 └── 📤 Response: "Too many attempts. Please wait and try again."
+
+📧 Non-Existent Email (Password Reset):
+├── STEP 1: Email Validation
+├── 🔍 DATABASE: Query profiles table
+├── ❌ No user found with email
+├── 🛡️ Security: Don't reveal email doesn't exist
+├── 📤 Response: "If an account exists with this email, a password reset link has been sent."
+└── 📝 Log: Password reset attempted for non-existent email
 ```
 
 ---
