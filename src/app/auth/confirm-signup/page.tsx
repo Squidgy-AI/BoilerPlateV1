@@ -3,7 +3,6 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { authService } from '@/lib/auth-service';
 
 function ConfirmSignupContent() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -98,16 +97,87 @@ function ConfirmSignupContent() {
 
         console.log('Email confirmed successfully:', data.user);
 
-        // Create the profile and related records, then redirect immediately
+        // Create ALL database records now that email is confirmed
         try {
-          await authService.completeUserProfile(data.user);
-          console.log('✅ Profile and related records created successfully');
+          console.log('Creating database records for confirmed user...');
+          
+          // Generate company/firm ID
+          const companyId = crypto.randomUUID();
+          
+          // Create profile record
+          const profileData = {
+            id: data.user.id,
+            user_id: crypto.randomUUID(), // Generate user_id
+            email: data.user.email.toLowerCase(),
+            full_name: data.user.user_metadata?.full_name || '',
+            profile_avatar_url: null,
+            company_id: companyId,
+            role: 'member'
+          };
+
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .insert([profileData])
+            .select()
+            .single();
+
+          if (profileError) {
+            console.error('Profile creation failed:', profileError);
+            throw new Error(`Profile creation failed: ${profileError.message}`);
+          }
+
+          console.log('✅ Profile created successfully');
+
+          // Create business_profiles record
+          const { error: businessProfileError } = await supabase
+            .from('business_profiles')
+            .upsert({
+              firm_user_id: profile.user_id,
+              firm_id: companyId
+            }, {
+              onConflict: 'firm_user_id'
+            });
+
+          if (businessProfileError) {
+            console.error('Business profile creation failed:', businessProfileError);
+          } else {
+            console.log('✅ Business profile created successfully');
+          }
+
+          // Create PersonalAssistant agent record
+          const sessionId = crypto.randomUUID();
+          const personalAssistantConfig = {
+            description: "Your general-purpose AI assistant",
+            capabilities: ["general_chat", "help", "information"]
+          };
+
+          const { error: agentError } = await supabase
+            .from('squidgy_agent_business_setup')
+            .insert({
+              firm_id: companyId,
+              firm_user_id: profile.user_id,
+              agent_id: 'PersonalAssistant',
+              agent_name: 'Personal Assistant',
+              setup_type: 'agent_config',
+              setup_json: personalAssistantConfig,
+              is_enabled: true,
+              session_id: sessionId
+            });
+
+          if (agentError) {
+            console.error('PersonalAssistant agent creation failed:', agentError);
+          } else {
+            console.log('✅ PersonalAssistant agent created successfully');
+          }
+
+          console.log('✅ All database records created successfully');
+
         } catch (profileError: any) {
-          console.error('Profile creation error:', profileError);
-          // Continue anyway - user can create profile later if needed
+          console.error('Database record creation error:', profileError);
+          // Still redirect to main page even if database creation fails
         }
         
-        // Always redirect to main landing page
+        // Always redirect to main landing page after creating records
         console.log('Redirecting to main landing page...');
         window.location.href = 'https://boiler-plate-v1-lake.vercel.app/';
 

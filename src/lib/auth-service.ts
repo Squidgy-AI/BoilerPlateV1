@@ -122,105 +122,11 @@ export class AuthService {
         needsEmailConfirmation: !authData.session
       });
 
-      // Create profile and related records even if email confirmation is required
-      // This way the user has full access immediately upon signup
-
-      // Create profile record with company_id (firm_id)
-      const companyId = crypto.randomUUID(); // Generate company/firm ID
-      const profileData = {
-        id: authData.user.id,
-        user_id: uuidv4(),
-        email: userData.email.toLowerCase(),
-        full_name: userData.fullName.trim(),
-        profile_avatar_url: null, // Updated field name
-        company_id: companyId, // This serves as firm_id
-        role: 'member'
-      };
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .insert([profileData])
-        .select()
-        .single();
-
-      if (profileError) {
-        console.error('Profile creation failed:', profileError);
-        // Clean up auth user if profile creation fails
-        try {
-          await supabase.auth.admin.deleteUser(authData.user.id);
-        } catch (cleanupError) {
-          console.error('Failed to cleanup auth user:', cleanupError);
-        }
-        
-        // Handle specific profile errors but show more details
-        if (profileError.message.includes('duplicate key') || 
-            profileError.message.includes('unique constraint')) {
-          throw new Error(`An account with this email already exists. Please try logging in instead. (Profile Error: ${profileError.message})`);
-        }
-        // Show the actual error for debugging
-        throw new Error(`Failed to create user profile: ${profileError.message}`);
-      }
-
-      // Create business_profiles record automatically (using UPSERT)
-      try {
-        const { error: businessProfileError } = await supabase
-          .from('business_profiles')
-          .upsert({
-            firm_user_id: profile.user_id, // Use the profile's user_id (UUID)
-            firm_id: companyId // Same as profiles.company_id
-          }, {
-            onConflict: 'firm_user_id'
-          });
-
-        if (businessProfileError) {
-          console.error('Business profile creation failed:', businessProfileError);
-          // Don't fail the entire signup process, but log the error
-          console.warn('User profile created successfully, but business profile creation failed');
-        } else {
-          console.log('✅ Business profile record created automatically for new user');
-        }
-      } catch (businessProfileCreationError) {
-        console.error('Error creating business profile:', businessProfileCreationError);
-        // Don't fail the signup process
-      }
-
-      // Create PersonalAssistant agent record automatically
-      try {
-        const sessionId = crypto.randomUUID(); // Session tracking
-        
-        const personalAssistantConfig = {
-          description: "Your general-purpose AI assistant",
-          capabilities: ["general_chat", "help", "information"]
-        };
-
-        const { error: agentError } = await supabase
-          .from('squidgy_agent_business_setup')
-          .insert({
-            firm_id: companyId, // Use same company_id from profile
-            firm_user_id: profile.user_id, // References profiles.user_id
-            agent_id: 'PersonalAssistant',
-            agent_name: 'Personal Assistant',
-            setup_type: 'agent_config',
-            setup_json: personalAssistantConfig,
-            is_enabled: true,
-            session_id: sessionId
-          });
-
-        if (agentError) {
-          console.error('PersonalAssistant agent creation failed:', agentError);
-          // Don't fail the entire signup process, but log the error
-          console.warn('User profile created successfully, but PersonalAssistant agent creation failed');
-        } else {
-          console.log('✅ PersonalAssistant agent created automatically for new user');
-        }
-      } catch (agentCreationError) {
-        console.error('Error creating PersonalAssistant agent:', agentCreationError);
-        // Don't fail the signup process
-      }
+      // DO NOT create any database records here
+      // All database records will be created during email confirmation
 
       return {
         user: authData.user,
-        profile: profile,
         needsEmailConfirmation: !authData.session,
         message: !authData.session 
           ? 'Account created successfully! Please check your email and click the confirmation link to verify your account.'
