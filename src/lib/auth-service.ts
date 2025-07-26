@@ -56,13 +56,15 @@ export class AuthService {
       }
 
       // Check if email already exists in profiles table
-      const { data: existingProfile } = await supabase
+      const { data: existingProfiles, error: checkError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('email', userData.email.toLowerCase())
-        .single();
+        .eq('email', userData.email.toLowerCase());
 
-      if (existingProfile) {
+      if (checkError) {
+        console.error('Error checking existing email:', checkError);
+        // Don't fail signup for database check errors, let auth handle duplicates
+      } else if (existingProfiles && existingProfiles.length > 0) {
         throw new Error('An account with this email already exists. Please try logging in instead.');
       }
 
@@ -294,13 +296,18 @@ export class AuthService {
       }
 
       // Check if user exists in profiles table
-      const { data: profile, error: profileError } = await supabase
+      const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('email', data.email.toLowerCase())
-        .single();
+        .eq('email', data.email.toLowerCase());
 
-      if (profileError || !profile) {
+      if (profileError) {
+        console.error('Error checking user for password reset:', profileError);
+        // For security, still send generic message
+        return { message: 'If an account exists with this email, a password reset link has been sent.' };
+      }
+
+      if (!profiles || profiles.length === 0) {
         // For security reasons, don't reveal whether the email exists or not
         // Always return success message to prevent email enumeration
         console.log(`Password reset attempted for non-existent email: ${data.email}`);
