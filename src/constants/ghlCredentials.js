@@ -3,16 +3,16 @@
 // Business users get their own sub-accounts but automation uses these fixed credentials
 
 export const GHL_AUTOMATION_CREDENTIALS = {
-  BASE_EMAIL: 'somashekhar34',
-  EMAIL_DOMAIN: '@gmail.com', 
+  BASE_EMAIL: 'info',
+  EMAIL_DOMAIN: '@squidgy.net', 
   PASSWORD: 'Dummy@123',
   // Gmail app password for 2FA automation
-  GMAIL_APP_PASSWORD: process.env.NEXT_PUBLIC_GHL_GMAIL_APP_PASSWORD || 'ytmfxlelgyojxjmf'
+  GMAIL_APP_PASSWORD: process.env.NEXT_PUBLIC_GHL_GMAIL_APP_PASSWORD || 'qfwfjrfedcjbzdam'
 };
 
 /**
  * Generate dynamic GHL login email with random string
- * Format: somashekhar34+{random}@gmail.com
+ * Format: info+{random}@squidgy.net
  */
 export const generateGHLEmail = () => {
   const randomString = Math.random().toString(36).substring(2, 8); // 6 character random string

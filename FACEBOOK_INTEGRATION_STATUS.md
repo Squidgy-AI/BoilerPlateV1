@@ -17,7 +17,7 @@
 fb_request = FacebookPagesRequest(
     location_id='rlRJ1n5Hoy3X53WDOJlq',  # HARDCODED
     user_id='MHwz5yMaG0JrTfGXjvxB',     # HARDCODED  
-    email='somashekhar34+rlRJ1n5H@gmail.com',  # HARDCODED
+    email='info+zt1rcl49@squidgy.net',  # HARDCODED
     password='Dummy@123',               # HARDCODED
     firm_user_id=request.get('firm_user_id', '80b957fc-de1d-4f28-920c-41e0e2e28e5e'),
 )
@@ -25,8 +25,8 @@ fb_request = FacebookPagesRequest(
 # Gmail 2FA configuration in enhanced_2fa_service.py
 class GmailEmailConfig:
     def __init__(self, location_id: str = None):
-        self.email_address = "somashekhar34+rlRJ1n5H@gmail.com"  # HARDCODED
-        self.email_password = "ytmfxlelgyojxjmf"  # HARDCODED
+        self.email_address = "info+zt1rcl49@squidgy.net"  # HARDCODED
+        self.email_password = "qfwfjrfedcjbzdam"  # HARDCODED
 ```
 
 ### 🎯 WORKING ENDPOINTS:
@@ -48,7 +48,7 @@ POST /api/facebook/connect-page           # Connects selected pages
 # fb_request = FacebookPagesRequest(
 #     location_id='rlRJ1n5Hoy3X53WDOJlq',  # Remove hardcoded
 #     user_id='MHwz5yMaG0JrTfGXjvxB',     # Remove hardcoded
-#     email='somashekhar34+rlRJ1n5H@gmail.com',  # Remove hardcoded
+#     email='info+zt1rcl49@squidgy.net',  # Remove hardcoded
 #     password='Dummy@123',               # Remove hardcoded
 # )
 

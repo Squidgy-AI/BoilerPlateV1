@@ -347,11 +347,11 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       user_id: 'MHwz5yMaG0JrTfGXjvxB',
       location_name: 'Solar Demo Location',
       user_name: 'Solar Sales Specialist',
-      user_email: 'somashekhar34+rlRJ1n5H@gmail.com',
+      user_email: 'info+zt1rcl49@squidgy.net',
       setup_status: 'completed',
       created_at: new Date().toISOString(),
       // Keep hardcoded automation credentials for working demo
-      ghl_automation_email: 'somashekhar34+rlRJ1n5H@gmail.com',
+      ghl_automation_email: 'info+zt1rcl49@squidgy.net',
       ghl_automation_password: 'Dummy@123'
     };
     
