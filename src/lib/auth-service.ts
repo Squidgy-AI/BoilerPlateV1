@@ -124,13 +124,15 @@ export class AuthService {
         throw new Error('Failed to create user profile. Please try again.');
       }
 
-      // Create business_profiles record automatically
+      // Create business_profiles record automatically (using UPSERT)
       try {
         const { error: businessProfileError } = await supabase
           .from('business_profiles')
-          .insert({
+          .upsert({
             firm_user_id: profile.user_id, // Use the profile's user_id (UUID)
             firm_id: companyId // Same as profiles.company_id
+          }, {
+            onConflict: 'firm_user_id'
           });
 
         if (businessProfileError) {

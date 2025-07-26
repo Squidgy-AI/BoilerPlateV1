@@ -179,6 +179,7 @@ create table public.business_profiles (
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
   constraint business_profiles_pkey primary key (id),
+  constraint business_profiles_firm_user_id_key unique (firm_user_id),
   constraint business_profiles_firm_user_id_fkey foreign KEY (firm_user_id) references profiles (user_id) on delete CASCADE
 ) TABLESPACE pg_default;
 

@@ -68,12 +68,14 @@ This document provides comprehensive step-by-step data flow documentation for th
   ```typescript
   const { error: businessProfileError } = await supabase
     .from('business_profiles')
-    .insert({
+    .upsert({
       firm_user_id: profile.user_id,              // Links to profiles.user_id
       firm_id: companyId                           // Same as profiles.company_id
+    }, {
+      onConflict: 'firm_user_id'
     });
   ```
-- **Database Impact**: Creates record in `public.business_profiles` table
+- **Database Impact**: Creates or updates record in `public.business_profiles` table using UPSERT
 - **Purpose**: Separates business information from personal profile
 
 #### 5. PersonalAssistant Agent Creation
@@ -245,7 +247,7 @@ public.users_forgot_password
 - **profile_avatar_url**: Renamed from avatar_url
 
 #### business_profiles table
-- **firm_user_id**: Links to `profiles.user_id`
+- **firm_user_id**: Links to `profiles.user_id` (UNIQUE constraint for UPSERT)
 - **firm_id**: Same as `profiles.company_id` - firm identifier
 - **business_name**: NULL - populated later by user
 - **business_email**: NULL - populated later by user
@@ -342,7 +344,7 @@ public.users_forgot_password
 │   └── ✅ Profile created successfully
 │
 ├── STEP 4: Business Profile Creation
-│   ├── 📤 INSERT into public.business_profiles
+│   ├── 📤 UPSERT into public.business_profiles
 │   ├── 💾 DATABASE: business_profiles table
 │   │   ├── id: "business-uuid-101" (auto-generated)
 │   │   ├── firm_user_id: "user-uuid-789" (links to profiles.user_id)
