@@ -97,43 +97,30 @@ function ConfirmSignupContent() {
 
         console.log('Email confirmed successfully:', data.user);
 
-        // Create ALL database records now that email is confirmed
+        // Profile should already be created by the database trigger
+        // Just get the existing profile and create related records
         try {
-          console.log('Creating database records for confirmed user...');
+          console.log('Getting existing profile created by trigger...');
           
-          // Generate company/firm ID
-          const companyId = crypto.randomUUID();
-          
-          // Create profile record
-          const profileData = {
-            id: data.user.id,
-            user_id: crypto.randomUUID(), // Generate user_id
-            email: data.user.email.toLowerCase(),
-            full_name: data.user.user_metadata?.full_name || '',
-            profile_avatar_url: null,
-            company_id: companyId,
-            role: 'member'
-          };
-
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .insert([profileData])
-            .select()
+            .select('*')
+            .eq('id', data.user.id)
             .single();
 
-          if (profileError) {
-            console.error('Profile creation failed:', profileError);
-            throw new Error(`Profile creation failed: ${profileError.message}`);
+          if (profileError || !profile) {
+            console.error('Profile not found - trigger may have failed:', profileError);
+            throw new Error(`Profile not found: ${profileError?.message || 'Unknown error'}`);
           }
 
-          console.log('✅ Profile created successfully');
+          console.log('✅ Profile found successfully:', profile);
 
-          // Create business_profiles record
+          // Create business_profiles record using profile's company_id as firm_id
           const { error: businessProfileError } = await supabase
             .from('business_profiles')
             .upsert({
               firm_user_id: profile.user_id,
-              firm_id: companyId
+              firm_id: profile.company_id // Use the company_id from the created profile
             }, {
               onConflict: 'firm_user_id'
             });
@@ -154,7 +141,7 @@ function ConfirmSignupContent() {
           const { error: agentError } = await supabase
             .from('squidgy_agent_business_setup')
             .insert({
-              firm_id: companyId,
+              firm_id: profile.company_id, // Use the company_id from the created profile
               firm_user_id: profile.user_id,
               agent_id: 'PersonalAssistant',
               agent_name: 'Personal Assistant',
