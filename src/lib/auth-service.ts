@@ -75,10 +75,12 @@ export class AuthService {
         throw new Error('An account with this email already exists. Please try logging in instead.');
       }
 
-      // Create auth user with email confirmation
+      // Create auth user with email confirmation (same structure as password reset)
       const redirectUrl = typeof window !== 'undefined' 
         ? `${window.location.origin}/auth/confirm-signup`
         : `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/auth/confirm-signup`;
+        
+      console.log('Signup redirect URL:', redirectUrl);
         
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email.toLowerCase(),
@@ -89,6 +91,12 @@ export class AuthService {
           },
           emailRedirectTo: redirectUrl
         }
+      });
+      
+      console.log('Signup result:', { 
+        user: authData?.user ? 'created' : 'none', 
+        session: authData?.session ? 'active' : 'none',
+        error: authError ? authError.message : 'none'
       });
 
       if (authError) {
@@ -124,6 +132,12 @@ export class AuthService {
 
       // DO NOT create any database records here
       // All database records will be created during email confirmation
+
+      // If no session but user created, confirmation email should have been sent
+      if (authData.user && !authData.session) {
+        console.log('✅ User created, email confirmation required');
+        console.log('📧 Confirmation email should be sent to:', userData.email);
+      }
 
       return {
         user: authData.user,
@@ -272,6 +286,42 @@ export class AuthService {
     } catch (error: any) {
       console.error('Password reset error:', error);
       throw new Error(error.message || 'Failed to reset password');
+    }
+  }
+
+  // Resend confirmation email (similar to password reset structure)
+  async resendConfirmationEmail(email: string): Promise<{ message: string }> {
+    try {
+      // Validate email
+      if (!this.isValidEmail(email)) {
+        throw new Error('Please enter a valid email address');
+      }
+
+      const redirectUrl = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/confirm-signup`
+        : `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/auth/confirm-signup`;
+
+      console.log('Resending confirmation email to:', email);
+      console.log('Redirect URL:', redirectUrl);
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.toLowerCase(),
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+
+      if (error) {
+        console.error('Resend confirmation error:', error);
+        throw new Error(error.message || 'Failed to resend confirmation email');
+      }
+
+      return { message: 'Confirmation email has been resent. Please check your inbox.' };
+
+    } catch (error: any) {
+      console.error('Resend confirmation error:', error);
+      throw error;
     }
   }
 
