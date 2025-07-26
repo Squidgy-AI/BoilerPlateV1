@@ -61,6 +61,13 @@ export class AuthService {
         .select('id')
         .eq('email', userData.email.toLowerCase());
 
+      console.log('Email check result:', { 
+        email: userData.email.toLowerCase(), 
+        existingProfiles, 
+        error: checkError,
+        count: existingProfiles?.length || 0
+      });
+
       if (checkError) {
         console.error('Error checking existing email:', checkError);
         // Don't fail signup for database check errors, let auth handle duplicates
@@ -115,16 +122,8 @@ export class AuthService {
         needsEmailConfirmation: !authData.session
       });
 
-      // If email confirmation is required, return early
-      if (!authData.session) {
-        console.log('Email confirmation required, user created but not confirmed');
-        return {
-          user: authData.user,
-          profile: null,
-          needsEmailConfirmation: true,
-          message: 'Please check your email and click the confirmation link to complete your account setup.'
-        };
-      }
+      // Create profile and related records even if email confirmation is required
+      // This way the user has full access immediately upon signup
 
       // Create profile record with company_id (firm_id)
       const companyId = crypto.randomUUID(); // Generate company/firm ID
@@ -222,7 +221,10 @@ export class AuthService {
       return {
         user: authData.user,
         profile: profile,
-        needsEmailConfirmation: !authData.session
+        needsEmailConfirmation: !authData.session,
+        message: !authData.session 
+          ? 'Account created successfully! Please check your email and click the confirmation link to verify your account.'
+          : 'Account created and verified successfully!'
       };
 
     } catch (error: any) {

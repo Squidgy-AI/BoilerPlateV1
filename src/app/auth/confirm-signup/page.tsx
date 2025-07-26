@@ -14,28 +14,79 @@ function ConfirmSignupContent() {
   useEffect(() => {
     const confirmEmail = async () => {
       try {
-        // Get the tokens from URL parameters
-        const token_hash = searchParams.get('token_hash');
-        const type = searchParams.get('type');
-        
-        if (!token_hash || type !== 'signup') {
+        // Check for error parameters first
+        const error = searchParams.get('error');
+        const error_code = searchParams.get('error_code');
+        const error_description = searchParams.get('error_description');
+
+        if (error) {
+          console.error('Confirmation error from URL:', { error, error_code, error_description });
           setStatus('error');
-          setMessage('Invalid confirmation link. Please try signing up again.');
+          
+          if (error_code === 'otp_expired') {
+            setMessage('The confirmation link has expired. Please sign up again to receive a new confirmation email.');
+          } else {
+            setMessage(`Confirmation failed: ${error_description || error}`);
+          }
           return;
         }
 
-        console.log('Confirming email with token:', { token_hash, type });
+        // Get the tokens from URL parameters - handle multiple formats
+        const token_hash = searchParams.get('token_hash');
+        const token = searchParams.get('token');
+        const type = searchParams.get('type');
+        const access_token = searchParams.get('access_token');
+        const refresh_token = searchParams.get('refresh_token');
 
-        // Verify the email confirmation token
-        const { data, error } = await supabase.auth.verifyOtp({
-          token_hash,
-          type: 'signup'
+        console.log('URL parameters:', { 
+          token_hash, 
+          token, 
+          type, 
+          access_token: access_token ? 'present' : 'missing',
+          refresh_token: refresh_token ? 'present' : 'missing',
+          allParams: Object.fromEntries(searchParams.entries())
         });
 
-        if (error) {
-          console.error('Email confirmation error:', error);
+        // Try different confirmation methods based on available parameters
+        let data, confirmError;
+
+        if (access_token && refresh_token) {
+          // Method 1: Direct session from tokens (older format)
+          console.log('Using direct session method');
+          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            access_token,
+            refresh_token
+          });
+          data = sessionData;
+          confirmError = sessionError;
+        } else if (token_hash && type === 'signup') {
+          // Method 2: Verify OTP with token_hash (newer format)
+          console.log('Using verifyOtp method with token_hash');
+          const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash,
+            type: 'signup'
+          });
+          data = verifyData;
+          confirmError = verifyError;
+        } else if (token) {
+          // Method 3: Try with regular token
+          console.log('Using verifyOtp method with token');
+          const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+            token,
+            type: 'signup'
+          });
+          data = verifyData;
+          confirmError = verifyError;
+        } else {
           setStatus('error');
-          setMessage(`Confirmation failed: ${error.message}`);
+          setMessage('Invalid confirmation link. Missing required parameters. Please try signing up again.');
+          return;
+        }
+
+        if (confirmError) {
+          console.error('Email confirmation error:', confirmError);
+          setStatus('error');
+          setMessage(`Confirmation failed: ${confirmError.message}`);
           return;
         }
 
@@ -47,26 +98,25 @@ function ConfirmSignupContent() {
 
         console.log('Email confirmed successfully:', data.user);
 
-        // Now create the profile and related records
+        // Create the profile and related records, then redirect immediately
         try {
           await authService.completeUserProfile(data.user);
-          setStatus('success');
-          setMessage('Email confirmed successfully! Redirecting to dashboard...');
-          
-          // Redirect to dashboard after 3 seconds
-          setTimeout(() => {
-            router.push('/');
-          }, 3000);
+          console.log('✅ Profile and related records created successfully');
         } catch (profileError: any) {
           console.error('Profile creation error:', profileError);
-          setStatus('error');
-          setMessage(`Account confirmed but profile creation failed: ${profileError.message}`);
+          // Continue anyway - user can create profile later if needed
         }
+        
+        // Always redirect to main landing page
+        console.log('Redirecting to main landing page...');
+        window.location.href = 'https://boiler-plate-v1-lake.vercel.app/';
 
       } catch (error: any) {
         console.error('Confirmation process error:', error);
-        setStatus('error');
-        setMessage(`Confirmation failed: ${error.message}`);
+        // Even if confirmation fails, redirect to main page
+        // User can always try logging in or signing up again
+        console.log('Redirecting to main page due to confirmation error...');
+        window.location.href = 'https://boiler-plate-v1-lake.vercel.app/';
       }
     };
 
