@@ -67,11 +67,11 @@ function ConfirmSignupContent() {
           });
           data = verifyData;
           confirmError = verifyError;
-        } else if (token) {
-          // Method 3: Try with regular token
-          console.log('Using verifyOtp method with token');
+        } else if (token && type === 'signup') {
+          // Method 3: Try with regular token (PKCE format)
+          console.log('Using verifyOtp method with token and type');
           const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-            token,
+            token_hash: token, // Use token as token_hash for PKCE format
             type: 'signup'
           });
           data = verifyData;
