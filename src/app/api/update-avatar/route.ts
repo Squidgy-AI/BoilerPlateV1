@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     // Update the user's profile with the new avatar URL
     const { error: updateError } = await supabaseAdmin
       .from('profiles')
-      .update({ avatar_url: urlData.publicUrl })
+      .update({ profile_avatar_url: urlData.publicUrl })
       .eq('id', userId);
 
     if (updateError) {

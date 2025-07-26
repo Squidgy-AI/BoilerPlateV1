@@ -89,12 +89,15 @@ export class AuthService {
         throw new Error('Failed to create user account');
       }
 
-      // Create profile record
+      // Create profile record with company_id (firm_id)
+      const companyId = crypto.randomUUID(); // Generate company/firm ID
       const profileData = {
         id: authData.user.id,
         user_id: uuidv4(),
         email: userData.email.toLowerCase(),
         full_name: userData.fullName.trim(),
+        profile_avatar_url: null, // Updated field name
+        company_id: companyId, // This serves as firm_id
         role: 'member'
       };
 
@@ -127,8 +130,7 @@ export class AuthService {
           .from('business_profiles')
           .insert({
             firm_user_id: profile.user_id, // Use the profile's user_id (UUID)
-            business_name: userData.fullName.trim(), // Use their name as initial business name
-            business_email: userData.email.toLowerCase() // Use their email as initial business email
+            firm_id: companyId // Same as profiles.company_id
           });
 
         if (businessProfileError) {
@@ -145,26 +147,24 @@ export class AuthService {
 
       // Create PersonalAssistant agent record automatically
       try {
+        const sessionId = crypto.randomUUID(); // Session tracking
+        
         const personalAssistantConfig = {
           description: "Your general-purpose AI assistant",
-          capabilities: ["general_chat", "help", "information", "task_assistance"],
-          personality: "helpful",
-          auto_enabled: true
+          capabilities: ["general_chat", "help", "information"]
         };
 
         const { error: agentError } = await supabase
           .from('squidgy_agent_business_setup')
-          .upsert({
-            firm_user_id: profile.user_id, // Use the profile's user_id (UUID)
+          .insert({
+            firm_id: companyId, // Use same company_id from profile
+            firm_user_id: profile.user_id, // References profiles.user_id
             agent_id: 'PersonalAssistant',
-            agent_name: 'Personal Assistant Bot',
+            agent_name: 'Personal Assistant',
             setup_type: 'agent_config',
             setup_json: personalAssistantConfig,
             is_enabled: true,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'firm_user_id,agent_id,setup_type',
-            ignoreDuplicates: false
+            session_id: sessionId
           });
 
         if (agentError) {

@@ -1,149 +1,139 @@
--- Profiles table (User accounts)
-CREATE TABLE profiles (
-  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-  user_id UUID DEFAULT uuid_generate_v4() UNIQUE NOT NULL,
-  email TEXT NOT NULL UNIQUE,
-  full_name TEXT,
-  avatar_url TEXT,
-  company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
-  role TEXT DEFAULT 'member', -- 'admin', 'member', etc.
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- SQUIDGY DATABASE SCHEMA
+-- Updated schema for authentication and agent business setup
+-- Removes business_profiles table and uses updated column names
 
--- Companies table (For B2B multi-tenancy)
-CREATE TABLE companies (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  name TEXT NOT NULL,
-  logo_url TEXT,
-  industry TEXT,
-  size TEXT, -- 'small', 'medium', 'enterprise'
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- ============================================================================
+-- PROFILES TABLE (Updated)
+-- ============================================================================
+create table public.profiles (
+  id uuid not null,
+  email text not null,
+  full_name text null,
+  profile_avatar_url text null,  -- Renamed from avatar_url
+  company_id uuid null,           -- This is also the firm_id
+  role text null default 'member'::text,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  user_id uuid not null default extensions.uuid_generate_v4(),
+  constraint profiles_pkey primary key (id),
+  constraint profiles_email_key unique (email),
+  constraint profiles_user_id_key unique (user_id),
+  -- Note: company_id is just a UUID field, no foreign key constraint needed
+  constraint profiles_id_fkey foreign KEY (id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
 
--- Groups table (Conversation groups)
-CREATE TABLE groups (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT,
-  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
-  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Add updated_at trigger for profiles
+create trigger update_profiles_updated_at BEFORE
+update on profiles for EACH row
+execute FUNCTION update_updated_at_column();
 
--- Group members (Join table for users/agents in groups)
-CREATE TABLE group_members (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
-  user_id UUID, -- Can be a real user ID or a virtual agent ID
-  role TEXT DEFAULT 'member', -- 'admin', 'member', etc.
-  is_agent BOOLEAN DEFAULT FALSE,
-  agent_type TEXT, -- 'ProductManager', 'PreSalesConsultant', etc.
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- ============================================================================
+-- AGENT BUSINESS SETUP TABLE (Complete Schema)
+-- ============================================================================
+create table public.squidgy_agent_business_setup (
+  firm_id uuid null,                                    -- Same as profiles.company_id
+  firm_user_id uuid not null,                          -- References profiles.user_id
+  agent_id character varying(255) not null,            -- Agent identifier
+  agent_name character varying(255) not null,          -- Display name for agent
+  setup_json jsonb null default '{}'::jsonb,           -- Configuration JSON
+  created_at timestamp with time zone null default CURRENT_TIMESTAMP,
+  updated_at timestamp with time zone null default CURRENT_TIMESTAMP,
+  is_enabled boolean not null default false,           -- Whether agent is active
+  session_id uuid null,                                -- Session tracking UUID
+  setup_type character varying(50) not null,           -- Type of setup
+  id uuid not null default gen_random_uuid(),          -- Primary key UUID
+  ghl_location_id text null,                           -- GoHighLevel location ID
+  ghl_user_id text null,                               -- GoHighLevel user ID
+  
+  -- Primary key constraint (composite)
+  constraint squidgy_agent_business_setup_pkey primary key (firm_user_id, agent_id, setup_type),
+  
+  -- Unique constraint
+  constraint unique_user_agent_setup_type unique (firm_user_id, agent_id, setup_type),
+  
+  -- Check constraints for valid setup types
+  constraint chk_setup_type_values check (
+    (setup_type)::text = any (
+      (array[
+        'agent_config'::character varying,
+        'SolarSetup'::character varying,
+        'CalendarSetup'::character varying,
+        'NotificationSetup'::character varying,
+        'GHLSetup'::character varying,
+        'FacebookIntegration'::character varying
+      ])::text[]
+    )
+  ),
+  constraint valid_setup_types check (
+    (setup_type)::text = any (
+      array[
+        ('agent_config'::character varying)::text,
+        ('SolarSetup'::character varying)::text,
+        ('CalendarSetup'::character varying)::text,
+        ('NotificationSetup'::character varying)::text,
+        ('GHLSetup'::character varying)::text,
+        ('FacebookIntegration'::character varying)::text
+      ]
+    )
+  )
+) TABLESPACE pg_default;
 
--- Direct messages between users
-CREATE TABLE messages (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  sender_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  recipient_id UUID REFERENCES profiles(id) ON DELETE SET NULL, 
-  message TEXT NOT NULL,
-  message_type TEXT DEFAULT 'text', -- 'text', 'image', 'file', etc.
-  is_read BOOLEAN DEFAULT FALSE,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- ============================================================================
+-- INDEXES FOR AGENT BUSINESS SETUP TABLE
+-- ============================================================================
 
--- Group messages
-CREATE TABLE group_messages (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
-  sender_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  message TEXT NOT NULL,
-  message_type TEXT DEFAULT 'text', -- 'text', 'image', 'file', etc.
-  is_agent BOOLEAN DEFAULT FALSE,
-  agent_type TEXT, -- If sent by an agent
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Basic indexes
+create index IF not exists idx_public_agent_setup_firm_user 
+  on public.squidgy_agent_business_setup using btree (firm_user_id) TABLESPACE pg_default;
 
--- Read receipts for group messages
-CREATE TABLE group_message_reads (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  message_id UUID REFERENCES group_messages(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  read_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+create index IF not exists idx_public_agent_setup_agent 
+  on public.squidgy_agent_business_setup using btree (agent_id) TABLESPACE pg_default;
 
--- Invitations
-CREATE TABLE invitations (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  sender_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  recipient_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  recipient_email TEXT NOT NULL,
-  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
-  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
-  status TEXT DEFAULT 'pending', -- 'pending', 'accepted', 'declined'
-  token TEXT NOT NULL UNIQUE, -- Used for email invitation links
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  expires_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() + INTERVAL '7 days'
-);
+create index IF not exists idx_public_agent_setup_json 
+  on public.squidgy_agent_business_setup using gin (setup_json) TABLESPACE pg_default;
 
--- Agent configurations (Custom settings for each agent)
-CREATE TABLE agent_configurations (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
-  agent_type TEXT NOT NULL, -- 'ProductManager', 'PreSalesConsultant', etc.
-  is_enabled BOOLEAN DEFAULT TRUE,
-  config JSONB DEFAULT '{}', -- Flexible configuration options
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+create index IF not exists idx_public_agent_setup_enabled 
+  on public.squidgy_agent_business_setup using btree (firm_user_id, is_enabled) TABLESPACE pg_default;
 
--- Website data (For tracking analyzed websites)
-CREATE TABLE website_data (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  url TEXT NOT NULL,
-  screenshot_path TEXT,
-  favicon_path TEXT,
-  analysis TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+create index IF not exists idx_agent_setup_session_id 
+  on public.squidgy_agent_business_setup using btree (session_id) TABLESPACE pg_default;
 
--- Session history (Track active sessions)
-CREATE TABLE sessions (
-  id TEXT PRIMARY KEY,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  is_group BOOLEAN DEFAULT FALSE,
-  group_id UUID REFERENCES groups(id) ON DELETE SET NULL,
-  agent_id TEXT, -- For agent sessions
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  last_active TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+create index IF not exists idx_agent_setup_type 
+  on public.squidgy_agent_business_setup using btree (setup_type) TABLESPACE pg_default;
 
--- N8N integration logs (For debugging and tracking)
-CREATE TABLE n8n_logs (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  agent TEXT NOT NULL,
-  message TEXT NOT NULL,
-  request_payload JSONB,
-  response_payload JSONB,
-  status TEXT, -- 'success', 'error'
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Composite indexes for common queries
+create index IF not exists idx_agent_setup_user_type 
+  on public.squidgy_agent_business_setup using btree (firm_user_id, setup_type) TABLESPACE pg_default;
 
--- Guest users table (For users who haven't fully registered yet)
-CREATE TABLE guest_users (
-  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-  phone TEXT UNIQUE,
-  display_name TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
-);
+create index IF not exists idx_agent_setup_agent_type 
+  on public.squidgy_agent_business_setup using btree (agent_id, setup_type) TABLESPACE pg_default;
 
--- Users forgot password table (For password reset functionality)
-CREATE TABLE users_forgot_password (
+create index IF not exists idx_agent_setup_user_agent 
+  on public.squidgy_agent_business_setup using btree (firm_user_id, agent_id) TABLESPACE pg_default;
+
+-- Specialized indexes for specific setup types
+create index IF not exists idx_agent_setup_ghl 
+  on public.squidgy_agent_business_setup using btree (firm_user_id, agent_id) TABLESPACE pg_default
+  where ((setup_type)::text = 'GHLSetup'::text);
+
+create index IF not exists idx_agent_setup_facebook 
+  on public.squidgy_agent_business_setup using btree (firm_user_id, agent_id) TABLESPACE pg_default
+  where ((setup_type)::text = 'FacebookIntegration'::text);
+
+-- GoHighLevel specific indexes
+create index IF not exists idx_agent_setup_ghl_location 
+  on public.squidgy_agent_business_setup using btree (ghl_location_id) TABLESPACE pg_default;
+
+create index IF not exists idx_agent_setup_ghl_user 
+  on public.squidgy_agent_business_setup using btree (ghl_user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_agent_setup_ghl_credentials 
+  on public.squidgy_agent_business_setup using btree (ghl_location_id, ghl_user_id) TABLESPACE pg_default;
+
+-- ============================================================================
+-- USERS FORGOT PASSWORD TABLE (Existing)
+-- ============================================================================
+create table public.users_forgot_password (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES profiles(user_id) ON DELETE CASCADE,
   email TEXT NOT NULL,
@@ -153,3 +143,192 @@ CREATE TABLE users_forgot_password (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   used_at TIMESTAMP WITH TIME ZONE
 );
+
+-- Index for password reset queries
+create index IF not exists idx_forgot_password_token 
+  on public.users_forgot_password using btree (reset_token) TABLESPACE pg_default;
+
+create index IF not exists idx_forgot_password_user 
+  on public.users_forgot_password using btree (user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_forgot_password_email 
+  on public.users_forgot_password using btree (email) TABLESPACE pg_default;
+
+-- ============================================================================
+-- BUSINESS PROFILES TABLE (RESTORED)
+-- ============================================================================
+create table public.business_profiles (
+  id uuid not null default gen_random_uuid(),
+  firm_user_id uuid not null,
+  firm_id uuid not null,
+  business_name text null,
+  business_email text null,
+  phone text null,
+  website text null,
+  address text null,
+  city text null,
+  state text null,
+  country text null default 'US'::text,
+  postal_code text null,
+  logo_url text null,
+  screenshot_url text null,
+  favicon_url text null,
+  logo_storage_path text null,
+  screenshot_storage_path text null,
+  favicon_storage_path text null,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  constraint business_profiles_pkey primary key (id),
+  constraint business_profiles_firm_user_id_fkey foreign KEY (firm_user_id) references profiles (user_id) on delete CASCADE
+) TABLESPACE pg_default;
+
+-- Indexes for business_profiles
+create index IF not exists idx_business_profiles_firm_user_id 
+  on public.business_profiles using btree (firm_user_id) TABLESPACE pg_default;
+
+create index IF not exists idx_business_profiles_business_email 
+  on public.business_profiles using btree (business_email) TABLESPACE pg_default;
+
+-- Function for updating updated_at timestamp (if not exists)
+create or replace function update_business_profiles_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+-- Trigger for auto-updating updated_at column
+create trigger trigger_update_business_profiles_updated_at BEFORE
+update on business_profiles for EACH row
+execute FUNCTION update_business_profiles_updated_at();
+
+-- ============================================================================
+-- ROW LEVEL SECURITY POLICIES
+-- ============================================================================
+
+-- Enable RLS on profiles
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Profiles policies
+CREATE POLICY "Users can view own profile" ON public.profiles
+  FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile" ON public.profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+-- Enable RLS on agent business setup
+ALTER TABLE public.squidgy_agent_business_setup ENABLE ROW LEVEL SECURITY;
+
+-- Agent setup policies
+CREATE POLICY "Users can view own agent setups" ON public.squidgy_agent_business_setup
+  FOR SELECT USING (
+    firm_user_id IN (
+      SELECT user_id FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can insert own agent setups" ON public.squidgy_agent_business_setup
+  FOR INSERT WITH CHECK (
+    firm_user_id IN (
+      SELECT user_id FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update own agent setups" ON public.squidgy_agent_business_setup
+  FOR UPDATE USING (
+    firm_user_id IN (
+      SELECT user_id FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+-- NO RLS on business_profiles (as requested)
+-- business_profiles table has no Row Level Security policies
+
+-- Enable RLS on forgot password
+ALTER TABLE public.users_forgot_password ENABLE ROW LEVEL SECURITY;
+
+-- Forgot password policies
+CREATE POLICY "Allow public to create password reset requests" ON public.users_forgot_password
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can view own password reset requests" ON public.users_forgot_password
+  FOR SELECT USING (
+    user_id IN (
+      SELECT user_id FROM public.profiles WHERE id = auth.uid()
+    )
+  );
+
+-- ============================================================================
+-- EXAMPLE DATA INSERTION QUERIES
+-- ============================================================================
+
+-- Example: Insert user profile with company_id
+/*
+INSERT INTO profiles (
+  id,                    -- From Supabase auth.users.id
+  user_id,              -- Generated UUID
+  email,                -- User email
+  full_name,            -- User name
+  profile_avatar_url,   -- NULL initially
+  company_id,           -- Generated UUID (serves as firm_id)
+  role                  -- Default member
+) VALUES (
+  'auth-user-uuid-here',
+  gen_random_uuid(),
+  'user@example.com',
+  'John Doe',
+  NULL,
+  gen_random_uuid(),    -- Simple UUID, no foreign key
+  'member'
+);
+*/
+
+-- Example: Insert default PersonalAssistant agent
+/*
+INSERT INTO squidgy_agent_business_setup (
+  firm_id,              -- Same as profiles.company_id
+  firm_user_id,         -- From profiles.user_id
+  agent_id,             -- Agent identifier
+  agent_name,           -- Display name
+  setup_type,           -- Configuration type
+  setup_json,           -- Agent capabilities
+  is_enabled,           -- Active status
+  session_id            -- Random session UUID
+) VALUES (
+  'company-uuid-here',
+  'user-uuid-here',
+  'PersonalAssistant',
+  'Personal Assistant',
+  'agent_config',
+  '{"description": "Your general-purpose AI assistant", "capabilities": ["general_chat", "help", "information"]}'::JSONB,
+  true,
+  gen_random_uuid()
+);
+*/
+
+-- Example: Insert business profile
+/*
+INSERT INTO business_profiles (
+  firm_user_id,         -- From profiles.user_id
+  business_name,        -- Required field
+  business_email        -- Required field
+) VALUES (
+  'user-uuid-456',      -- Links to profiles.user_id
+  'John Doe Business',  -- User's name as business name
+  'user@example.com'    -- User's email as business email
+);
+*/
+
+-- ============================================================================
+-- NOTES
+-- ============================================================================
+-- 1. business_profiles table RESTORED with basic schema + firm_id field added
+-- 2. avatar_url renamed to profile_avatar_url in profiles table
+-- 3. company_id in profiles is the same as firm_id in business_profiles and agent setup
+-- 4. All UUIDs are properly generated using gen_random_uuid()
+-- 5. setup_type is 'agent_config' for default PersonalAssistant
+-- 6. Basic indexes added for common queries
+-- 7. business_profiles has NO RLS policies (full access)
+-- 8. business_profiles has firm_user_id referencing profiles.user_id
+-- 9. business_profiles includes: firm_id, firm_user_id, basic business info, logo/favicon URLs

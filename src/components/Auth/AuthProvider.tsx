@@ -193,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                           user_id: uuidv4(), // Add user_id for agent associations
                           email: updatedSession.user.email,
                           full_name: fullName,
-                          avatar_url: updatedSession.user.user_metadata?.avatar_url || null,
+                          profile_avatar_url: updatedSession.user.user_metadata?.avatar_url || null,
                           role: 'member'
                         })
                         .select()

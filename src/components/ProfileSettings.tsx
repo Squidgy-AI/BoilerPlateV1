@@ -23,7 +23,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || '');
-      setAvatarUrl(profile.avatar_url || '');
+      setAvatarUrl(profile.profile_avatar_url || '');
     }
   }, [profile]);
   
@@ -132,7 +132,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ isOpen, onClose }) =>
         .from('profiles')
         .update({
           full_name: fullName,
-          avatar_url: newAvatarUrl,
+          profile_avatar_url: newAvatarUrl,
           updated_at: new Date().toISOString()
         })
         .eq('id', profile.id);

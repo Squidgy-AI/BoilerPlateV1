@@ -41,7 +41,7 @@ export interface Profile {
   user_id: string;
   email: string;
   full_name?: string;
-  avatar_url?: string;
+  profile_avatar_url?: string;
   company_id?: string;
   role?: string;
   created_at?: string;
