@@ -126,7 +126,8 @@ function ConfirmSignupContent() {
             });
 
           if (businessProfileError) {
-            console.error('Business profile creation failed:', businessProfileError);
+            console.error('❌ Business profile creation failed:', businessProfileError);
+            console.error('Business profile error details:', businessProfileError.message);
           } else {
             console.log('✅ Business profile created successfully');
           }
@@ -152,7 +153,8 @@ function ConfirmSignupContent() {
             });
 
           if (agentError) {
-            console.error('PersonalAssistant agent creation failed:', agentError);
+            console.error('❌ PersonalAssistant agent creation failed:', agentError);
+            console.error('Agent error details:', agentError.message);
           } else {
             console.log('✅ PersonalAssistant agent created successfully');
           }
@@ -164,16 +166,16 @@ function ConfirmSignupContent() {
           // Still redirect to main page even if database creation fails
         }
         
-        // Always redirect to main landing page after creating records
-        console.log('Redirecting to main landing page...');
-        window.location.href = 'https://boiler-plate-v1-lake.vercel.app/';
+        // Always redirect to login page after creating records
+        console.log('Redirecting to login page...');
+        window.location.href = 'https://boiler-plate-v1-lake.vercel.app/login';
 
       } catch (error: any) {
         console.error('Confirmation process error:', error);
-        // Even if confirmation fails, redirect to main page
+        // Even if confirmation fails, redirect to login page
         // User can always try logging in or signing up again
-        console.log('Redirecting to main page due to confirmation error...');
-        window.location.href = 'https://boiler-plate-v1-lake.vercel.app/';
+        console.log('Redirecting to login page due to confirmation error...');
+        window.location.href = 'https://boiler-plate-v1-lake.vercel.app/login';
       }
     };
 
