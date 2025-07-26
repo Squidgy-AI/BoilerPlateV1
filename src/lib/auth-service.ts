@@ -55,38 +55,73 @@ export class AuthService {
         throw new Error('Full name must be at least 2 characters');
       }
 
-      // Note: Email uniqueness will be handled by Supabase auth and database constraints
+      // Check if email already exists in profiles table
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', userData.email.toLowerCase())
+        .single();
 
-      // Create auth user
+      if (existingProfile) {
+        throw new Error('An account with this email already exists. Please try logging in instead.');
+      }
+
+      // Create auth user with email confirmation
+      const redirectUrl = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/confirm-signup`
+        : `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/auth/confirm-signup`;
+        
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email.toLowerCase(),
         password: userData.password,
         options: {
           data: {
             full_name: userData.fullName.trim(),
-          }
+          },
+          emailRedirectTo: redirectUrl
         }
       });
 
       if (authError) {
-        // Handle specific error cases
+        console.error('Supabase Auth Error:', authError);
+        // Handle specific error cases but show more details
         if (authError.message.includes('rate limit') || 
             authError.message.includes('too many requests') ||
             authError.message.includes('429')) {
-          throw new Error('Too many attempts. Please wait 5-10 minutes and try again. If this persists, the rate limits may need to be adjusted in Supabase dashboard.');
+          throw new Error('Too many attempts. Please wait 5-10 minutes and try again.');
         }
         if (authError.message.includes('already registered') || 
-            authError.message.includes('already been registered')) {
-          throw new Error('An account with this email already exists. Please try logging in instead.');
+            authError.message.includes('already been registered') ||
+            authError.message.includes('User already registered')) {
+          throw new Error(`An account with this email already exists. Please try logging in instead. (Auth Error: ${authError.message})`);
         }
         if (authError.message.includes('invalid email')) {
           throw new Error('Please enter a valid email address.');
         }
-        throw authError;
+        // Show the actual error for debugging
+        throw new Error(`Signup failed: ${authError.message}`);
       }
 
       if (!authData.user) {
         throw new Error('Failed to create user account');
+      }
+
+      // Log signup response for debugging
+      console.log('Signup success:', {
+        user: authData.user,
+        session: authData.session,
+        needsEmailConfirmation: !authData.session
+      });
+
+      // If email confirmation is required, return early
+      if (!authData.session) {
+        console.log('Email confirmation required, user created but not confirmed');
+        return {
+          user: authData.user,
+          profile: null,
+          needsEmailConfirmation: true,
+          message: 'Please check your email and click the confirmation link to complete your account setup.'
+        };
       }
 
       // Create profile record with company_id (firm_id)
@@ -116,12 +151,13 @@ export class AuthService {
           console.error('Failed to cleanup auth user:', cleanupError);
         }
         
-        // Handle specific profile errors
+        // Handle specific profile errors but show more details
         if (profileError.message.includes('duplicate key') || 
             profileError.message.includes('unique constraint')) {
-          throw new Error('An account with this email already exists. Please try logging in instead.');
+          throw new Error(`An account with this email already exists. Please try logging in instead. (Profile Error: ${profileError.message})`);
         }
-        throw new Error('Failed to create user profile. Please try again.');
+        // Show the actual error for debugging
+        throw new Error(`Failed to create user profile: ${profileError.message}`);
       }
 
       // Create business_profiles record automatically (using UPSERT)
@@ -183,7 +219,8 @@ export class AuthService {
 
       return {
         user: authData.user,
-        profile: profile
+        profile: profile,
+        needsEmailConfirmation: !authData.session
       };
 
     } catch (error: any) {
@@ -320,6 +357,89 @@ export class AuthService {
     } catch (error: any) {
       console.error('Password reset error:', error);
       throw new Error(error.message || 'Failed to reset password');
+    }
+  }
+
+  // Complete user profile after email confirmation
+  async completeUserProfile(user: any): Promise<{ profile: any }> {
+    try {
+      // Create profile record with company_id (firm_id)
+      const companyId = crypto.randomUUID();
+      const profileData = {
+        id: user.id,
+        user_id: uuidv4(),
+        email: user.email.toLowerCase(),
+        full_name: user.user_metadata?.full_name || '',
+        profile_avatar_url: null,
+        company_id: companyId,
+        role: 'member'
+      };
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .insert([profileData])
+        .select()
+        .single();
+
+      if (profileError) {
+        throw new Error(`Profile creation failed: ${profileError.message}`);
+      }
+
+      // Create business_profiles record automatically (using UPSERT)
+      try {
+        const { error: businessProfileError } = await supabase
+          .from('business_profiles')
+          .upsert({
+            firm_user_id: profile.user_id,
+            firm_id: companyId
+          }, {
+            onConflict: 'firm_user_id'
+          });
+
+        if (businessProfileError) {
+          console.error('Business profile creation failed:', businessProfileError);
+        } else {
+          console.log('✅ Business profile record created automatically');
+        }
+      } catch (businessProfileCreationError) {
+        console.error('Error creating business profile:', businessProfileCreationError);
+      }
+
+      // Create PersonalAssistant agent record automatically
+      try {
+        const sessionId = crypto.randomUUID();
+        const personalAssistantConfig = {
+          description: "Your general-purpose AI assistant",
+          capabilities: ["general_chat", "help", "information"]
+        };
+
+        const { error: agentError } = await supabase
+          .from('squidgy_agent_business_setup')
+          .insert({
+            firm_id: companyId,
+            firm_user_id: profile.user_id,
+            agent_id: 'PersonalAssistant',
+            agent_name: 'Personal Assistant',
+            setup_type: 'agent_config',
+            setup_json: personalAssistantConfig,
+            is_enabled: true,
+            session_id: sessionId
+          });
+
+        if (agentError) {
+          console.error('PersonalAssistant agent creation failed:', agentError);
+        } else {
+          console.log('✅ PersonalAssistant agent created automatically');
+        }
+      } catch (agentCreationError) {
+        console.error('Error creating PersonalAssistant agent:', agentCreationError);
+      }
+
+      return { profile };
+
+    } catch (error: any) {
+      console.error('Complete profile error:', error);
+      throw new Error(error.message || 'Failed to complete user profile');
     }
   }
 
