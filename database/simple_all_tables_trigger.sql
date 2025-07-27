@@ -18,13 +18,13 @@ BEGIN
     new_company_id := gen_random_uuid();
     new_session_id := gen_random_uuid();
     
-    -- 1. Create profile (email_confirmed = FALSE initially)
+    -- 1. Create profile (email_confirmed = TRUE for auto-confirmation)
     INSERT INTO public.profiles (
         id, user_id, email, full_name, company_id, role, email_confirmed
     ) VALUES (
         NEW.id, new_user_id, NEW.email, 
         COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-        new_company_id, 'member', FALSE
+        new_company_id, 'member', TRUE
     );
     
     -- 2. Create business_profile

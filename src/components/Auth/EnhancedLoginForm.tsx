@@ -40,10 +40,8 @@ const EnhancedLoginForm: React.FC = () => {
           throw new Error('Passwords do not match');
         }
         await signUp({ email, password, fullName });
-        setMessage('Registration successful! Please check your email and click the confirmation link to verify your account.');
-        setTimeout(() => {
-          setMode('login');
-        }, 2000);
+        // Redirect to success page immediately (no email confirmation needed)
+        window.location.href = '/auth/confirm-signup';
       } else if (mode === 'forgotPassword') {
         const result = await sendPasswordResetEmail(email);
         setMessage(result.message || 'Password reset link sent to your email!');
