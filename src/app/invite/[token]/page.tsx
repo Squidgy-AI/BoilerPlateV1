@@ -44,7 +44,16 @@ export default function InvitePage() {
 
   useEffect(() => {
     // If user is already logged in, try to accept invitation automatically
+    console.log('Auth state for invitation:', {
+      hasUser: !!user,
+      userEmail: user?.email,
+      hasInvitation: !!invitation,
+      invitationStatus: invitation?.status,
+      invitationEmail: invitation?.recipient_email
+    });
+    
     if (user && invitation && invitation.status === 'pending') {
+      console.log('Auto-accepting invitation...');
       acceptInvitation();
     }
   }, [user, invitation]);
@@ -235,6 +244,9 @@ export default function InvitePage() {
           <div className="text-center">
             <p className="text-gray-600 mb-4">
               You're logged in as <strong>{user.email}</strong>
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+              {invitation.status === 'pending' ? 'Click below to accept the invitation:' : `Status: ${invitation.status}`}
             </p>
             <button
               onClick={acceptInvitation}
