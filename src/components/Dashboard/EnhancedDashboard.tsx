@@ -479,19 +479,41 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     if (!profile) return;
     
     try {
-      // Use the secure user_connections view to only get people you're connected to
-      const { data, error } = await supabase
+      // Get connected people
+      const { data: connectedPeople, error: connectError } = await supabase
         .from('user_connections')
         .select('*')
         .order('full_name');
         
-      if (error) {
-        console.error('Error fetching connected people:', error);
-        setPeople([]);
-        return;
+      if (connectError) {
+        console.error('Error fetching connected people:', connectError);
       }
       
-      setPeople(data || []);
+      // Get invited people (sent by current user)
+      const { data: invitedPeople, error: inviteError } = await supabase
+        .from('invitations')
+        .select('recipient_email, status, created_at')
+        .eq('sender_id', profile.user_id)
+        .order('created_at', { ascending: false });
+        
+      if (inviteError) {
+        console.error('Error fetching invited people:', inviteError);
+      }
+      
+      // Combine and format the data
+      const allPeople = [
+        ...(connectedPeople || []),
+        ...(invitedPeople || []).map(invite => ({
+          id: `invite-${invite.recipient_email}`,
+          full_name: invite.recipient_email,
+          email: invite.recipient_email,
+          status: invite.status,
+          type: 'invitation',
+          created_at: invite.created_at
+        }))
+      ];
+      
+      setPeople(allPeople);
     } catch (error) {
       console.error('Error fetching people:', error);
       setPeople([]);
@@ -1830,9 +1852,11 @@ Let's begin with your Solar Business Setup! ☀️`;
                   people.map(person => (
                     <div
                       key={person.id}
-                      onClick={() => handleSessionSelect(person.id)}
-                      className={`p-2 rounded mb-2 cursor-pointer flex items-center hover:bg-[#2D3B4F]/50 ${
-                        currentSessionId === person.id ? 'bg-[#2D3B4F]' : ''
+                      onClick={() => person.type !== 'invitation' && handleSessionSelect(person.id)}
+                      className={`p-2 rounded mb-2 flex items-center ${
+                        person.type === 'invitation' 
+                          ? 'opacity-75' 
+                          : `cursor-pointer hover:bg-[#2D3B4F]/50 ${currentSessionId === person.id ? 'bg-[#2D3B4F]' : ''}`
                       }`}
                     >
                       <div className="w-8 h-8 rounded-full bg-gray-600 mr-2 flex items-center justify-center">
@@ -1841,6 +1865,9 @@ Let's begin with your Solar Business Setup! ☀️`;
                       <div className="flex-1">
                         <p className="text-sm">{person.full_name}</p>
                         <p className="text-xs text-gray-400">{person.email}</p>
+                        {person.type === 'invitation' && (
+                          <p className="text-xs text-blue-400 capitalize">{person.status}</p>
+                        )}
                       </div>
                     </div>
                   ))

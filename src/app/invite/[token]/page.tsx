@@ -138,7 +138,7 @@ export default function InvitePage() {
         }
       }
 
-      router.push('/dashboard?invitation=accepted');
+      router.push('/auth?invitation=accepted');
     } catch (err) {
       console.error('Error accepting invitation:', err);
       setError('Failed to accept invitation');
