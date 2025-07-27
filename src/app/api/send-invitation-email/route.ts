@@ -57,17 +57,17 @@ export async function POST(request: NextRequest) {
         // Try resending email for existing invitation
         try {
           console.log('Resending invitation for user');
-          // Use magic link OTP which works like signup
-          const otpResult = await supabaseAdmin.auth.signInWithOtp({
-            email: email,
-            options: {
-              shouldCreateUser: false, // Don't create user yet
-              emailRedirectTo: inviteUrl
+          // Use proper invitation method to get the right email template
+          const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+            redirectTo: inviteUrl,
+            data: {
+              invitation_token: token,
+              sender_name: senderName
             }
           });
-          console.log('OTP result:', JSON.stringify(otpResult, null, 2));
-          let emailError = otpResult.error;
-          let emailMethod = 'magic_link';
+          console.log('Invite result:', JSON.stringify(inviteResult, null, 2));
+          let emailError = inviteResult.error;
+          let emailMethod = 'proper_invitation';
           
           if (emailError) {
             console.warn('Email resending failed:', emailError);
@@ -124,20 +124,30 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`Sending invitation to ${email}`);
         
-        // Use magic link OTP - same pattern as signup but for invitations
-        const otpResult = await supabaseAdmin.auth.signInWithOtp({
-          email: email,
-          options: {
-            shouldCreateUser: true, // Create user if doesn't exist
-            emailRedirectTo: inviteUrl,
-            data: {
-              invitation_token: token,
-              sender_name: senderName
-            }
+        // First try proper invitation for the right email template
+        const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: inviteUrl,
+          data: {
+            invitation_token: token,
+            sender_name: senderName
           }
         });
-        console.log('Main OTP result:', JSON.stringify(otpResult, null, 2));
-        let emailError = otpResult.error;
+        console.log('Main invite result:', JSON.stringify(inviteResult, null, 2));
+        let emailError = inviteResult.error;
+        
+        // If invitation fails, fall back to magic link which we know works
+        if (emailError) {
+          console.log('Invitation failed, trying magic link fallback');
+          const otpResult = await supabaseAdmin.auth.signInWithOtp({
+            email: email,
+            options: {
+              shouldCreateUser: true,
+              emailRedirectTo: inviteUrl
+            }
+          });
+          emailError = otpResult.error;
+          emailMethod = 'magic_link_fallback';
+        }
         
         if (emailError) {
           console.warn('Email sending failed:', emailError);
@@ -152,12 +162,17 @@ export async function POST(request: NextRequest) {
         }
         
         console.log('Email sent successfully!');
+        const message = emailMethod === 'magic_link_fallback' 
+          ? 'Email sent! (Using magic link since invitations are disabled)'
+          : 'Invitation email sent successfully!';
+        
         return NextResponse.json({
           success: true,
-          message: 'Invitation email sent successfully!',
+          message: message,
           method: `direct_${emailMethod}`,
           email_type: emailMethod,
-          invitation_id: inviteRecord.id
+          invitation_id: inviteRecord.id,
+          note: emailMethod === 'magic_link_fallback' ? 'Check Supabase dashboard to enable invitation emails' : undefined
         });
         
       } catch (emailError) {
