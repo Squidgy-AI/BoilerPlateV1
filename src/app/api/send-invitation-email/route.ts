@@ -100,6 +100,8 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`Sending magic link to ${email}`);
         
+        // IMPORTANT: Using signInWithOtp for MAGIC LINK emails
+        // This should send "Your Magic Invitation Link" template, NOT reset password
         const otpResult = await supabaseAdmin.auth.signInWithOtp({
           email: email,
           options: {
