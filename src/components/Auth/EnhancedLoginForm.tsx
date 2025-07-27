@@ -22,7 +22,7 @@ const EnhancedLoginForm: React.FC = () => {
 
   const { signIn, signUp, sendPasswordResetEmail } = useAuth();
 
-  // Check for invitation parameters from URL
+  // Check for invitation parameters from URL and update status immediately
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -34,6 +34,27 @@ const EnhancedLoginForm: React.FC = () => {
       }
       if (tokenParam) {
         setInvitationToken(tokenParam);
+        
+        // IMMEDIATELY update invitation status to accepted when link is clicked
+        const updateInvitationStatus = async () => {
+          try {
+            console.log('Magic link clicked - updating invitation status to accepted immediately');
+            const { error: updateError } = await supabase
+              .from('invitations')
+              .update({ status: 'accepted' })
+              .eq('token', tokenParam);
+              
+            if (updateError) {
+              console.warn('Failed to update invitation status:', updateError);
+            } else {
+              console.log('Invitation status updated to accepted immediately after magic link click');
+            }
+          } catch (inviteError) {
+            console.warn('Error updating invitation on link click:', inviteError);
+          }
+        };
+        
+        updateInvitationStatus();
       }
     }
   }, []);
@@ -54,26 +75,7 @@ const EnhancedLoginForm: React.FC = () => {
     try {
       if (mode === 'login') {
         await signIn('email', { email, password });
-        
-        // If user came from an invitation, update the invitation status
-        if (invitationToken && invitedBy) {
-          try {
-            console.log('Updating invitation status to accepted after login');
-            const { error: updateError } = await supabase
-              .from('invitations')
-              .update({ status: 'accepted' })
-              .eq('token', invitationToken)
-              .eq('recipient_email', email);
-              
-            if (updateError) {
-              console.warn('Failed to update invitation status:', updateError);
-            } else {
-              console.log('Invitation status updated to accepted');
-            }
-          } catch (inviteError) {
-            console.warn('Error updating invitation:', inviteError);
-          }
-        }
+        // Status was already updated to "accepted" when the magic link was clicked
       } else if (mode === 'signup') {
         if (password !== confirmPassword) {
           throw new Error('Passwords do not match');
