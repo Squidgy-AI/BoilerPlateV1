@@ -1,7 +1,7 @@
 // src/app/api/send-invitation-email/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { v4 as uuidv4 } from 'uuid';
+// import { v4 as uuidv4 } from 'uuid'; // Not needed anymore
 
 // Use service role key for admin operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
