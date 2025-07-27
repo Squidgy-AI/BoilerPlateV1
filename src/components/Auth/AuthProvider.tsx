@@ -385,7 +385,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           recipient_id: existingUsers && existingUsers.length > 0 ? existingUsers[0].user_id : null,
           recipient_email: email,
           group_id: groupId,
-          company_id: profile?.company_id,
+          sender_company_id: profile?.company_id,
           token,
           status: 'pending',
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days

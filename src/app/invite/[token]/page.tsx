@@ -11,7 +11,7 @@ interface InvitationData {
   sender_id: string;
   recipient_email: string;
   group_id: string | null;
-  company_id: string | null;
+  sender_company_id: string | null;
   status: string;
   token: string;
   expires_at: string;
@@ -127,10 +127,10 @@ export default function InvitePage() {
       }
 
       // Update user's company_id if invitation has one
-      if (invitation.company_id) {
+      if (invitation.sender_company_id) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ company_id: invitation.company_id })
+          .update({ company_id: invitation.sender_company_id })
           .eq('id', user.id);
 
         if (profileError) {
