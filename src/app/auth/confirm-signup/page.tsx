@@ -29,15 +29,11 @@ function ConfirmSignupContent() {
           }
         }
 
-        // Always show success regardless
-        setStatus('success');
-        setMessage('Registration confirmed! You can now log in with your credentials.');
+        // Always show success regardless - no state needed since we show static success
 
       } catch (error: any) {
         console.error('Email confirmation error:', error);
-        // Always show success
-        setStatus('success');
-        setMessage('Registration confirmed! You can now log in with your credentials.');
+        // Always show success - no state needed since we show static success
       }
     };
 

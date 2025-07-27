@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
       console.log('Creating new invitation record...');
       
-      // Create invitation record in database
+      // Create invitation record in database (without company_id to avoid FK constraint)
       const { data: inviteRecord, error: inviteError } = await supabaseAdmin
         .from('invitations')
         .insert({
