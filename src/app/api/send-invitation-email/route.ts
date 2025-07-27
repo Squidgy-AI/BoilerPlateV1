@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
           recipient_email: email,
           token: token,
           status: 'pending',
-          company_id: companyId || null,
+          sender_company_id: companyId || null,
           group_id: groupId || null,
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
           created_at: new Date().toISOString()
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
               invitation_token: token,
               sender_name: senderName,
               sender_id: senderId,
-              company_id: companyId || null,
+              sender_company_id: companyId || null,
               group_id: groupId || null,
               message: `You're invited to join by ${senderName}`
             }

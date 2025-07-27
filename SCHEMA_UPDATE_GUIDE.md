@@ -13,7 +13,7 @@ create table public.invitations (
   sender_id uuid null,           -- Now references profiles.user_id
   recipient_id uuid null,        -- Now references profiles.user_id  
   recipient_email text not null,
-  company_id uuid null,
+  sender_company_id uuid null,
   group_id uuid null,
   status text null default 'pending'::text,
   token text not null,
@@ -21,7 +21,7 @@ create table public.invitations (
   expires_at timestamp with time zone null default (now() + '7 days'::interval),
   constraint invitations_pkey primary key (id),
   constraint invitations_token_key unique (token),
-  constraint invitations_company_id_fkey foreign key (company_id) references companies (id) on delete cascade,
+  constraint invitations_sender_company_id_fkey foreign key (sender_company_id) references companies (id) on delete cascade,
   constraint invitations_group_id_fkey foreign key (group_id) references groups (id) on delete cascade,
   constraint invitations_recipient_id_fkey foreign key (recipient_id) references profiles (user_id) on delete cascade,
   constraint invitations_sender_id_fkey foreign key (sender_id) references profiles (user_id) on delete set null
