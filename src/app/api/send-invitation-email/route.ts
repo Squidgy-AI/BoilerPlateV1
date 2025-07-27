@@ -45,49 +45,35 @@ export async function POST(request: NextRequest) {
     console.log('Sending invitation email directly using Supabase...');
     
     try {
-      // Check if invitation already exists
-      const { data: existingInvite, error: checkError } = await supabaseAdmin
-        .from('invitations')
-        .select('id, status, token')
-        .eq('recipient_email', email)
-        .eq('status', 'pending')
+      // Check if user already exists to set recipient_id
+      let recipientId = null;
+      const { data: existingUser } = await supabaseAdmin
+        .from('profiles')
+        .select('user_id')
+        .eq('email', email)
         .single();
       
-      console.log('Existing invite check:', { existingInvite, checkError });
-
-      if (existingInvite && !checkError) {
-        // Cancel old invitation and generate new token
-        console.log('Found existing invitation, canceling it and generating new token');
-        
-        const { error: updateError } = await supabaseAdmin
-          .from('invitations')
-          .update({ status: 'cancelled' })
-          .eq('id', existingInvite.id);
-          
-        if (updateError) {
-          console.error('Failed to cancel old invitation:', updateError);
-        }
-        
-        // Generate new token to avoid conflicts
-        token = crypto.randomUUID().replace(/-/g, '').substring(0, 20);
-        inviteUrl = `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/invite/${token}`;
-        console.log('Generated new token:', token);
+      if (existingUser) {
+        recipientId = existingUser.user_id;
+        console.log('Found existing user:', recipientId);
       }
-      
 
-      // Create invitation record in database (recipient_id will be set when accepted)
+      // Upsert invitation based on sender_id + recipient_email
       const { data: inviteRecord, error: inviteError } = await supabaseAdmin
         .from('invitations')
-        .insert({
+        .upsert({
           sender_id: senderId,
-          recipient_id: null, // Will be set when invitation is accepted
+          recipient_id: recipientId,
           recipient_email: email,
           token: token,
           status: 'pending',
           sender_company_id: companyId || null,
-          group_id: groupId || null, // Only set if it's a valid group ID
+          group_id: groupId || null,
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          created_at: new Date().toISOString()
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'sender_id,recipient_email',
+          ignoreDuplicates: false
         })
         .select()
         .single();

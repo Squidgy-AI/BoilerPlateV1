@@ -1866,7 +1866,14 @@ Let's begin with your Solar Business Setup! ☀️`;
                         <p className="text-sm">{person.full_name}</p>
                         <p className="text-xs text-gray-400">{person.email}</p>
                         {person.type === 'invitation' && (
-                          <p className="text-xs text-blue-400 capitalize">{person.status}</p>
+                          <p className={`text-xs capitalize ${
+                            person.status === 'pending' ? 'text-orange-400' :
+                            person.status === 'accepted' ? 'text-green-400' :
+                            person.status === 'cancelled' ? 'text-red-400' :
+                            'text-gray-400'
+                          }`}>
+                            {person.status}
+                          </p>
                         )}
                       </div>
                     </div>
