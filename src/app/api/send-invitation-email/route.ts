@@ -23,8 +23,10 @@ export async function POST(request: NextRequest) {
   console.log('=== EMAIL API ROUTE CALLED ===');
   
   try {
-    const { email, token, senderName, inviteUrl, senderId, companyId, groupId } = await request.json();
+    const body = await request.json();
+    const { email, token, senderName, inviteUrl, senderId, companyId, groupId } = body;
     
+    console.log('Email API request body:', JSON.stringify(body, null, 2));
     console.log('Email API request data:', { email, token, senderName, inviteUrl, senderId, companyId, groupId });
 
     if (!email || !token || !inviteUrl || !senderId) {
@@ -41,6 +43,8 @@ export async function POST(request: NextRequest) {
 
     // Call backend API to send invitation email (similar to reset-password pattern)
     const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '');
+    console.log('Calling backend URL:', `${backendUrl}/api/send-invitation-email`);
+    
     const response = await fetch(`${backendUrl}/api/send-invitation-email`, {
       method: 'POST',
       headers: {
@@ -57,7 +61,20 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    const result = await response.json();
+    console.log('Backend response status:', response.status);
+    console.log('Backend response headers:', response.headers);
+    
+    let result;
+    try {
+      const responseText = await response.text();
+      console.log('Backend response text:', responseText);
+      result = responseText ? JSON.parse(responseText) : {};
+    } catch (parseError) {
+      console.error('Failed to parse backend response:', parseError);
+      result = {};
+    }
+    
+    console.log('Backend result:', result);
     
     if (!response.ok || !result.success) {
       // Even if backend fails, try to save invitation locally as fallback
