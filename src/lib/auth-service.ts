@@ -75,8 +75,12 @@ export class AuthService {
         throw new Error('An account with this email already exists. Please try logging in instead.');
       }
 
-      // Create auth user WITHOUT email confirmation for immediate functionality
-      console.log('Creating user without email confirmation...');
+      // Create auth user with email confirmation
+      const redirectUrl = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/confirm-signup`
+        : `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/auth/confirm-signup`;
+        
+      console.log('Signup redirect URL:', redirectUrl);
         
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email.toLowerCase(),
@@ -84,8 +88,8 @@ export class AuthService {
         options: {
           data: {
             full_name: userData.fullName.trim(),
-          }
-          // Removed emailRedirectTo - no email confirmation needed
+          },
+          emailRedirectTo: redirectUrl
         }
       });
       
@@ -126,77 +130,15 @@ export class AuthService {
         needsEmailConfirmation: !authData.session
       });
 
-      // CREATE ALL RECORDS IMMEDIATELY - Don't wait for email confirmation
-      console.log('✅ User created, creating all database records immediately...');
-
-      try {
-        // Get the profile created by the trigger
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
-
-        if (profileError || !profile) {
-          console.error('Profile not found after signup:', profileError);
-          throw new Error('Profile creation failed after signup');
-        }
-
-        console.log('✅ Profile found:', profile);
-
-        // Create business_profiles record
-        const { error: businessProfileError } = await supabase
-          .from('business_profiles')
-          .upsert({
-            firm_user_id: profile.user_id,
-            firm_id: profile.company_id
-          }, {
-            onConflict: 'firm_user_id'
-          });
-
-        if (businessProfileError) {
-          console.error('❌ Business profile creation failed:', businessProfileError);
-        } else {
-          console.log('✅ Business profile created');
-        }
-
-        // Create PersonalAssistant agent record
-        const sessionId = crypto.randomUUID();
-        const personalAssistantConfig = {
-          description: "Your general-purpose AI assistant",
-          capabilities: ["general_chat", "help", "information"]
-        };
-
-        const { error: agentError } = await supabase
-          .from('squidgy_agent_business_setup')
-          .insert({
-            firm_id: profile.company_id,
-            firm_user_id: profile.user_id,
-            agent_id: 'PersonalAssistant',
-            agent_name: 'Personal Assistant',
-            setup_type: 'agent_config',
-            setup_json: personalAssistantConfig,
-            is_enabled: true,
-            session_id: sessionId
-          });
-
-        if (agentError) {
-          console.error('❌ Agent creation failed:', agentError);
-        } else {
-          console.log('✅ PersonalAssistant agent created');
-        }
-
-        console.log('✅ All database records created successfully during signup!');
-
-      } catch (recordError: any) {
-        console.error('❌ Record creation failed during signup:', recordError);
-        // Don't fail signup, user can still log in
-      }
-
+      // Profile will be created by database trigger
+      // Other records (business_profiles, agent) will be created after email confirmation
+      
       return {
         user: authData.user,
-        needsEmailConfirmation: false, // Skip email confirmation
-        message: 'Account created successfully! You can now log in.'
+        needsEmailConfirmation: !authData.session,
+        message: !authData.session 
+          ? 'Account created successfully! Please check your email and click the confirmation link to verify your account.'
+          : 'Account created and verified successfully!'
       };
 
     } catch (error: any) {

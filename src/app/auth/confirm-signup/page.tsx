@@ -20,10 +20,13 @@ function ConfirmSignupContent() {
 
         if (error) {
           console.error('Confirmation error from URL:', { error, error_code, error_description });
+          setStatus('error');
           
-          // TEMPORARY FIX: Skip confirmation errors and redirect to login
-          console.log('Skipping confirmation error, redirecting to login...');
-          window.location.href = 'https://boiler-plate-v1-lake.vercel.app/login';
+          if (error_code === 'otp_expired') {
+            setMessage('The confirmation link has expired. Please sign up again to receive a new confirmation email.');
+          } else {
+            setMessage(`Confirmation failed: ${error_description || error}`);
+          }
           return;
         }
 
@@ -158,14 +161,22 @@ function ConfirmSignupContent() {
 
           console.log('✅ All database records created successfully');
 
+          // Show success message
+          setStatus('success');
+          setMessage('Registration confirmed! All your account data has been set up successfully.');
+
         } catch (profileError: any) {
           console.error('Database record creation error:', profileError);
-          // Still redirect to main page even if database creation fails
+          setStatus('error');
+          setMessage('Email confirmed but there was an error setting up your account. Please contact support.');
+          return;
         }
         
-        // Always redirect to login page after creating records
-        console.log('Redirecting to login page...');
-        window.location.href = 'https://boiler-plate-v1-lake.vercel.app/login';
+        // Redirect to login page after 3 seconds
+        setTimeout(() => {
+          console.log('Redirecting to login page...');
+          window.location.href = 'https://boiler-plate-v1-lake.vercel.app/login';
+        }, 3000);
 
       } catch (error: any) {
         console.error('Confirmation process error:', error);
