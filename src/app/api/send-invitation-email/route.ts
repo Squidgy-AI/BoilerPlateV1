@@ -138,7 +138,8 @@ export async function POST(request: NextRequest) {
             error: result.error || 'Failed to send invitation email',
             message: result.message,
             fallback_url: inviteUrl,
-            details: `Backend: ${result.details || 'Unknown'}, Fallback: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown'}`
+            details: `Backend: ${result.details || result.error || 'Unknown'}, Fallback: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown'}`,
+            backend_response: result
           },
           { status: response.status || 500 }
         );
