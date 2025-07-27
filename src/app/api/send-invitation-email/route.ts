@@ -69,8 +69,7 @@ export async function POST(request: NextRequest) {
           status: 'pending',
           sender_company_id: companyId || null,
           group_id: groupId || null,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          updated_at: new Date().toISOString()
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
         }, {
           onConflict: 'sender_id,recipient_email',
           ignoreDuplicates: false
