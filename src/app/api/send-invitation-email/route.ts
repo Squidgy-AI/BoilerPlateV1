@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
               redirectTo: inviteUrl
             }
           });
+          console.log('Invite result:', JSON.stringify(inviteResult, null, 2));
           let emailError = inviteResult.error;
           let emailMethod = 'proper_invitation';
           
@@ -129,6 +130,7 @@ export async function POST(request: NextRequest) {
             redirectTo: inviteUrl
           }
         });
+        console.log('Main invite result:', JSON.stringify(inviteResult, null, 2));
         let emailError = inviteResult.error;
         
         if (emailError) {
