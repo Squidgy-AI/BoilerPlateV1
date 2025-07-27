@@ -39,164 +39,101 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Supabase URL:', supabaseUrl);
-    console.log('Service key available:', !!supabaseServiceKey);
+    // Call backend API to send invitation email (similar to reset-password pattern)
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const response = await fetch(`${backendUrl}/api/send-invitation-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        token,
+        senderName,
+        inviteUrl,
+        senderId,
+        companyId,
+        groupId
+      }),
+    });
 
-    // Check if admin methods are available
-    if (!supabaseAdmin.auth.admin) {
-      console.error('Admin methods not available');
-      return NextResponse.json({
-        success: false,
-        error: 'Admin access not available',
-        details: 'Service role key may be invalid or missing',
-        fallback_url: inviteUrl,
-        suggestion: 'Check SUPABASE_SERVICE_ROLE_KEY environment variable'
-      }, { status: 500 });
-    }
-
-    // Check if SMTP is configured in Supabase
-    console.log('Checking Supabase SMTP configuration...');
+    const result = await response.json();
     
-    try {
-      // Method 1: Save invitation to database first
-      console.log('Saving invitation to database...');
-      
-      // Check if invitation already exists
-      const { data: existingInvite } = await supabaseAdmin
-        .from('invitations')
-        .select('id, status')
-        .eq('recipient_email', email)
-        .eq('status', 'pending')
-        .single();
-
-      if (existingInvite) {
-        console.log('Invitation already exists, returning existing invite');
-        return NextResponse.json({
-          success: true,
-          message: 'Invitation already sent. Please check your email or use the link below.',
-          fallback_url: inviteUrl,
-          method: 'existing_invitation'
-        });
-      }
-
-      console.log('Creating new invitation record...');
-      
-      // Generate a unique recipient_id that doesn't conflict with existing user_ids
-      let recipientId;
-      let isUnique = false;
-      let attempts = 0;
-      const maxAttempts = 5;
-      
-      while (!isUnique && attempts < maxAttempts) {
-        recipientId = uuidv4();
-        attempts++;
-        
-        // Check if this ID already exists in profiles table
-        const { data: existingProfile } = await supabaseAdmin
-          .from('profiles')
-          .select('user_id')
-          .eq('user_id', recipientId)
-          .single();
-          
-        if (!existingProfile) {
-          isUnique = true;
-          console.log(`Generated unique recipient_id: ${recipientId} (attempt ${attempts})`);
-        } else {
-          console.log(`Recipient ID ${recipientId} already exists, trying again...`);
-        }
-      }
-      
-      if (!isUnique) {
-        throw new Error('Failed to generate unique recipient_id after multiple attempts');
-      }
-      
-      // Create invitation record in database
-      const { data: inviteRecord, error: inviteError } = await supabaseAdmin
-        .from('invitations')
-        .insert({
-          sender_id: senderId,
-          recipient_id: recipientId,
-          recipient_email: email,
-          token: token,
-          status: 'pending',
-          sender_company_id: companyId || null,
-          group_id: groupId || null,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (inviteError) {
-        console.error('Failed to save invitation to database:', inviteError);
-        throw new Error(`Database error saving invitation: ${inviteError.message}`);
-      }
-
-      console.log('Invitation saved to database successfully:', inviteRecord);
-
-      // Method 2: Try to send email using Supabase configured SMTP
+    if (!response.ok || !result.success) {
+      // Even if backend fails, try to save invitation locally as fallback
       try {
-        console.log('Attempting to send invitation email via Supabase...');
+        console.log('Backend failed, saving invitation locally as fallback...');
         
-        // Generate invitation link using the correct format
-        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'invite',
-          email: email,
-          options: {
-            redirect_to: inviteUrl,
-            data: {
-              invitation_token: token,
-              sender_name: senderName,
-              sender_id: senderId,
-              sender_company_id: companyId || null,
-              group_id: groupId || null,
-              message: `You're invited to join by ${senderName}`
-            }
-          }
-        });
+        // Check if invitation already exists
+        const { data: existingInvite } = await supabaseAdmin
+          .from('invitations')
+          .select('id, status')
+          .eq('recipient_email', email)
+          .eq('status', 'pending')
+          .single();
 
-        if (linkError) {
-          throw new Error(`Failed to generate invite link: ${linkError.message}`);
+        if (existingInvite) {
+          return NextResponse.json({
+            success: true,
+            message: 'Invitation already exists. Please check your email or use the link below.',
+            fallback_url: inviteUrl,
+            method: 'existing_invitation'
+          });
         }
 
-        console.log('Invitation email sent successfully via Supabase');
+        // Generate a unique recipient_id
+        const recipientId = uuidv4();
         
-        return NextResponse.json({
-          success: true,
-          message: 'Invitation email sent successfully!',
-          method: 'supabase_email',
-          invitation_id: inviteRecord.id
-        });
-        
-      } catch (emailError) {
-        console.error('Failed to send email via Supabase:', emailError);
-        
-        // If email fails, still return success since invitation is saved
+        // Create invitation record in database
+        const { data: inviteRecord, error: inviteError } = await supabaseAdmin
+          .from('invitations')
+          .insert({
+            sender_id: senderId,
+            recipient_id: recipientId,
+            recipient_email: email,
+            token: token,
+            status: 'pending',
+            sender_company_id: companyId || null,
+            group_id: groupId || null,
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (inviteError) {
+          throw new Error(`Database error: ${inviteError.message}`);
+        }
+
         return NextResponse.json({
           success: true,
           message: 'Invitation created successfully. Email sending failed, please share the link manually.',
           fallback_url: inviteUrl,
-          method: 'manual_sharing',
-          warning: 'Email sending failed but invitation was saved to database',
-          error_details: emailError instanceof Error ? emailError.message : 'Unknown email error'
+          method: 'fallback_local_save',
+          warning: 'Backend email failed but invitation was saved locally',
+          invitation_id: inviteRecord.id
         });
-      }
 
-    } catch (supabaseError) {
-      console.error('Database operation failed:', supabaseError);
-      
-      // If database save fails, still provide a way to share the invitation
-      console.log('Database save failed, providing manual sharing option');
-      
-      return NextResponse.json({
-        success: true, // Still return success since the link works
-        message: 'Invitation link generated successfully. Please share manually since database and email systems are not configured.',
-        fallback_url: inviteUrl,
-        method: 'link_only',
-        suggestion: 'To enable automatic email sending: 1) Configure SMTP in Supabase Dashboard, 2) Ensure invitation table exists with proper RLS policies.',
-        warning: 'Database save failed - invitation may not persist across sessions'
-      });
+      } catch (fallbackError) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: result.error || 'Failed to send invitation email',
+            message: result.message,
+            fallback_url: inviteUrl,
+            details: `Backend: ${result.details || 'Unknown'}, Fallback: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown'}`
+          },
+          { status: response.status || 500 }
+        );
+      }
     }
+
+    return NextResponse.json({
+      success: true,
+      message: result.message || 'Invitation email sent successfully!',
+      method: 'backend_email',
+      details: result.details
+    });
 
   } catch (error) {
     console.error('Send invitation email error:', error);
