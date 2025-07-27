@@ -54,14 +54,37 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (existingInvite) {
-        // Try sending email using reset password approach
+        // Try resending email for existing invitation
         try {
-          const { error: emailError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-            redirectTo: inviteUrl
-          });
+          // Check if user exists and use appropriate email method
+          const { data: existingUser, error: checkError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+          const userExists = existingUser?.user && !checkError;
+          
+          let emailError = null;
+          let emailMethod = 'unknown';
+          
+          if (userExists) {
+            console.log('Resending via reset password for existing user');
+            const resetResult = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+              redirectTo: inviteUrl
+            });
+            emailError = resetResult.error;
+            emailMethod = 'reset_password_existing';
+          } else {
+            console.log('Resending via proper invitation for new user');
+            const inviteResult = await supabaseAdmin.auth.admin.generateLink({
+              type: 'invite',
+              email: email,
+              options: {
+                redirectTo: inviteUrl
+              }
+            });
+            emailError = inviteResult.error;
+            emailMethod = 'proper_invitation_new';
+          }
           
           if (emailError) {
-            console.warn('Email sending failed:', emailError);
+            console.warn('Email resending failed:', emailError);
             return NextResponse.json({
               success: true,
               message: 'Invitation already exists. Please check your email or use the link below.',
@@ -72,8 +95,9 @@ export async function POST(request: NextRequest) {
           
           return NextResponse.json({
             success: true,
-            message: 'Invitation email sent successfully!',
-            method: 'direct_email_existing'
+            message: emailMethod === 'proper_invitation_new' ? 'Invitation email resent successfully!' : 'Invitation resent! (Reset password email used for existing user)',
+            method: `resent_${emailMethod}`,
+            email_type: emailMethod
           });
           
         } catch (emailError) {
@@ -109,11 +133,38 @@ export async function POST(request: NextRequest) {
 
       console.log('Invitation saved to database, attempting to send email...');
 
-      // Try sending email using reset password approach
+      // Check if user exists and use appropriate email method
+      let emailMethod = 'unknown';
       try {
-        const { error: emailError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-          redirectTo: inviteUrl
-        });
+        // Check if user already exists in auth.users
+        const { data: existingUser, error: checkError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+        const userExists = existingUser?.user && !checkError;
+        
+        console.log(`User ${email} exists: ${userExists}`);
+        
+        let emailError = null;
+        
+        if (userExists) {
+          // User exists - use reset password with invitation URL
+          console.log('Using reset password for existing user');
+          const resetResult = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+            redirectTo: inviteUrl
+          });
+          emailError = resetResult.error;
+          emailMethod = 'reset_password_existing';
+        } else {
+          // User doesn't exist - try proper invitation
+          console.log('Using invite for new user');
+          const inviteResult = await supabaseAdmin.auth.admin.generateLink({
+            type: 'invite',
+            email: email,
+            options: {
+              redirectTo: inviteUrl
+            }
+          });
+          emailError = inviteResult.error;
+          emailMethod = 'proper_invitation_new';
+        }
         
         if (emailError) {
           console.warn('Email sending failed:', emailError);
@@ -130,8 +181,9 @@ export async function POST(request: NextRequest) {
         console.log('Email sent successfully!');
         return NextResponse.json({
           success: true,
-          message: 'Invitation email sent successfully!',
-          method: 'direct_email_success',
+          message: emailMethod === 'proper_invitation_new' ? 'Invitation email sent successfully!' : 'Invitation sent! (Reset password email used for existing user)',
+          method: `direct_${emailMethod}`,
+          email_type: emailMethod,
           invitation_id: inviteRecord.id
         });
         
