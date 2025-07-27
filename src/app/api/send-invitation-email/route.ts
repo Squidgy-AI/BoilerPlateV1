@@ -20,7 +20,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 export async function POST(request: NextRequest) {
-  console.log('=== EMAIL API ROUTE CALLED ===');
+  console.log('=== EMAIL API ROUTE CALLED - TIMESTAMP:', new Date().toISOString(), '===');
   
   try {
     const body = await request.json();
@@ -75,8 +75,11 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('Backend result:', result);
+    console.log('Backend success:', result.success);
+    console.log('Response ok:', response.ok);
     
     if (!response.ok || !result.success) {
+      console.log('Backend failed, entering fallback logic');
       // Even if backend fails, try to save invitation locally as fallback
       try {
         console.log('Backend failed, saving invitation locally as fallback...');
