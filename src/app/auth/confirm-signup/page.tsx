@@ -20,13 +20,10 @@ function ConfirmSignupContent() {
 
         if (error) {
           console.error('Confirmation error from URL:', { error, error_code, error_description });
-          setStatus('error');
           
-          if (error_code === 'otp_expired') {
-            setMessage('The confirmation link has expired. Please sign up again to receive a new confirmation email.');
-          } else {
-            setMessage(`Confirmation failed: ${error_description || error}`);
-          }
+          // TEMPORARY FIX: Skip confirmation errors and redirect to login
+          console.log('Skipping confirmation error, redirecting to login...');
+          window.location.href = 'https://boiler-plate-v1-lake.vercel.app/login';
           return;
         }
 
