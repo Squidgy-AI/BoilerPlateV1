@@ -374,8 +374,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('email', email)
         .limit(1);
       
-      // Generate a token for the invitation
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      // Generate a unique token for the invitation
+      const token = crypto.randomUUID().replace(/-/g, '').substring(0, 20);
       
       // Create invitation
       const { data, error } = await supabase

@@ -166,9 +166,8 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
         
       if (userError) throw userError;
       
-      // Generate a secure token
-      const token = Math.random().toString(36).substring(2, 15) + 
-                   Math.random().toString(36).substring(2, 15);
+      // Generate a unique token
+      const token = crypto.randomUUID().replace(/-/g, '').substring(0, 20);
       
       // Create invitation
       const { error: inviteError } = await supabase
