@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { email, token, senderName, inviteUrl, senderId, companyId, groupId } = body;
+    let { email, token, senderName, inviteUrl, senderId, companyId, groupId } = body;
     
     console.log('Email API request body:', JSON.stringify(body, null, 2));
     console.log('Email API request data:', { email, token, senderName, inviteUrl, senderId, companyId, groupId });
