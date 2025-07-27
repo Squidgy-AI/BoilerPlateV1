@@ -524,10 +524,13 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         console.error('Error fetching invited people:', inviteError);
       }
       
+      // Only show pending invitations, not accepted ones (accepted users appear as normal users)
+      const pendingInvitations = (invitedPeople || []).filter(invite => invite.status === 'pending');
+      
       // Combine and format the data
       const allPeople = [
         ...(connectedPeople || []),
-        ...(invitedPeople || []).map(invite => ({
+        ...pendingInvitations.map(invite => ({
           id: `invite-${invite.recipient_email}`,
           full_name: invite.recipient_email,
           email: invite.recipient_email,
