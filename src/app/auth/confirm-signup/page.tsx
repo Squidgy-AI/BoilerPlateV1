@@ -114,22 +114,34 @@ function ConfirmSignupContent() {
           }
 
           console.log('✅ Profile found successfully:', profile);
+          console.log('📋 Profile details:', {
+            user_id: profile.user_id,
+            company_id: profile.company_id,
+            email: profile.email
+          });
 
           // Create business_profiles record using profile's company_id as firm_id
-          const { error: businessProfileError } = await supabase
+          console.log('🏢 Creating business_profiles with:', {
+            firm_user_id: profile.user_id,
+            firm_id: profile.company_id
+          });
+
+          const { data: businessData, error: businessProfileError } = await supabase
             .from('business_profiles')
             .upsert({
               firm_user_id: profile.user_id,
               firm_id: profile.company_id // Use the company_id from the created profile
             }, {
               onConflict: 'firm_user_id'
-            });
+            })
+            .select(); // Add select to see what was created
 
           if (businessProfileError) {
             console.error('❌ Business profile creation failed:', businessProfileError);
             console.error('Business profile error details:', businessProfileError.message);
           } else {
             console.log('✅ Business profile created successfully');
+            console.log('🏢 Business profile data:', businessData);
           }
 
           // Create PersonalAssistant agent record
@@ -139,7 +151,13 @@ function ConfirmSignupContent() {
             capabilities: ["general_chat", "help", "information"]
           };
 
-          const { error: agentError } = await supabase
+          console.log('🤖 Creating agent record with:', {
+            firm_id: profile.company_id,
+            firm_user_id: profile.user_id,
+            agent_id: 'PersonalAssistant'
+          });
+
+          const { data: agentData, error: agentError } = await supabase
             .from('squidgy_agent_business_setup')
             .insert({
               firm_id: profile.company_id, // Use the company_id from the created profile
@@ -150,13 +168,15 @@ function ConfirmSignupContent() {
               setup_json: personalAssistantConfig,
               is_enabled: true,
               session_id: sessionId
-            });
+            })
+            .select(); // Add select to see what was created
 
           if (agentError) {
             console.error('❌ PersonalAssistant agent creation failed:', agentError);
             console.error('Agent error details:', agentError.message);
           } else {
             console.log('✅ PersonalAssistant agent created successfully');
+            console.log('🤖 Agent data:', agentData);
           }
 
           console.log('✅ All database records created successfully');
