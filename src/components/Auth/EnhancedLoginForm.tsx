@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthProvider';
 import SquidgyLogo from './SquidgyLogo';
+import { supabase } from '@/lib/supabase';
 
 type AuthMode = 'login' | 'signup' | 'forgotPassword';
 
@@ -16,8 +17,26 @@ const EnhancedLoginForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [invitedBy, setInvitedBy] = useState('');
+  const [invitationToken, setInvitationToken] = useState('');
 
   const { signIn, signUp, sendPasswordResetEmail } = useAuth();
+
+  // Check for invitation parameters from URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const invitedByParam = urlParams.get('invited_by');
+      const tokenParam = urlParams.get('invitation_token');
+      
+      if (invitedByParam) {
+        setInvitedBy(decodeURIComponent(invitedByParam));
+      }
+      if (tokenParam) {
+        setInvitationToken(tokenParam);
+      }
+    }
+  }, []);
 
   // Clear error message when mode changes
   useEffect(() => {
@@ -35,6 +54,26 @@ const EnhancedLoginForm: React.FC = () => {
     try {
       if (mode === 'login') {
         await signIn('email', { email, password });
+        
+        // If user came from an invitation, update the invitation status
+        if (invitationToken && invitedBy) {
+          try {
+            console.log('Updating invitation status to accepted after login');
+            const { error: updateError } = await supabase
+              .from('invitations')
+              .update({ status: 'accepted' })
+              .eq('token', invitationToken)
+              .eq('recipient_email', email);
+              
+            if (updateError) {
+              console.warn('Failed to update invitation status:', updateError);
+            } else {
+              console.log('Invitation status updated to accepted');
+            }
+          } catch (inviteError) {
+            console.warn('Error updating invitation:', inviteError);
+          }
+        }
       } else if (mode === 'signup') {
         if (password !== confirmPassword) {
           throw new Error('Passwords do not match');
@@ -70,6 +109,14 @@ const EnhancedLoginForm: React.FC = () => {
         {mode === 'login' ? 'Login to Squidgy' : 
          mode === 'signup' ? 'Create Account' : 'Reset Password'}
       </h2>
+
+      {invitedBy && mode === 'login' && (
+        <div className="text-center mb-4">
+          <p className="text-blue-300 text-sm">
+            Invited by <span className="font-semibold">{invitedBy}</span>
+          </p>
+        </div>
+      )}
       
       {error && (
         <div className="bg-red-500 text-white p-3 rounded-md mb-4">

@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
           email: email,
           options: {
             shouldCreateUser: true, // Create user if doesn't exist
-            emailRedirectTo: inviteUrl,
+            emailRedirectTo: `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/?invited_by=${encodeURIComponent(senderName)}&invitation_token=${token}`,
             data: {
               invitation_token: token,
               sender_name: senderName
