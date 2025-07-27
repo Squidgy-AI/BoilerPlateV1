@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-function ConfirmSignupContent() {
+export default function ConfirmSignupPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const router = useRouter();
@@ -13,197 +13,57 @@ function ConfirmSignupContent() {
   useEffect(() => {
     const confirmEmail = async () => {
       try {
-        // Check for error parameters first
-        const error = searchParams.get('error');
-        const error_code = searchParams.get('error_code');
-        const error_description = searchParams.get('error_description');
-
-        if (error) {
-          console.error('Confirmation error from URL:', { error, error_code, error_description });
-          setStatus('error');
-          
-          if (error_code === 'otp_expired') {
-            setMessage('The confirmation link has expired. Please sign up again to receive a new confirmation email.');
-          } else {
-            setMessage(`Confirmation failed: ${error_description || error}`);
-          }
-          return;
-        }
-
-        // Get the tokens from URL parameters - handle multiple formats
-        const token_hash = searchParams.get('token_hash');
+        // Get token and type from URL parameters
         const token = searchParams.get('token');
         const type = searchParams.get('type');
-        const access_token = searchParams.get('access_token');
-        const refresh_token = searchParams.get('refresh_token');
 
-        console.log('URL parameters:', { 
-          token_hash, 
-          token, 
-          type, 
-          access_token: access_token ? 'present' : 'missing',
-          refresh_token: refresh_token ? 'present' : 'missing',
-          allParams: Object.fromEntries(searchParams.entries())
-        });
-
-        // Try different confirmation methods based on available parameters
-        let data, confirmError;
-
-        if (access_token && refresh_token) {
-          // Method 1: Direct session from tokens (older format)
-          console.log('Using direct session method');
-          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-            access_token,
-            refresh_token
-          });
-          data = sessionData;
-          confirmError = sessionError;
-        } else if (token_hash && type === 'signup') {
-          // Method 2: Verify OTP with token_hash (newer format)
-          console.log('Using verifyOtp method with token_hash');
-          const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash,
-            type: 'signup'
-          });
-          data = verifyData;
-          confirmError = verifyError;
-        } else if (token && type === 'signup') {
-          // Method 3: Try with regular token (PKCE format)
-          console.log('Using verifyOtp method with token and type');
-          const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash: token, // Use token as token_hash for PKCE format
-            type: 'signup'
-          });
-          data = verifyData;
-          confirmError = verifyError;
-        } else {
-          setStatus('error');
-          setMessage('Invalid confirmation link. Missing required parameters. Please try signing up again.');
-          return;
+        if (!token || !type) {
+          throw new Error('Missing confirmation parameters');
         }
 
-        if (confirmError) {
-          console.error('Email confirmation error:', confirmError);
-          setStatus('error');
-          setMessage(`Confirmation failed: ${confirmError.message}`);
-          return;
+        console.log('🔗 Confirming email with token type:', type);
+
+        // Verify the email confirmation
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: token,
+          type: type as 'email'
+        });
+
+        if (error) {
+          throw new Error(error.message);
         }
 
         if (!data.user) {
-          setStatus('error');
-          setMessage('Email confirmation failed. Please try signing up again.');
-          return;
+          throw new Error('Email confirmation failed');
         }
 
-        console.log('Email confirmed successfully:', data.user);
+        console.log('✅ Email confirmed for user:', data.user.id);
 
-        // Profile should already be created by the database trigger
-        // Just get the existing profile and create related records
-        try {
-          console.log('Getting existing profile created by trigger...');
-          
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
+        // Simply set email_confirmed = true in profiles table
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ email_confirmed: true })
+          .eq('id', data.user.id);
 
-          if (profileError || !profile) {
-            console.error('Profile not found - trigger may have failed:', profileError);
-            throw new Error(`Profile not found: ${profileError?.message || 'Unknown error'}`);
-          }
-
-          console.log('✅ Profile found successfully:', profile);
-          console.log('📋 Profile details:', {
-            user_id: profile.user_id,
-            company_id: profile.company_id,
-            email: profile.email
-          });
-
-          // Create business_profiles record using profile's company_id as firm_id
-          console.log('🏢 Creating business_profiles with:', {
-            firm_user_id: profile.user_id,
-            firm_id: profile.company_id
-          });
-
-          const { data: businessData, error: businessProfileError } = await supabase
-            .from('business_profiles')
-            .upsert({
-              firm_user_id: profile.user_id,
-              firm_id: profile.company_id // Use the company_id from the created profile
-            }, {
-              onConflict: 'firm_user_id'
-            })
-            .select(); // Add select to see what was created
-
-          if (businessProfileError) {
-            console.error('❌ Business profile creation failed:', businessProfileError);
-            console.error('Business profile error details:', businessProfileError.message);
-          } else {
-            console.log('✅ Business profile created successfully');
-            console.log('🏢 Business profile data:', businessData);
-          }
-
-          // Create PersonalAssistant agent record
-          const sessionId = crypto.randomUUID();
-          const personalAssistantConfig = {
-            description: "Your general-purpose AI assistant",
-            capabilities: ["general_chat", "help", "information"]
-          };
-
-          console.log('🤖 Creating agent record with:', {
-            firm_id: profile.company_id,
-            firm_user_id: profile.user_id,
-            agent_id: 'PersonalAssistant'
-          });
-
-          const { data: agentData, error: agentError } = await supabase
-            .from('squidgy_agent_business_setup')
-            .insert({
-              firm_id: profile.company_id, // Use the company_id from the created profile
-              firm_user_id: profile.user_id,
-              agent_id: 'PersonalAssistant',
-              agent_name: 'Personal Assistant',
-              setup_type: 'agent_config',
-              setup_json: personalAssistantConfig,
-              is_enabled: true,
-              session_id: sessionId
-            })
-            .select(); // Add select to see what was created
-
-          if (agentError) {
-            console.error('❌ PersonalAssistant agent creation failed:', agentError);
-            console.error('Agent error details:', agentError.message);
-          } else {
-            console.log('✅ PersonalAssistant agent created successfully');
-            console.log('🤖 Agent data:', agentData);
-          }
-
-          console.log('✅ All database records created successfully');
-
-          // Show success message
-          setStatus('success');
-          setMessage('Registration confirmed! All your account data has been set up successfully.');
-
-        } catch (profileError: any) {
-          console.error('Database record creation error:', profileError);
-          setStatus('error');
-          setMessage('Email confirmed but there was an error setting up your account. Please contact support.');
-          return;
+        if (updateError) {
+          throw new Error(`Failed to update email confirmation: ${updateError.message}`);
         }
-        
-        // Redirect to login page after 3 seconds
+
+        console.log('✅ Profile updated: email_confirmed = true');
+
+        // Show success
+        setStatus('success');
+        setMessage('Registration confirmed! You can now log in with your credentials.');
+
+        // Redirect to login after 3 seconds
         setTimeout(() => {
-          console.log('Redirecting to login page...');
-          window.location.href = 'https://boiler-plate-v1-lake.vercel.app/login';
+          router.push('/auth/login');
         }, 3000);
 
       } catch (error: any) {
-        console.error('Confirmation process error:', error);
-        // Even if confirmation fails, redirect to login page
-        // User can always try logging in or signing up again
-        console.log('Redirecting to login page due to confirmation error...');
-        window.location.href = 'https://boiler-plate-v1-lake.vercel.app/login';
+        console.error('Email confirmation error:', error);
+        setStatus('error');
+        setMessage(error.message || 'Email confirmation failed');
       }
     };
 
@@ -211,66 +71,42 @@ function ConfirmSignupContent() {
   }, [searchParams, router]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8">
         <div className="text-center">
+          <h2 className="text-3xl font-bold text-gray-900">
+            Email Confirmation
+          </h2>
+          
           {status === 'loading' && (
-            <>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Confirming Email</h2>
-              <p className="text-gray-600">Please wait while we confirm your email address...</p>
-            </>
+            <div className="mt-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600">Confirming your email...</p>
+            </div>
           )}
 
           {status === 'success' && (
-            <>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Email Confirmed!</h2>
-              <p className="text-gray-600 mb-4">{message}</p>
-            </>
+            <div className="mt-4">
+              <div className="text-green-600 text-6xl mb-4">✅</div>
+              <p className="text-green-600 font-semibold">{message}</p>
+              <p className="text-gray-600 mt-2">Redirecting to login...</p>
+            </div>
           )}
 
           {status === 'error' && (
-            <>
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Confirmation Failed</h2>
-              <p className="text-red-600 mb-4">{message}</p>
+            <div className="mt-4">
+              <div className="text-red-600 text-6xl mb-4">❌</div>
+              <p className="text-red-600 font-semibold">{message}</p>
               <button
-                onClick={() => router.push('/signup')}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                onClick={() => router.push('/auth/login')}
+                className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
               >
-                Try Signing Up Again
+                Go to Login
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
     </div>
-  );
-}
-
-export default function ConfirmSignupPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading</h2>
-            <p className="text-gray-600">Please wait...</p>
-          </div>
-        </div>
-      </div>
-    }>
-      <ConfirmSignupContent />
-    </Suspense>
   );
 }
