@@ -57,16 +57,17 @@ export async function POST(request: NextRequest) {
         // Try resending email for existing invitation
         try {
           console.log('Resending invitation for user');
-          const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-            redirectTo: inviteUrl,
-            data: {
-              invitation_token: token,
-              sender_name: senderName
+          // Use magic link OTP which works like signup
+          const otpResult = await supabaseAdmin.auth.signInWithOtp({
+            email: email,
+            options: {
+              shouldCreateUser: false, // Don't create user yet
+              emailRedirectTo: inviteUrl
             }
           });
-          console.log('Invite result:', JSON.stringify(inviteResult, null, 2));
-          let emailError = inviteResult.error;
-          let emailMethod = 'proper_invitation';
+          console.log('OTP result:', JSON.stringify(otpResult, null, 2));
+          let emailError = otpResult.error;
+          let emailMethod = 'magic_link';
           
           if (emailError) {
             console.warn('Email resending failed:', emailError);
@@ -123,15 +124,20 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`Sending invitation to ${email}`);
         
-        const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-          redirectTo: inviteUrl,
-          data: {
-            invitation_token: token,
-            sender_name: senderName
+        // Use magic link OTP - same pattern as signup but for invitations
+        const otpResult = await supabaseAdmin.auth.signInWithOtp({
+          email: email,
+          options: {
+            shouldCreateUser: true, // Create user if doesn't exist
+            emailRedirectTo: inviteUrl,
+            data: {
+              invitation_token: token,
+              sender_name: senderName
+            }
           }
         });
-        console.log('Main invite result:', JSON.stringify(inviteResult, null, 2));
-        let emailError = inviteResult.error;
+        console.log('Main OTP result:', JSON.stringify(otpResult, null, 2));
+        let emailError = otpResult.error;
         
         if (emailError) {
           console.warn('Email sending failed:', emailError);
