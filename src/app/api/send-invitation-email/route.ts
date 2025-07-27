@@ -57,11 +57,11 @@ export async function POST(request: NextRequest) {
         // Try resending email for existing invitation
         try {
           console.log('Resending invitation for user');
-          const inviteResult = await supabaseAdmin.auth.admin.generateLink({
-            type: 'invite',
-            email: email,
-            options: {
-              redirectTo: inviteUrl
+          const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+            redirectTo: inviteUrl,
+            data: {
+              invitation_token: token,
+              sender_name: senderName
             }
           });
           console.log('Invite result:', JSON.stringify(inviteResult, null, 2));
@@ -123,11 +123,11 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`Sending invitation to ${email}`);
         
-        const inviteResult = await supabaseAdmin.auth.admin.generateLink({
-          type: 'invite',
-          email: email,
-          options: {
-            redirectTo: inviteUrl
+        const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: inviteUrl,
+          data: {
+            invitation_token: token,
+            sender_name: senderName
           }
         });
         console.log('Main invite result:', JSON.stringify(inviteResult, null, 2));
