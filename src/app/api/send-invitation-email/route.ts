@@ -71,47 +71,6 @@ export async function POST(request: NextRequest) {
         // Continue to create new invitation below
       }
       
-      // Skip the old resend logic - always create fresh invitation
-      if (false) {
-          console.log('Resending invitation for user');
-          // Use proper invitation method to get the right email template
-          const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-            redirectTo: inviteUrl,
-            data: {
-              invitation_token: token,
-              sender_name: senderName
-            }
-          });
-          console.log('Invite result:', JSON.stringify(inviteResult, null, 2));
-          let emailError = inviteResult.error;
-          let emailMethod = 'proper_invitation';
-          
-          if (emailError) {
-            console.warn('Email resending failed:', emailError);
-            return NextResponse.json({
-              success: true,
-              message: 'Invitation already exists. Please check your email or use the link below.',
-              fallback_url: inviteUrl,
-              method: 'existing_invitation'
-            });
-          }
-          
-          return NextResponse.json({
-            success: true,
-            message: 'Invitation email resent successfully!',
-            method: `resent_${emailMethod}`,
-            email_type: emailMethod
-          });
-          
-        } catch (emailError) {
-          return NextResponse.json({
-            success: true,
-            message: 'Invitation already exists. Please check your email or use the link below.',
-            fallback_url: inviteUrl,
-            method: 'existing_invitation'
-          });
-        }
-      }
 
       // Create invitation record in database (recipient_id will be set when accepted)
       const { data: inviteRecord, error: inviteError } = await supabaseAdmin
