@@ -75,12 +75,8 @@ export class AuthService {
         throw new Error('An account with this email already exists. Please try logging in instead.');
       }
 
-      // Create auth user with email confirmation (same structure as password reset)
-      const redirectUrl = typeof window !== 'undefined' 
-        ? `${window.location.origin}/auth/confirm-signup`
-        : `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/auth/confirm-signup`;
-        
-      console.log('Signup redirect URL:', redirectUrl);
+      // Create auth user WITHOUT email confirmation for immediate functionality
+      console.log('Creating user without email confirmation...');
         
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email.toLowerCase(),
@@ -88,8 +84,8 @@ export class AuthService {
         options: {
           data: {
             full_name: userData.fullName.trim(),
-          },
-          emailRedirectTo: redirectUrl
+          }
+          // Removed emailRedirectTo - no email confirmation needed
         }
       });
       

@@ -40,7 +40,7 @@ const EnhancedLoginForm: React.FC = () => {
           throw new Error('Passwords do not match');
         }
         await signUp({ email, password, fullName });
-        setMessage('Registration successful! Please check your email to verify your account.');
+        setMessage('Registration successful! You can now log in with your credentials.');
         setTimeout(() => {
           setMode('login');
         }, 2000);
