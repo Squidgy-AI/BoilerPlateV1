@@ -349,6 +349,30 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       fetchPeople();
       fetchGroups();
       initializeAgentSessions();
+      
+      // Set up real-time subscription for invitation status changes
+      const invitationSubscription = supabase
+        .channel('invitation_updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'invitations',
+            filter: `sender_id=eq.${profile.user_id}`
+          },
+          (payload) => {
+            console.log('Real-time invitation update:', payload);
+            // Refresh people list when invitation status changes
+            fetchPeople();
+          }
+        )
+        .subscribe();
+
+      // Cleanup subscription on unmount
+      return () => {
+        invitationSubscription.unsubscribe();
+      };
     }
   }, [profile]);
   
