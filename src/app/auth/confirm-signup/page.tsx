@@ -62,7 +62,7 @@ function ConfirmSignupContent() {
             </p>
             
             <button
-              onClick={() => router.push('/auth/login')}
+              onClick={() => router.push('/')}
               className="mt-6 bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
             >
               Go to Login
