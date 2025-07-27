@@ -57,8 +57,14 @@ export async function POST(request: NextRequest) {
         // Try resending email for existing invitation
         try {
           // Check if user exists and use appropriate email method
-          const { data: existingUser, error: checkError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
-          const userExists = existingUser?.user && !checkError;
+          let userExists = false;
+          try {
+            const { data: users } = await supabaseAdmin.auth.admin.listUsers();
+            userExists = users.users.some(user => user.email === email);
+          } catch (error) {
+            console.warn('Could not check user existence:', error);
+            userExists = false;
+          }
           
           let emailError = null;
           let emailMethod = 'unknown';
@@ -137,8 +143,8 @@ export async function POST(request: NextRequest) {
       let emailMethod = 'unknown';
       try {
         // Check if user already exists in auth.users
-        const { data: existingUser, error: checkError } = await supabaseAdmin.auth.admin.getUserByEmail(email);
-        const userExists = existingUser?.user && !checkError;
+        const { data: users } = await supabaseAdmin.auth.admin.listUsers();
+        const userExists = users.users.some(user => user.email === email);
         
         console.log(`User ${email} exists: ${userExists}`);
         
