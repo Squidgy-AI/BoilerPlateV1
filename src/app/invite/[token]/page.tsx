@@ -98,18 +98,28 @@ export default function InvitePage() {
     try {
       setProcessing(true);
 
-      // Update invitation status
+      // Update invitation status based on sender_id and recipient_email
+      console.log('Accepting invitation:', {
+        sender_id: invitation.sender_id,
+        recipient_email: profile.email,
+        recipient_id: profile.user_id
+      });
+      
       const { error: updateError } = await supabase
         .from('invitations')
         .update({ 
           status: 'accepted',
           recipient_id: profile.user_id
         })
-        .eq('id', invitation.id);
-
+        .eq('sender_id', invitation.sender_id)
+        .eq('recipient_email', profile.email);
+        
       if (updateError) {
+        console.error('Failed to update invitation status:', updateError);
         throw updateError;
       }
+      
+      console.log('Invitation status updated successfully to accepted');
 
       // If there's a group_id, add user to the group
       if (invitation.group_id) {
