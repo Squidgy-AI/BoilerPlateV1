@@ -86,20 +86,17 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Generate a unique recipient_id
-      const recipientId = uuidv4();
-      
-      // Create invitation record in database
+      // Create invitation record in database (recipient_id will be set when accepted)
       const { data: inviteRecord, error: inviteError } = await supabaseAdmin
         .from('invitations')
         .insert({
           sender_id: senderId,
-          recipient_id: recipientId,
+          recipient_id: null, // Will be set when invitation is accepted
           recipient_email: email,
           token: token,
           status: 'pending',
           sender_company_id: companyId || null,
-          group_id: groupId || null,
+          group_id: groupId || null, // Only set if it's a valid group ID
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           created_at: new Date().toISOString()
         })
