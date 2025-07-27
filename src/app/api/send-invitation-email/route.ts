@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
       console.log('Existing invite check:', { existingInvite, checkError });
 
       if (existingInvite && !checkError) {
-        // Cancel old invitation and create new one
-        console.log('Found existing invitation, canceling it and creating new one');
+        // Cancel old invitation and generate new token
+        console.log('Found existing invitation, canceling it and generating new token');
         
         const { error: updateError } = await supabaseAdmin
           .from('invitations')
@@ -68,7 +68,10 @@ export async function POST(request: NextRequest) {
           console.error('Failed to cancel old invitation:', updateError);
         }
         
-        // Continue to create new invitation below
+        // Generate new token to avoid conflicts
+        token = crypto.randomUUID().replace(/-/g, '').substring(0, 20);
+        inviteUrl = `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/invite/${token}`;
+        console.log('Generated new token:', token);
       }
       
 
