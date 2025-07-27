@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call backend API to send invitation email (similar to reset-password pattern)
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '');
     const response = await fetch(`${backendUrl}/api/send-invitation-email`, {
       method: 'POST',
       headers: {
