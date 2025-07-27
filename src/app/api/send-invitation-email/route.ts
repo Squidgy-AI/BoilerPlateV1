@@ -46,16 +46,33 @@ export async function POST(request: NextRequest) {
     
     try {
       // Check if invitation already exists
-      const { data: existingInvite } = await supabaseAdmin
+      const { data: existingInvite, error: checkError } = await supabaseAdmin
         .from('invitations')
-        .select('id, status')
+        .select('id, status, token')
         .eq('recipient_email', email)
         .eq('status', 'pending')
         .single();
+      
+      console.log('Existing invite check:', { existingInvite, checkError });
 
-      if (existingInvite) {
-        // Try resending email for existing invitation
-        try {
+      if (existingInvite && !checkError) {
+        // Cancel old invitation and create new one
+        console.log('Found existing invitation, canceling it and creating new one');
+        
+        const { error: updateError } = await supabaseAdmin
+          .from('invitations')
+          .update({ status: 'cancelled' })
+          .eq('id', existingInvite.id);
+          
+        if (updateError) {
+          console.error('Failed to cancel old invitation:', updateError);
+        }
+        
+        // Continue to create new invitation below
+      }
+      
+      // Skip the old resend logic - always create fresh invitation
+      if (false) {
           console.log('Resending invitation for user');
           // Use proper invitation method to get the right email template
           const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
