@@ -41,6 +41,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if user is trying to invite themselves
+    const { data: senderProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('email')
+      .eq('user_id', senderId)
+      .single();
+
+    if (senderProfile && senderProfile.email?.toLowerCase() === email.toLowerCase()) {
+      console.warn('User attempting to invite themselves:', { senderEmail: senderProfile.email, inviteEmail: email });
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Cannot invite yourself',
+          details: 'You cannot send an invitation to your own email address'
+        },
+        { status: 400 }
+      );
+    }
+
     // Skip backend for now and send email directly using Supabase
     console.log('Sending invitation email directly using Supabase...');
     
