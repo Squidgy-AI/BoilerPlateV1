@@ -95,35 +95,24 @@ export async function POST(request: NextRequest) {
 
       console.log('Invitation saved to database, attempting to send email...');
 
-      // Send invitation email for any user (existing or new)
-      let emailMethod = 'proper_invitation';
+      // Send magic link email - this works reliably
+      let emailMethod = 'magic_link';
       try {
-        console.log(`Sending invitation to ${email}`);
+        console.log(`Sending magic link to ${email}`);
         
-        // First try proper invitation for the right email template
-        const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-          redirectTo: inviteUrl,
-          data: {
-            invitation_token: token,
-            sender_name: senderName
+        const otpResult = await supabaseAdmin.auth.signInWithOtp({
+          email: email,
+          options: {
+            shouldCreateUser: true, // Create user if doesn't exist
+            emailRedirectTo: inviteUrl,
+            data: {
+              invitation_token: token,
+              sender_name: senderName
+            }
           }
         });
-        console.log('Main invite result:', JSON.stringify(inviteResult, null, 2));
-        let emailError = inviteResult.error;
-        
-        // If invitation fails, fall back to magic link which we know works
-        if (emailError) {
-          console.log('Invitation failed, trying magic link fallback');
-          const otpResult = await supabaseAdmin.auth.signInWithOtp({
-            email: email,
-            options: {
-              shouldCreateUser: true,
-              emailRedirectTo: inviteUrl
-            }
-          });
-          emailError = otpResult.error;
-          emailMethod = 'magic_link_fallback';
-        }
+        console.log('Magic link result:', JSON.stringify(otpResult, null, 2));
+        let emailError = otpResult.error;
         
         if (emailError) {
           console.warn('Email sending failed:', emailError);
@@ -137,18 +126,14 @@ export async function POST(request: NextRequest) {
           });
         }
         
-        console.log('Email sent successfully!');
-        const message = emailMethod === 'magic_link_fallback' 
-          ? 'Email sent! (Using magic link since invitations are disabled)'
-          : 'Invitation email sent successfully!';
+        console.log('Magic link email sent successfully!');
         
         return NextResponse.json({
           success: true,
-          message: message,
-          method: `direct_${emailMethod}`,
-          email_type: emailMethod,
-          invitation_id: inviteRecord.id,
-          note: emailMethod === 'magic_link_fallback' ? 'Check Supabase dashboard to enable invitation emails' : undefined
+          message: 'Invitation email sent successfully!',
+          method: 'magic_link',
+          email_type: 'magic_link',
+          invitation_id: inviteRecord.id
         });
         
       } catch (emailError) {
