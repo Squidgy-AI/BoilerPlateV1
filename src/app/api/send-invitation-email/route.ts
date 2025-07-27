@@ -1,6 +1,7 @@
 // src/app/api/send-invitation-email/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 
 // Use service role key for admin operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -80,11 +81,41 @@ export async function POST(request: NextRequest) {
 
       console.log('Creating new invitation record...');
       
-      // Create invitation record in database (without company_id to avoid FK constraint)
+      // Generate a unique recipient_id that doesn't conflict with existing user_ids
+      let recipientId;
+      let isUnique = false;
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      while (!isUnique && attempts < maxAttempts) {
+        recipientId = uuidv4();
+        attempts++;
+        
+        // Check if this ID already exists in profiles table
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('user_id')
+          .eq('user_id', recipientId)
+          .single();
+          
+        if (!existingProfile) {
+          isUnique = true;
+          console.log(`Generated unique recipient_id: ${recipientId} (attempt ${attempts})`);
+        } else {
+          console.log(`Recipient ID ${recipientId} already exists, trying again...`);
+        }
+      }
+      
+      if (!isUnique) {
+        throw new Error('Failed to generate unique recipient_id after multiple attempts');
+      }
+      
+      // Create invitation record in database
       const { data: inviteRecord, error: inviteError } = await supabaseAdmin
         .from('invitations')
         .insert({
           sender_id: senderId,
+          recipient_id: recipientId,
           recipient_email: email,
           token: token,
           status: 'pending',
