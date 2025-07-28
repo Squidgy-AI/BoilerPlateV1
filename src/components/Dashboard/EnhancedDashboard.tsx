@@ -37,6 +37,7 @@ import EnableAgentPrompt from '../EnableAgentPrompt';
 import CompleteBusinessSetup from '../CompleteBusinessSetup';
 import ChatHistory from '../ChatHistory';
 import ProgressiveSOLSetup from '../ProgressiveSOLSetup';
+import EmailVerificationBanner from '../EmailVerificationBanner';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { getUserId } from '@/utils/getUserId';
 
@@ -1714,6 +1715,9 @@ Let's begin with your Solar Business Setup! ☀️`;
   
   return (
     <div className="h-screen flex flex-col bg-[#1B2431] text-white">
+      {/* Email Verification Banner */}
+      <EmailVerificationBanner />
+      
       {/* Top Header Bar */}
       <div className="h-14 bg-[#2D3B4F] border-b border-gray-700 flex items-center justify-between px-6">
         <div className="flex items-center">
