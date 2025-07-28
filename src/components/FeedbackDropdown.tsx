@@ -81,17 +81,50 @@ const FeedbackDropdown: React.FC<FeedbackDropdownProps> = ({
         wants_feedback_call: wantsCall
       };
 
-      // Upsert the feedback record (handles case where record doesn't exist yet)
-      const { error } = await supabase
-        .from('followup_feedback_on_firm_user')
-        .upsert({
-          firm_user_id: userIdResult.user_id,
-          ...updateData,
-          updated_at: now
-        }, {
-          onConflict: 'firm_user_id',
-          ignoreDuplicates: false
-        });
+      // Try upsert first, fallback to manual update/insert if constraint missing
+      let error = null;
+      
+      try {
+        const { error: upsertError } = await supabase
+          .from('followup_feedback_on_firm_user')
+          .upsert({
+            firm_user_id: userIdResult.user_id,
+            ...updateData,
+            updated_at: now
+          }, {
+            onConflict: 'firm_user_id',
+            ignoreDuplicates: false
+          });
+        error = upsertError;
+      } catch (upsertError: any) {
+        // If unique constraint doesn't exist, fallback to manual update/insert
+        if (upsertError?.code === '42P10') {
+          console.log('Unique constraint missing, using manual update/insert');
+          
+          // Try update first
+          const { error: updateError } = await supabase
+            .from('followup_feedback_on_firm_user')
+            .update({
+              ...updateData,
+              updated_at: now
+            })
+            .eq('firm_user_id', userIdResult.user_id);
+            
+          if (updateError) {
+            // If update fails (no record exists), insert new record
+            const { error: insertError } = await supabase
+              .from('followup_feedback_on_firm_user')
+              .insert({
+                firm_user_id: userIdResult.user_id,
+                ...updateData,
+                updated_at: now
+              });
+            error = insertError;
+          }
+        } else {
+          error = upsertError;
+        }
+      }
 
       if (error) {
         throw error;
@@ -128,16 +161,41 @@ const FeedbackDropdown: React.FC<FeedbackDropdownProps> = ({
           first_reminder_response: 'dismissed'
         };
 
-        await supabase
-          .from('followup_feedback_on_firm_user')
-          .upsert({
-            firm_user_id: userIdResult.user_id,
-            ...updateData,
-            updated_at: now
-          }, {
-            onConflict: 'firm_user_id',
-            ignoreDuplicates: false
-          });
+        try {
+          await supabase
+            .from('followup_feedback_on_firm_user')
+            .upsert({
+              firm_user_id: userIdResult.user_id,
+              ...updateData,
+              updated_at: now
+            }, {
+              onConflict: 'firm_user_id',
+              ignoreDuplicates: false
+            });
+        } catch (upsertError: any) {
+          // Fallback for missing unique constraint
+          if (upsertError?.code === '42P10') {
+            const { error: updateError } = await supabase
+              .from('followup_feedback_on_firm_user')
+              .update({
+                ...updateData,
+                updated_at: now
+              })
+              .eq('firm_user_id', userIdResult.user_id);
+              
+            if (updateError) {
+              await supabase
+                .from('followup_feedback_on_firm_user')
+                .insert({
+                  firm_user_id: userIdResult.user_id,
+                  ...updateData,
+                  updated_at: now
+                });
+            }
+          } else {
+            throw upsertError;
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to save dismissal:', error);

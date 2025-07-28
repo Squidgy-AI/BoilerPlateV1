@@ -89,20 +89,52 @@ const FeedbackReminderConfig: React.FC<FeedbackReminderConfigProps> = ({
         throw new Error('Failed to get user ID');
       }
 
-      // Upsert the configuration
-      const { error } = await supabase
-        .from('followup_feedback_on_firm_user')
-        .upsert({
-          firm_user_id: userIdResult.user_id,
-          initial_reminder_days: config.initial_reminder_days,
-          resend_reminder_days: config.resend_reminder_days,
-          is_disabled: config.is_disabled,
-          testing_mode: config.testing_mode,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'firm_user_id',
-          ignoreDuplicates: false
-        });
+      // Try upsert first, fallback to manual update/insert if constraint missing
+      let error = null;
+      const configData = {
+        firm_user_id: userIdResult.user_id,
+        initial_reminder_days: config.initial_reminder_days,
+        resend_reminder_days: config.resend_reminder_days,
+        is_disabled: config.is_disabled,
+        testing_mode: config.testing_mode,
+        updated_at: new Date().toISOString()
+      };
+
+      try {
+        const { error: upsertError } = await supabase
+          .from('followup_feedback_on_firm_user')
+          .upsert(configData, {
+            onConflict: 'firm_user_id',
+            ignoreDuplicates: false
+          });
+        error = upsertError;
+      } catch (upsertError: any) {
+        // Fallback for missing unique constraint
+        if (upsertError?.code === '42P10') {
+          console.log('Unique constraint missing, using manual update/insert');
+          
+          const { error: updateError } = await supabase
+            .from('followup_feedback_on_firm_user')
+            .update({
+              initial_reminder_days: config.initial_reminder_days,
+              resend_reminder_days: config.resend_reminder_days,
+              is_disabled: config.is_disabled,
+              testing_mode: config.testing_mode,
+              updated_at: new Date().toISOString()
+            })
+            .eq('firm_user_id', userIdResult.user_id);
+            
+          if (updateError) {
+            // If update fails (no record exists), insert new record
+            const { error: insertError } = await supabase
+              .from('followup_feedback_on_firm_user')
+              .insert(configData);
+            error = insertError;
+          }
+        } else {
+          error = upsertError;
+        }
+      }
 
       if (error) {
         throw error;
