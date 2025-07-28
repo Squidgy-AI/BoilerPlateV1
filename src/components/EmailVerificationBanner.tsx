@@ -40,12 +40,14 @@ const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = ({ onDis
         const emailConfirmed = data?.email_confirmed ?? true; // Default to true if field doesn't exist
         setIsEmailVerified(emailConfirmed);
         
-        // Check if user has dismissed this notification before
+        // Check if user has dismissed this notification for this session only
+        // Using sessionStorage means banner will reappear on next login if email still not verified
         const dismissedKey = `email_verification_dismissed_${profile.user_id}`;
-        const wasDismissed = localStorage.getItem(dismissedKey) === 'true';
+        const wasDismissedThisSession = sessionStorage.getItem(dismissedKey) === 'true';
         
-        // Show banner only if email is not verified and wasn't dismissed
-        setIsVisible(!emailConfirmed && !wasDismissed);
+        // Show banner every login if email not verified (only hide for current session if dismissed)
+        // Banner permanently disappears only when email_confirmed becomes true
+        setIsVisible(!emailConfirmed && !wasDismissedThisSession);
         
       } catch (error) {
         console.error('Error checking email verification:', error);
@@ -58,10 +60,11 @@ const EmailVerificationBanner: React.FC<EmailVerificationBannerProps> = ({ onDis
   }, [profile?.user_id]);
 
   const handleDismiss = () => {
-    // Remember that user dismissed this notification
+    // Remember that user dismissed this notification (for this session only)
+    // Banner will reappear on next login if email is still not verified
     if (profile?.user_id) {
       const dismissedKey = `email_verification_dismissed_${profile.user_id}`;
-      localStorage.setItem(dismissedKey, 'true');
+      sessionStorage.setItem(dismissedKey, 'true');
     }
     
     setIsVisible(false);
