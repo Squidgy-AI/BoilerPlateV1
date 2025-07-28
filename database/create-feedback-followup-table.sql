@@ -53,7 +53,7 @@ CREATE OR REPLACE FUNCTION update_feedback_user_info()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Update user info from profiles table
-    SELECT email, full_name, avatar_url
+    SELECT email, full_name, profile_avatar_url
     INTO NEW.user_email, NEW.user_full_name, NEW.user_avatar_url
     FROM public.profiles 
     WHERE user_id = NEW.firm_user_id;

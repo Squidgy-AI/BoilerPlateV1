@@ -41,7 +41,7 @@ export const useFeedbackReminder = () => {
       // Check if user has existing feedback record
       let { data: existingRecord, error } = await supabase
         .from('followup_feedback_on_firm_user')
-        .select('*')
+        .select('firm_user_id, user_first_active_at, initial_reminder_minutes, resend_reminder_minutes, is_disabled, first_reminder_response, wants_feedback_call, updated_at')
         .eq('firm_user_id', userIdResult.user_id)
         .single();
 
@@ -60,7 +60,7 @@ export const useFeedbackReminder = () => {
             resend_reminder_minutes: 5,
             is_disabled: false
           })
-          .select()
+          .select('firm_user_id, user_first_active_at, initial_reminder_minutes, resend_reminder_minutes, is_disabled')
           .single();
 
         if (insertError) {
