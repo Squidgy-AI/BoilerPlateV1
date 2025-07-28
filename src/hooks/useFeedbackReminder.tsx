@@ -42,7 +42,7 @@ export const useFeedbackReminder = () => {
       // Check if user has existing feedback record
       let { data: existingRecord, error } = await supabase
         .from('followup_feedback_on_firm_user')
-        .select('firm_user_id, user_first_active_at, initial_reminder_days, resend_reminder_days, is_disabled, testing_mode, first_reminder_response, wants_feedback_call, updated_at')
+        .select('firm_user_id, user_first_active_at, initial_reminder_days, resend_reminder_days, is_disabled, is_completed, testing_mode, first_reminder_response, wants_feedback_call, updated_at')
         .eq('firm_user_id', userIdResult.user_id)
         .single();
 
@@ -62,7 +62,7 @@ export const useFeedbackReminder = () => {
             is_disabled: false,
             testing_mode: false
           })
-          .select('firm_user_id, user_first_active_at, initial_reminder_days, resend_reminder_days, is_disabled, testing_mode')
+          .select('firm_user_id, user_first_active_at, initial_reminder_days, resend_reminder_days, is_disabled, is_completed, testing_mode')
           .single();
 
         if (insertError) {
@@ -91,7 +91,12 @@ export const useFeedbackReminder = () => {
 
       // Start monitoring if not disabled and not completed
       if (!existingRecord.is_disabled && !existingRecord.is_completed) {
+        console.log('🔔 Starting feedback reminder monitoring for user');
         startMonitoring(existingRecord);
+      } else if (existingRecord.is_completed) {
+        console.log('✅ User has completed feedback - never showing reminders again');
+      } else if (existingRecord.is_disabled) {
+        console.log('🔕 Feedback reminders disabled for user');
       }
 
     } catch (error) {
@@ -161,13 +166,14 @@ export const useFeedbackReminder = () => {
           markReminderSent(true);
         }
       }
-      // Stop monitoring if user has responded or both reminders sent
+      // Stop monitoring if user has responded, is completed, or both reminders sent
       else if (
+        record.is_completed ||
         record.first_reminder_responded_at || 
         record.second_reminder_responded_at ||
         (record.first_reminder_sent_at && record.second_reminder_sent_at)
       ) {
-        console.log('🔔 Feedback reminder monitoring complete');
+        console.log('🔔 Feedback reminder monitoring complete - user responded or completed');
         stopMonitoring();
       }
     }, 30000); // Check every 30 seconds

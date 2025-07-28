@@ -74,11 +74,13 @@ const FeedbackDropdown: React.FC<FeedbackDropdownProps> = ({
       const updateData = isResend ? {
         second_reminder_responded_at: now,
         second_reminder_response: selectedResponse,
-        wants_feedback_call: wantsCall
+        wants_feedback_call: wantsCall,
+        is_completed: true  // Mark as completed - never show feedback again
       } : {
         first_reminder_responded_at: now,
         first_reminder_response: selectedResponse,
-        wants_feedback_call: wantsCall
+        wants_feedback_call: wantsCall,
+        is_completed: true  // Mark as completed - never show feedback again
       };
 
       // Try upsert first, fallback to manual update/insert if constraint missing
@@ -155,10 +157,12 @@ const FeedbackDropdown: React.FC<FeedbackDropdownProps> = ({
         const now = new Date().toISOString();
         const updateData = isResend ? {
           second_reminder_responded_at: now,
-          second_reminder_response: 'dismissed'
+          second_reminder_response: 'dismissed',
+          is_completed: true  // Mark as completed - never show feedback again
         } : {
           first_reminder_responded_at: now,
-          first_reminder_response: 'dismissed'
+          first_reminder_response: 'dismissed',
+          is_completed: true  // Mark as completed - never show feedback again
         };
 
         try {
