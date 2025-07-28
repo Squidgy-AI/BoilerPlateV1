@@ -9,9 +9,10 @@ interface FeedbackReminderState {
   showFeedbackDropdown: boolean;
   isResendReminder: boolean;
   config: {
-    initial_reminder_minutes: number;
-    resend_reminder_minutes: number;
+    initial_reminder_days: number;
+    resend_reminder_days: number;
     is_disabled: boolean;
+    testing_mode: boolean;
   } | null;
 }
 
@@ -41,7 +42,7 @@ export const useFeedbackReminder = () => {
       // Check if user has existing feedback record
       let { data: existingRecord, error } = await supabase
         .from('followup_feedback_on_firm_user')
-        .select('firm_user_id, user_first_active_at, initial_reminder_minutes, resend_reminder_minutes, is_disabled, first_reminder_response, wants_feedback_call, updated_at')
+        .select('firm_user_id, user_first_active_at, initial_reminder_days, resend_reminder_days, is_disabled, testing_mode, first_reminder_response, wants_feedback_call, updated_at')
         .eq('firm_user_id', userIdResult.user_id)
         .single();
 
@@ -56,11 +57,12 @@ export const useFeedbackReminder = () => {
           .insert({
             firm_user_id: userIdResult.user_id,
             user_first_active_at: new Date().toISOString(),
-            initial_reminder_minutes: 2,
-            resend_reminder_minutes: 5,
-            is_disabled: false
+            initial_reminder_days: 7,
+            resend_reminder_days: 3,
+            is_disabled: false,
+            testing_mode: false
           })
-          .select('firm_user_id, user_first_active_at, initial_reminder_minutes, resend_reminder_minutes, is_disabled')
+          .select('firm_user_id, user_first_active_at, initial_reminder_days, resend_reminder_days, is_disabled, testing_mode')
           .single();
 
         if (insertError) {
@@ -77,9 +79,10 @@ export const useFeedbackReminder = () => {
       setState(prev => ({
         ...prev,
         config: {
-          initial_reminder_minutes: existingRecord.initial_reminder_minutes,
-          resend_reminder_minutes: existingRecord.resend_reminder_minutes,
-          is_disabled: existingRecord.is_disabled
+          initial_reminder_days: existingRecord.initial_reminder_days,
+          resend_reminder_days: existingRecord.resend_reminder_days,
+          is_disabled: existingRecord.is_disabled,
+          testing_mode: existingRecord.testing_mode
         }
       }));
 
@@ -104,9 +107,23 @@ export const useFeedbackReminder = () => {
       clearInterval(intervalRef.current);
     }
 
+    // Calculate effective timing based on testing mode
+    const getEffectiveMinutes = (days: number, testingMode: boolean) => {
+      if (testingMode) {
+        return days === record.initial_reminder_days ? 2 : 5; // Testing: 2 min + 5 min
+      }
+      return days * 24 * 60; // Production: convert days to minutes
+    };
+
+    const effectiveInitialMinutes = getEffectiveMinutes(record.initial_reminder_days, record.testing_mode);
+    const effectiveResendMinutes = getEffectiveMinutes(record.resend_reminder_days, record.testing_mode);
+
     console.log('🔔 Starting feedback reminder monitoring:', {
-      initialReminderMinutes: record.initial_reminder_minutes,
-      resendReminderMinutes: record.resend_reminder_minutes,
+      testingMode: record.testing_mode,
+      initialReminderDays: record.initial_reminder_days,
+      resendReminderDays: record.resend_reminder_days,
+      effectiveInitialMinutes,
+      effectiveResendMinutes,
       userFirstActiveAt: record.user_first_active_at
     });
 
@@ -116,8 +133,12 @@ export const useFeedbackReminder = () => {
       const minutesSinceStart = (now.getTime() - activityStart.getTime()) / (1000 * 60);
 
       // Check if we should show initial reminder
-      if (!record.first_reminder_sent_at && minutesSinceStart >= record.initial_reminder_minutes) {
-        console.log('🔔 Time to show initial feedback reminder');
+      if (!record.first_reminder_sent_at && minutesSinceStart >= effectiveInitialMinutes) {
+        console.log('🔔 Time to show initial feedback reminder', {
+          minutesSinceStart,
+          effectiveInitialMinutes,
+          testingMode: record.testing_mode
+        });
         showFeedbackReminder(false);
         markReminderSent(false);
       }
@@ -130,8 +151,12 @@ export const useFeedbackReminder = () => {
         const firstReminderTime = new Date(record.first_reminder_sent_at);
         const minutesSinceFirstReminder = (now.getTime() - firstReminderTime.getTime()) / (1000 * 60);
         
-        if (minutesSinceFirstReminder >= record.resend_reminder_minutes) {
-          console.log('🔔 Time to show resend feedback reminder');
+        if (minutesSinceFirstReminder >= effectiveResendMinutes) {
+          console.log('🔔 Time to show resend feedback reminder', {
+            minutesSinceFirstReminder,
+            effectiveResendMinutes,
+            testingMode: record.testing_mode
+          });
           showFeedbackReminder(true);
           markReminderSent(true);
         }

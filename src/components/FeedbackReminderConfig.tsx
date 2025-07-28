@@ -7,9 +7,10 @@ import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
 
 interface FeedbackConfig {
-  initial_reminder_minutes: number;
-  resend_reminder_minutes: number;
+  initial_reminder_days: number;
+  resend_reminder_days: number;
   is_disabled: boolean;
+  testing_mode: boolean;
 }
 
 interface FeedbackReminderConfigProps {
@@ -24,9 +25,10 @@ const FeedbackReminderConfig: React.FC<FeedbackReminderConfigProps> = ({
   onConfigUpdate
 }) => {
   const [config, setConfig] = useState<FeedbackConfig>({
-    initial_reminder_minutes: 2,
-    resend_reminder_minutes: 5,
-    is_disabled: false
+    initial_reminder_days: 7,
+    resend_reminder_days: 3,
+    is_disabled: false,
+    testing_mode: false
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,7 +54,7 @@ const FeedbackReminderConfig: React.FC<FeedbackReminderConfigProps> = ({
       // Check if user has existing feedback configuration
       const { data, error } = await supabase
         .from('followup_feedback_on_firm_user')
-        .select('initial_reminder_minutes, resend_reminder_minutes, is_disabled')
+        .select('initial_reminder_days, resend_reminder_days, is_disabled, testing_mode')
         .eq('firm_user_id', userIdResult.user_id)
         .single();
 
@@ -63,9 +65,10 @@ const FeedbackReminderConfig: React.FC<FeedbackReminderConfigProps> = ({
 
       if (data) {
         setConfig({
-          initial_reminder_minutes: data.initial_reminder_minutes,
-          resend_reminder_minutes: data.resend_reminder_minutes,
-          is_disabled: data.is_disabled
+          initial_reminder_days: data.initial_reminder_days || 7,
+          resend_reminder_days: data.resend_reminder_days || 3,
+          is_disabled: data.is_disabled || false,
+          testing_mode: data.testing_mode || false
         });
       }
     } catch (error) {
@@ -91,9 +94,10 @@ const FeedbackReminderConfig: React.FC<FeedbackReminderConfigProps> = ({
         .from('followup_feedback_on_firm_user')
         .upsert({
           firm_user_id: userIdResult.user_id,
-          initial_reminder_minutes: config.initial_reminder_minutes,
-          resend_reminder_minutes: config.resend_reminder_minutes,
+          initial_reminder_days: config.initial_reminder_days,
+          resend_reminder_days: config.resend_reminder_days,
           is_disabled: config.is_disabled,
+          testing_mode: config.testing_mode,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'firm_user_id',
@@ -179,45 +183,82 @@ const FeedbackReminderConfig: React.FC<FeedbackReminderConfigProps> = ({
 
                 {!config.is_disabled && (
                   <>
-                    {/* Initial Reminder Time */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Clock className="w-4 h-4 inline mr-1" />
-                        Initial Reminder After (minutes)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="60"
-                        value={config.initial_reminder_minutes}
-                        onChange={(e) => handleInputChange('initial_reminder_minutes', parseInt(e.target.value) || 2)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                        placeholder="2"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Show feedback reminder after this many minutes of activity
-                      </p>
+                    {/* Testing Mode Toggle */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">
+                          Testing Mode
+                        </label>
+                        <p className="text-xs text-gray-500">
+                          Enable for immediate testing (2 min + 5 min)
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleInputChange('testing_mode', !config.testing_mode)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          config.testing_mode ? 'bg-orange-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            config.testing_mode ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
                     </div>
 
-                    {/* Resend Reminder Time */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Clock className="w-4 h-4 inline mr-1" />
-                        Resend Reminder After (minutes)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="120"
-                        value={config.resend_reminder_minutes}
-                        onChange={(e) => handleInputChange('resend_reminder_minutes', parseInt(e.target.value) || 5)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
-                        placeholder="5"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Resend reminder if no response after this many minutes
-                      </p>
-                    </div>
+                    {!config.testing_mode ? (
+                      <>
+                        {/* Production Mode: Days */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <Clock className="w-4 h-4 inline mr-1" />
+                            Initial Reminder After (days)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="30"
+                            value={config.initial_reminder_days}
+                            onChange={(e) => handleInputChange('initial_reminder_days', parseInt(e.target.value) || 7)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                            placeholder="7"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Show feedback reminder after this many days of activity
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <Clock className="w-4 h-4 inline mr-1" />
+                            Resend Reminder After (days)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="14"
+                            value={config.resend_reminder_days}
+                            onChange={(e) => handleInputChange('resend_reminder_days', parseInt(e.target.value) || 3)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                            placeholder="3"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Resend reminder if no response after this many days
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      /* Testing Mode: Fixed 2 min + 5 min */
+                      <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+                        <h4 className="text-sm font-medium text-orange-900 mb-1">Testing Mode Active</h4>
+                        <p className="text-xs text-orange-700">
+                          • Initial reminder: 2 minutes after activity<br/>
+                          • Resend reminder: 5 minutes after first reminder<br/>
+                          • Perfect for testing without waiting days!
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
 
@@ -227,8 +268,10 @@ const FeedbackReminderConfig: React.FC<FeedbackReminderConfigProps> = ({
                   <p className="text-xs text-blue-700">
                     {config.is_disabled ? (
                       'Feedback reminders are disabled'
+                    ) : config.testing_mode ? (
+                      'Show reminder after 2 minutes, resend after 5 minutes if no response (Testing Mode)'
                     ) : (
-                      `Show reminder after ${config.initial_reminder_minutes} minute${config.initial_reminder_minutes !== 1 ? 's' : ''}, resend after ${config.resend_reminder_minutes} minute${config.resend_reminder_minutes !== 1 ? 's' : ''} if no response`
+                      `Show reminder after ${config.initial_reminder_days} day${config.initial_reminder_days !== 1 ? 's' : ''}, resend after ${config.resend_reminder_days} day${config.resend_reminder_days !== 1 ? 's' : ''} if no response`
                     )}
                   </p>
                 </div>

@@ -3,7 +3,7 @@
 import React from 'react';
 import { useAuth } from '../Auth/AuthProvider';
 import { useChat } from '../../context/ChatContext';
-import { Menu, X, Settings, PlusCircle, LogOut } from 'lucide-react';
+import { Menu, X, Settings, PlusCircle, LogOut, MessageSquare } from 'lucide-react';
 import ConnectionStatus from '../ConnectionStatus';
 import SquidgyLogo from '../Auth/SquidgyLogo';
 
@@ -11,12 +11,14 @@ interface HeaderProps {
   onToggleSidebar: () => void;
   onNewChat: () => void;
   onOpenSettings: () => void;
+  onOpenFeedbackSettings?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
   onToggleSidebar, 
   onNewChat,
-  onOpenSettings
+  onOpenSettings,
+  onOpenFeedbackSettings
 }) => {
   const { profile, signOut } = useAuth();
   const { connectionStatus } = useChat();
@@ -54,6 +56,18 @@ const Header: React.FC<HeaderProps> = ({
           <PlusCircle size={16} className="mr-2" />
           <span>New Chat</span>
         </button>
+        
+        {/* Admin-only feedback settings button */}
+        {profile?.role === 'admin' && onOpenFeedbackSettings && (
+          <button
+            onClick={onOpenFeedbackSettings}
+            className="p-2 text-gray-400 hover:text-white rounded-md"
+            aria-label="Feedback Settings"
+            title="Feedback Reminder Settings"
+          >
+            <MessageSquare size={20} />
+          </button>
+        )}
         
         <button
           onClick={onOpenSettings}

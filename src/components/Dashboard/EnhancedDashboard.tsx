@@ -1745,13 +1745,17 @@ Let's begin with your Solar Business Setup! ☀️`;
         </div>
         
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setShowFeedbackConfig(true)}
-            className="p-2 hover:bg-gray-700 rounded"
-            title="Feedback Reminder Settings"
-          >
-            <MessageSquare size={20} />
-          </button>
+          {/* Admin-only feedback settings button */}
+          {profile?.role === 'admin' && (
+            <button 
+              onClick={() => setShowFeedbackConfig(true)}
+              className="p-2 hover:bg-gray-700 rounded"
+              title="Feedback Reminder Settings (Admin Only)"
+            >
+              <MessageSquare size={20} />
+            </button>
+          )}
+          
           <button 
             onClick={() => setShowProfileSettings(true)}
             className="p-2 hover:bg-gray-700 rounded"
