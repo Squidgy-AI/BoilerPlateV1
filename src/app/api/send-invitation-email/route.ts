@@ -102,25 +102,19 @@ export async function POST(request: NextRequest) {
 
       console.log('Invitation saved to database, attempting to send email...');
 
-      // Send magic link email - this works reliably
-      let emailMethod = 'magic_link';
+      // Use proper invite flow with admin.inviteUserByEmail
+      let emailMethod = 'admin_invite';
       try {
-        console.log(`Sending magic link to ${email}`);
+        console.log(`Sending invitation to ${email}`);
         
-        // Using signInWithOtp WITHOUT shouldCreateUser to force magic link template
-        const otpResult = await supabaseAdmin.auth.signInWithOtp({
-          email: email,
-          options: {
-            // Remove shouldCreateUser to avoid signup confirmation email
-            emailRedirectTo: `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/?invited_by=${encodeURIComponent(senderName)}&invitation_token=${token}`,
-            data: {
-              invitation_token: token,
-              sender_name: senderName
-            }
+        // Use inviteUserByEmail which sends the proper "You have been invited" template
+        const { data: inviteData, error: emailError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://boiler-plate-v1-lake.vercel.app'}/?invited_by=${encodeURIComponent(senderName)}&invitation_token=${token}`,
+          data: {
+            invitation_token: token,
+            sender_name: senderName
           }
         });
-        console.log('Magic link result:', JSON.stringify(otpResult, null, 2));
-        let emailError = otpResult.error;
         
         if (emailError) {
           console.warn('Email sending failed:', emailError);
@@ -134,13 +128,13 @@ export async function POST(request: NextRequest) {
           });
         }
         
-        console.log('Magic link email sent successfully!');
+        console.log('Invitation email sent successfully!');
         
         return NextResponse.json({
           success: true,
           message: 'Invitation email sent successfully!',
-          method: 'magic_link',
-          email_type: 'magic_link',
+          method: 'admin_invite',
+          email_type: 'invite',
           invitation_id: inviteRecord.id
         });
         
