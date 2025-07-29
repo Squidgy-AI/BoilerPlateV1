@@ -1,11 +1,11 @@
 // src/app/page.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import WelcomeScreen from '@/components/WelcomeScreen';
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -20,9 +20,15 @@ export default function Home() {
     }
   }, [searchParams, router]);
   
+  return <WelcomeScreen />;
+}
+
+export default function Home() {
   return (
     <div className="min-h-screen w-full overflow-hidden">
-      <WelcomeScreen />
+      <Suspense fallback={<WelcomeScreen />}>
+        <HomeContent />
+      </Suspense>
     </div>
   );
 }
