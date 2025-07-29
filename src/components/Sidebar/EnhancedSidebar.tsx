@@ -208,7 +208,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
           sender_id: profile.id,
           recipient_id: existingUser?.user_id || null,
           recipient_email: inviteEmail,
-          company_id: profile.company_id || null,
+          sender_company_id: profile.company_id || null,
           token,
           status: 'pending',
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days

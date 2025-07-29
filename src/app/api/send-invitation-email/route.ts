@@ -64,17 +64,13 @@ export async function POST(request: NextRequest) {
     console.log('Sending invitation email directly using Supabase...');
     
     try {
-      // Check if user already exists to set recipient_id
+      // Check if user already exists in auth.users to set recipient_id
       let recipientId = null;
-      const { data: existingUser } = await supabaseAdmin
-        .from('profiles')
-        .select('user_id')
-        .eq('email', email)
-        .single();
+      const { data: existingAuthUser } = await supabaseAdmin.auth.admin.getUserByEmail(email);
       
-      if (existingUser) {
-        recipientId = existingUser.user_id;
-        console.log('Found existing user:', recipientId);
+      if (existingAuthUser?.user) {
+        recipientId = existingAuthUser.user.id;
+        console.log('Found existing auth user:', recipientId);
       }
 
       // Upsert invitation based on sender_id + recipient_email
@@ -115,6 +111,18 @@ export async function POST(request: NextRequest) {
             sender_name: senderName
           }
         });
+
+        // Update recipient_id after user is created by inviteUserByEmail
+        if (!emailError && inviteData?.user) {
+          const newUserId = inviteData.user.id;
+          console.log('User created by invitation:', newUserId);
+          
+          // Update the invitation record with the new user_id
+          await supabaseAdmin
+            .from('invitations')
+            .update({ recipient_id: newUserId })
+            .eq('token', token);
+        }
         
         if (emailError) {
           console.warn('Email sending failed:', emailError);
