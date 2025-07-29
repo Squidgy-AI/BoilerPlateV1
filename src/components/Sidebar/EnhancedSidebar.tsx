@@ -201,10 +201,10 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
       // Generate a unique token
       const token = crypto.randomUUID().replace(/-/g, '').substring(0, 20);
       
-      // Create invitation
+      // Create or update invitation using upsert to handle duplicates
       const { error: inviteError } = await supabase
         .from('invitations')
-        .insert({
+        .upsert({
           sender_id: profile.id,
           recipient_id: existingUser?.user_id || null,
           recipient_email: inviteEmail,
@@ -212,6 +212,8 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
           token,
           status: 'pending',
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+        }, {
+          onConflict: 'sender_id,recipient_email'
         });
         
       if (inviteError) throw inviteError;
