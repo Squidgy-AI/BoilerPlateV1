@@ -46,6 +46,29 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
     if (profile) {
       fetchPeople();
       fetchGroups();
+      
+      // Set up real-time subscription for profile changes
+      const profileSubscription = supabase
+        .channel('profiles_channel')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'profiles',
+            filter: `company_id=eq.${profile.company_id}`
+          },
+          (payload) => {
+            console.log('Profile change detected:', payload);
+            // Refresh people list when profiles change
+            fetchPeople();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(profileSubscription);
+      };
     }
   }, [profile]);
   
@@ -101,20 +124,29 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
       )
     : groups;
   
-  // Fetch people from database
+  // Fetch people from database - only show people from same company
   const fetchPeople = async () => {
     try {
+      if (!profile?.company_id) {
+        console.log('No company_id found for current user, showing empty people list');
+        setPeople([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .neq('id', profile?.id || '')
+        .eq('company_id', profile.company_id)  // Only show people from same company
+        .neq('user_id', profile?.user_id || '')  // Exclude current user
         .order('full_name');
         
       if (error) throw error;
       
+      console.log(`Found ${data?.length || 0} people in company ${profile.company_id}`);
       setPeople(data || []);
     } catch (error) {
       console.error('Error fetching people:', error);
+      setPeople([]);
     }
   };
   

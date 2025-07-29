@@ -145,15 +145,50 @@ export default function InvitePage() {
         }
       }
 
-      // Update user's company_id if invitation has one
+      // Ensure user has a profile with the correct company_id
       if (invitation.sender_company_id) {
-        const { error: profileError } = await supabase
+        // First, check if profile exists
+        const { data: existingProfile } = await supabase
           .from('profiles')
-          .update({ company_id: invitation.sender_company_id })
-          .eq('id', user.id);
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
 
-        if (profileError) {
-          console.warn('Failed to update user company:', profileError);
+        if (existingProfile) {
+          // Update existing profile
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ 
+              company_id: invitation.sender_company_id,
+              role: 'member'
+            })
+            .eq('user_id', user.id);
+
+          if (profileError) {
+            console.warn('Failed to update user company:', profileError);
+          } else {
+            console.log('Successfully updated user company_id to:', invitation.sender_company_id);
+          }
+        } else {
+          // Create new profile for user
+          const { error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              user_id: user.id,
+              email: user.email,
+              full_name: user.user_metadata?.full_name || '',
+              company_id: invitation.sender_company_id,
+              role: 'member',
+              email_confirmed: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+
+          if (createError) {
+            console.warn('Failed to create user profile:', createError);
+          } else {
+            console.log('Successfully created user profile with company_id:', invitation.sender_company_id);
+          }
         }
       }
 
