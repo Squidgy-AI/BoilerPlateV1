@@ -118,7 +118,7 @@ export default function InvitePage() {
         .from('invitations')
         .update({ 
           status: 'accepted',
-          recipient_id: profile.user_id
+          recipient_id: profile.user_id  // Set recipient_id to actual user_id
         })
         .eq('sender_id', invitation.sender_id)
         .eq('recipient_email', profile.email);

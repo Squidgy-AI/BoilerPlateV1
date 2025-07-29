@@ -192,7 +192,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
     try {
       const { data: existingUser, error: userError } = await supabase
         .from('profiles')
-        .select('id')
+        .select('user_id')
         .eq('email', inviteEmail)
         .maybeSingle();
         
@@ -206,7 +206,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
         .from('invitations')
         .insert({
           sender_id: profile.id,
-          recipient_id: existingUser?.id || null,
+          recipient_id: existingUser?.user_id || null,
           recipient_email: inviteEmail,
           company_id: profile.company_id || null,
           token,
