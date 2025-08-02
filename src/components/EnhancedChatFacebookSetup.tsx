@@ -300,30 +300,77 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     setOauthCompleted(true);
   };
 
-  // STEP 2: Browser automation to get Facebook pages
+  // STEP 2: Enhanced browser automation using business setup credentials
   const startStep2GetPages = async () => {
     setIntegrationStatus('step2_getting_pages');
     
     addMessage('user', 'Get Facebook Pages');
-    addMessage('bot', '🤖 **Step 2: Getting Your Facebook Pages**');
-    addMessage('bot', 'Starting browser automation to retrieve your Facebook pages and tokens...');
+    addMessage('bot', '🤖 **Step 2: Getting Your Facebook Pages using Business Setup**');
+    addMessage('bot', 'Using your business credentials from the setup to retrieve Facebook pages...');
 
     try {
       const backendUrl = process.env.NODE_ENV === 'production' 
         ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
         : 'http://localhost:8000';
+
+      // Get user ID for business lookup
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        addMessage('bot', '❌ Unable to get user ID for business setup lookup');
+        setIntegrationStatus('step1_oauth');
+        return;
+      }
+
+      const checkLocationId = actualLocationId || locationId || 'demo-location';
       
+      // Try enhanced endpoint first
+      addMessage('bot', `🔍 Looking up business setup for location: ${checkLocationId}`);
+      
+      const enhancedResponse = await fetch(`${backendUrl}/api/facebook/get-pages-by-location`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          location_id: checkLocationId,
+          firm_user_id: userIdResult.user_id,
+          agent_id: 'SOLAgent'
+        })
+      });
+
+      if (enhancedResponse.ok) {
+        const result = await enhancedResponse.json();
+        
+        if (result.success && result.pages && result.pages.length > 0) {
+          setFacebookPages(result.pages);
+          setStoredJwtToken(result.jwt_token);
+          setIntegrationStatus('step3_selecting_pages');
+          
+          addMessage('bot', `✅ **Step 2 Complete!** Found ${result.pages.length} Facebook pages using business setup!`);
+          addMessage('bot', '📄 **Ready for Step 3:** Select which pages you want to connect to Squidgy.');
+          return;
+        } else {
+          addMessage('bot', `⚠️ Enhanced endpoint returned: ${result.message || 'No pages found'}`);
+          addMessage('bot', '🔄 Falling back to browser automation approach...');
+        }
+      } else {
+        const errorText = await enhancedResponse.text();
+        addMessage('bot', `⚠️ Enhanced endpoint failed: ${errorText}`);
+        addMessage('bot', '🔄 Falling back to browser automation approach...');
+      }
+
+      // Fallback to original browser automation approach
       const response = await fetch(`${backendUrl}/api/facebook/integrate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          location_id: locationId,
+          location_id: checkLocationId,
           user_id: userId,
           email: ghlCredentials?.email || 'somashekhar34+demo@gmail.com',
           password: ghlCredentials?.password || 'Dummy@123',
-          firm_user_id: await getUserId().then(r => r.user_id),
+          firm_user_id: userIdResult.user_id,
           step: 'get_pages_only'
         })
       });
@@ -337,7 +384,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
       // Use the location_id returned from backend (may be different from what we sent)
       if (result.location_id) {
         setActualLocationId(result.location_id);
-        console.log(`Using backend location_id: ${result.location_id} (sent: ${locationId})`);
+        console.log(`Using backend location_id: ${result.location_id} (sent: ${checkLocationId})`);
       }
       
       addMessage('bot', '⏳ Browser automation started! This will:');
@@ -444,22 +491,53 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
         : 'http://localhost:8000';
       
-      // Connect each selected page
+      // Get user ID for enhanced connection
+      const userIdResult = await getUserId();
+      const checkLocationId = actualLocationId || locationId;
+      
+      // Connect each selected page using enhanced endpoint
       for (const pageId of selectedPageIds) {
-        const response = await fetch(`${backendUrl}/api/facebook/connect-page`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            location_id: locationId,
-            page_id: pageId,
-            jwt_token: storedJwtToken
-          })
-        });
+        try {
+          // Try enhanced endpoint first
+          let response = await fetch(`${backendUrl}/api/facebook/connect-page-enhanced`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              location_id: checkLocationId,
+              page_id: pageId,
+              jwt_token: storedJwtToken,
+              firm_user_id: userIdResult.success ? userIdResult.user_id : undefined
+            })
+          });
 
-        if (!response.ok) {
-          throw new Error(`Failed to connect page ${pageId}`);
+          // Fallback to original endpoint if enhanced fails
+          if (!response.ok) {
+            console.log(`Enhanced endpoint failed for page ${pageId}, trying original endpoint...`);
+            response = await fetch(`${backendUrl}/api/facebook/connect-page`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                location_id: checkLocationId,
+                page_id: pageId,
+                jwt_token: storedJwtToken
+              })
+            });
+          }
+
+          if (!response.ok) {
+            throw new Error(`Failed to connect page ${pageId} (both endpoints failed)`);
+          }
+
+          const result = await response.json();
+          console.log(`✅ Connected page ${pageId}:`, result);
+          
+        } catch (error) {
+          console.error(`❌ Error connecting page ${pageId}:`, error);
+          throw error;
         }
       }
 
