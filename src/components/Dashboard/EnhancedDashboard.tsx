@@ -504,76 +504,67 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     if (!profile) return;
     
     try {
-      console.log('Current user info:', { 
-        user_id: profile.user_id, 
-        company_id: profile.company_id,
-        email: profile.email 
-      });
-      
-      // Get connected people from profiles table (includes profile_avatar_url)
-      // For now, let's just get ALL profiles to see what's available
-      const { data: connectedPeople, error: connectError } = await supabase
-        .from('profiles')
-        .select('id, user_id, email, full_name, profile_avatar_url, role, created_at, company_id')
-        .order('full_name');
-        
-      if (connectError) {
-        console.error('Error fetching connected people:', connectError);
-      }
-      
-      console.log('Query results:', {
-        connectedPeople: connectedPeople?.length || 0,
-        connectError: connectError?.message
-      });
-      
-      // Also check: How many total users are in this company?
-      const { data: allCompanyUsers, error: allUsersError } = await supabase
-        .from('profiles') 
-        .select('id, user_id, email, full_name, company_id')
-        .eq('company_id', profile.company_id);
-        
-      console.log('All users in company:', {
-        total: allCompanyUsers?.length || 0,
-        users: allCompanyUsers?.map(u => ({ name: u.full_name, email: u.email, user_id: u.user_id }))
-      });
-      
-      // Get invited people (sent by current user)
-      const { data: invitedPeople, error: inviteError } = await supabase
+      // Step 1: Get invitations where current user is the sender
+      const { data: invitations, error: inviteError } = await supabase
         .from('invitations')
-        .select('token, recipient_email, status, created_at, expires_at')
+        .select('recipient_id, recipient_email, status, created_at, expires_at, token')
         .eq('sender_id', profile.user_id)
         .order('created_at', { ascending: false });
         
       if (inviteError) {
-        console.error('Error fetching invited people:', inviteError);
+        console.error('Error fetching invitations:', inviteError);
+        setPeople([]);
+        return;
       }
       
-      console.log('People data:', { profiles: connectedPeople?.length, invitations: invitedPeople?.length });
+      // Step 2: Extract recipient_ids (only for accepted invitations that have recipient_id)
+      const recipientIds = invitations
+        ?.filter(inv => inv.recipient_id && inv.status === 'accepted')
+        .map(inv => inv.recipient_id) || [];
       
-      // Debug: Show actual profile URLs
-      if (connectedPeople && connectedPeople.length > 0) {
-        console.log('Profile URLs found:', connectedPeople.filter(p => p.profile_avatar_url).map(p => ({
-          name: p.full_name,
-          url: p.profile_avatar_url
-        })));
+      let connectedPeople = [];
+      
+      // Step 3: If we have recipient_ids, get their profile details
+      if (recipientIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_id, email, full_name, profile_avatar_url, role, created_at, company_id')
+          .in('user_id', recipientIds)
+          .order('full_name');
+          
+        if (profileError) {
+          console.error('Error fetching recipient profiles:', profileError);
+        } else {
+          connectedPeople = profiles || [];
+        }
       }
       
-      // Show all invitations with their status (pending, accepted, expired, etc.)
-      const allInvitations = (invitedPeople || []);
+      // Step 4: Format all invitations (both accepted and pending/expired)
+      const formattedInvitations = invitations?.map(invite => ({
+        id: `invite-${invite.token}`,
+        user_id: invite.recipient_id,
+        full_name: invite.recipient_id ? 
+          connectedPeople.find(p => p.user_id === invite.recipient_id)?.full_name || invite.recipient_email?.split('@')[0] :
+          invite.recipient_email?.split('@')[0] || 'Invited User',
+        email: invite.recipient_email,
+        profile_avatar_url: invite.recipient_id ? 
+          connectedPeople.find(p => p.user_id === invite.recipient_id)?.profile_avatar_url : null,
+        status: invite.status,
+        type: 'invitation',
+        created_at: invite.created_at,
+        expires_at: invite.expires_at,
+        token: invite.token
+      })) || [];
       
-      // Combine and format the data
+      // Step 5: Combine accepted profiles with all invitations
       const allPeople = [
-        ...(connectedPeople || []),
-        ...allInvitations.map(invite => ({
-          id: `invite-${invite.token}`,
-          full_name: invite.recipient_email?.split('@')[0] || 'Invited User',
-          email: invite.recipient_email,
-          status: invite.status,
-          type: 'invitation',
-          created_at: invite.created_at,
-          expires_at: invite.expires_at,
-          token: invite.token
-        }))
+        ...connectedPeople.map(person => ({ 
+          ...person, 
+          type: 'profile', 
+          status: 'accepted',
+          id: person.user_id 
+        })),
+        ...formattedInvitations.filter(inv => inv.status !== 'accepted') // Only show non-accepted invitations since accepted ones are already in profiles
       ];
       
       setPeople(allPeople);
