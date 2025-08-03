@@ -536,25 +536,48 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
           console.error('Error fetching recipient profiles:', profileError);
         } else {
           connectedPeople = profiles || [];
+          
+          // Debug logging for profile avatar URLs
+          console.log('📸 Profile avatar URLs found:', connectedPeople.map(p => ({
+            email: p.email,
+            full_name: p.full_name,
+            user_id: p.user_id,
+            profile_avatar_url: p.profile_avatar_url
+          })));
         }
       }
       
       // Step 4: Format all invitations (both accepted and pending/expired)
-      const formattedInvitations = invitations?.map(invite => ({
-        id: `invite-${invite.token}`,
-        user_id: invite.recipient_id,
-        full_name: invite.recipient_id ? 
-          connectedPeople.find(p => p.user_id === invite.recipient_id)?.full_name || invite.recipient_email?.split('@')[0] :
-          invite.recipient_email?.split('@')[0] || 'Invited User',
-        email: invite.recipient_email,
-        profile_avatar_url: invite.recipient_id ? 
-          connectedPeople.find(p => p.user_id === invite.recipient_id)?.profile_avatar_url : null,
-        status: invite.status,
-        type: 'invitation',
-        created_at: invite.created_at,
-        expires_at: invite.expires_at,
-        token: invite.token
-      })) || [];
+      const formattedInvitations = invitations?.map(invite => {
+        const matchingProfile = invite.recipient_id ? 
+          connectedPeople.find(p => p.user_id === invite.recipient_id) : null;
+          
+        const formatted = {
+          id: `invite-${invite.token}`,
+          user_id: invite.recipient_id,
+          full_name: matchingProfile?.full_name || invite.recipient_email?.split('@')[0] || 'Invited User',
+          email: invite.recipient_email,
+          profile_avatar_url: matchingProfile?.profile_avatar_url || null,
+          status: invite.status,
+          type: 'invitation',
+          created_at: invite.created_at,
+          expires_at: invite.expires_at,
+          token: invite.token
+        };
+        
+        // Debug logging for profile avatar URLs
+        if (invite.recipient_email === 'somasekhar.addakula@gmail.com') {
+          console.log('🔍 Debug for somasekhar.addakula@gmail.com:', {
+            recipient_id: invite.recipient_id,
+            status: invite.status,
+            matchingProfile: matchingProfile,
+            profile_avatar_url: formatted.profile_avatar_url,
+            connectedPeople: connectedPeople.length
+          });
+        }
+        
+        return formatted;
+      }) || [];
       
       // Step 5: Show all invitations with their current status
       const allPeople = formattedInvitations;
