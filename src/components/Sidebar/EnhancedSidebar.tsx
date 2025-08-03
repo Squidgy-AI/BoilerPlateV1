@@ -14,7 +14,7 @@ interface SidebarProps {
 }
 
 const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, sendInvitation } = useAuth();
   const { 
     currentSessionId, 
     setCurrentSessionId, 
@@ -185,38 +185,14 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
   
   // Invite a user
   const handleInviteUser = async () => {
-    if (!profile) return;
+    if (!profile || !sendInvitation) return;
     
     setIsLoading(true);
     
     try {
-      const { data: existingUser, error: userError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('email', inviteEmail)
-        .maybeSingle();
-        
-      if (userError) throw userError;
-      
-      // Generate a unique token
-      const token = crypto.randomUUID().replace(/-/g, '').substring(0, 20);
-      
-      // Create or update invitation using upsert to handle duplicates
-      const { error: inviteError } = await supabase
-        .from('invitations')
-        .upsert({
-          sender_id: profile.id,
-          recipient_id: existingUser?.user_id || null,
-          recipient_email: inviteEmail,
-          sender_company_id: profile.company_id || null,
-          token,
-          status: 'pending',
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-        }, {
-          onConflict: 'sender_id,recipient_email'
-        });
-        
-      if (inviteError) throw inviteError;
+      // Use the proper sendInvitation function from AuthProvider
+      // which handles both database creation AND email sending
+      await sendInvitation(inviteEmail);
       
       setInviteEmail('');
       setShowAddPeopleModal(false);
