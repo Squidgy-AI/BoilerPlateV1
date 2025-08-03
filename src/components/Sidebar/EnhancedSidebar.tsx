@@ -27,6 +27,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
   
   const [activeSection, setActiveSection] = useState<'people' | 'agents' | 'groups'>('agents');
   const [people, setPeople] = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
   const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
@@ -45,6 +46,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
   useEffect(() => {
     if (profile) {
       fetchPeople();
+      fetchInvitations();
       fetchGroups();
       
       // Set up real-time subscription for profile changes
@@ -62,6 +64,7 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
             console.log('Profile change detected:', payload);
             // Refresh people list when profiles change
             fetchPeople();
+            fetchInvitations();
           }
         )
         .subscribe();
@@ -109,13 +112,25 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
     };
   }, []);
   
-  // Filter people based on search term
+  // Combine people and invitations for display
+  const combinedPeople = [
+    ...people.map(person => ({ ...person, type: 'profile', status: 'accepted' })),
+    ...invitations.map(inv => ({ 
+      ...inv, 
+      type: 'invitation', 
+      full_name: inv.recipient_email?.split('@')[0] || 'Pending User',
+      email: inv.recipient_email,
+      status: inv.status || 'pending'
+    }))
+  ];
+
+  // Filter combined people based on search term
   const filteredPeople = searchTerm 
-    ? people.filter(person => 
+    ? combinedPeople.filter(person => 
         person.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         person.email.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : people;
+    : combinedPeople;
     
   // Filter groups based on search term
   const filteredGroups = searchTerm
@@ -147,6 +162,31 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
     } catch (error) {
       console.error('Error fetching people:', error);
       setPeople([]);
+    }
+  };
+
+  // Fetch invitations from database - only show invitations sent by current user or to same company
+  const fetchInvitations = async () => {
+    try {
+      if (!profile?.user_id) {
+        console.log('No user_id found for current user, showing empty invitations list');
+        setInvitations([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('invitations')
+        .select('*')
+        .or(`sender_id.eq.${profile.user_id},sender_company_id.eq.${profile.company_id}`)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      console.log(`Found ${data?.length || 0} invitations for company ${profile.company_id}`);
+      setInvitations(data || []);
+    } catch (error) {
+      console.error('Error fetching invitations:', error);
+      setInvitations([]);
     }
   };
   
@@ -199,8 +239,9 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
       
       alert(`Invitation sent to ${inviteEmail}`);
       
-      // Refresh people list
+      // Refresh people and invitations list
       fetchPeople();
+      fetchInvitations();
     } catch (error) {
       console.error('Error inviting user:', error);
       alert(`Error inviting user: ${error.message}`);
@@ -467,26 +508,60 @@ const EnhancedSidebar: React.FC<SidebarProps> = ({ onSettingsOpen }) => {
             {filteredPeople.length > 0 ? (
               filteredPeople.map(person => (
                 <div 
-                  key={person.id}
-                  className={`p-2 rounded-lg hover:bg-[#2D3B4F] cursor-pointer flex items-center ${
-                    currentSessionId === person.id && !isGroupSession ? 'bg-[#2D3B4F]' : ''
+                  key={`${person.type}-${person.id || person.token}`}
+                  className={`p-2 rounded-lg hover:bg-[#2D3B4F] flex items-center ${
+                    person.type === 'profile' 
+                      ? `cursor-pointer ${currentSessionId === person.id && !isGroupSession ? 'bg-[#2D3B4F]' : ''}`
+                      : person.status === 'pending' 
+                        ? 'bg-yellow-900/20 border-l-2 border-yellow-500' 
+                        : 'bg-red-900/20 border-l-2 border-red-500'
                   }`}
-                  onClick={() => handleSessionSelect(person.id)}
+                  onClick={() => person.type === 'profile' && handleSessionSelect(person.id)}
                 >
-                  <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center mr-3 overflow-hidden">
-                    {person.avatar_url ? (
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 overflow-hidden ${
+                    person.type === 'profile' ? 'bg-gray-600' : 
+                    person.status === 'pending' ? 'bg-yellow-600' : 'bg-red-600'
+                  }`}>
+                    {person.type === 'profile' && person.avatar_url ? (
                       <img 
                         src={person.avatar_url} 
                         alt={person.full_name} 
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span>{person.full_name?.charAt(0) || 'U'}</span>
+                      <span className="text-xs text-white">
+                        {person.type === 'invitation' ? 
+                          (person.status === 'pending' ? '⏳' : person.status === 'expired' ? '❌' : '📧') : 
+                          (person.full_name?.charAt(0) || 'U')
+                        }
+                      </span>
                     )}
                   </div>
                   <div className="flex-1 overflow-hidden">
-                    <div className="text-sm font-medium truncate">{person.full_name}</div>
-                    <div className="text-xs text-gray-400 truncate">{person.email}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium truncate">{person.full_name}</div>
+                      {person.type === 'invitation' && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          person.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                          person.status === 'accepted' ? 'bg-green-100 text-green-800' : 
+                          person.status === 'expired' ? 'bg-red-100 text-red-800' : 
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {person.status === 'pending' ? 'Pending' : 
+                           person.status === 'accepted' ? 'Accepted' : 
+                           person.status === 'expired' ? 'Expired' : 
+                           person.status}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400 truncate">
+                      {person.email}
+                      {person.type === 'invitation' && person.created_at && (
+                        <span className="ml-2">
+                          • Sent {new Date(person.created_at).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
