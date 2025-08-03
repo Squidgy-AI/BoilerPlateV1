@@ -1916,8 +1916,9 @@ Let's begin with your Solar Business Setup! ☀️`;
                         {person.type === 'invitation' ? (
                           <span className="text-white text-sm">
                             {person.status === 'pending' ? '⏳' : 
-                             person.status === 'expired' ? '❌' : 
-                             person.status === 'accepted' ? '✅' : '📧'}
+                             person.status === 'expired' ? '⏰' : 
+                             person.status === 'accepted' ? '✅' : 
+                             person.status === 'cancelled' ? '❌' : '📧'}
                           </span>
                         ) : person.avatar_url ? (
                           <img 
