@@ -556,16 +556,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         token: invite.token
       })) || [];
       
-      // Step 5: Combine accepted profiles with all invitations
-      const allPeople = [
-        ...connectedPeople.map(person => ({ 
-          ...person, 
-          type: 'profile', 
-          status: 'accepted',
-          id: person.user_id 
-        })),
-        ...formattedInvitations.filter(inv => inv.status !== 'accepted') // Only show non-accepted invitations since accepted ones are already in profiles
-      ];
+      // Step 5: Show all invitations with their current status
+      const allPeople = formattedInvitations;
       
       setPeople(allPeople);
     } catch (error) {
