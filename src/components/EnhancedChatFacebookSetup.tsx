@@ -293,10 +293,55 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     }
   };
 
-  const completeStep1OAuth = () => {
+  const completeStep1OAuth = async () => {
     addMessage('user', 'Facebook OAuth Completed');
     addMessage('bot', '🎉 **Step 1 Complete!** Your Facebook account is now connected.');
-    addMessage('bot', '📋 **Ready for Step 2:** Click below to retrieve your Facebook pages from the database.');
+    addMessage('bot', '🔍 **Checking for new Facebook account...**');
+    
+    try {
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      // Get user ID for checking accounts
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        addMessage('bot', '⚠️ Unable to get user ID for account check');
+        setOauthCompleted(true);
+        return;
+      }
+
+      // Call backend to check for new Facebook accounts after OAuth
+      const response = await fetch(`${backendUrl}/api/facebook/check-accounts-after-oauth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userIdResult.user_id
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        if (result.success && result.facebook_account_id) {
+          addMessage('bot', `✅ **Facebook account detected!** Account ID: ${result.facebook_account_id}`);
+          addMessage('bot', '📋 **Ready for Step 2:** Click below to retrieve your Facebook pages.');
+        } else {
+          addMessage('bot', '⚠️ **Facebook account not found yet.** You may need to complete the OAuth process or try Step 2 to check again.');
+          addMessage('bot', '📋 **Ready for Step 2:** Click below to retrieve your Facebook pages.');
+        }
+      } else {
+        addMessage('bot', '⚠️ Unable to check for Facebook account, but you can proceed to Step 2.');
+        addMessage('bot', '📋 **Ready for Step 2:** Click below to retrieve your Facebook pages.');
+      }
+    } catch (error) {
+      console.error('Error checking Facebook account:', error);
+      addMessage('bot', '⚠️ Error checking for Facebook account, but you can proceed to Step 2.');
+      addMessage('bot', '📋 **Ready for Step 2:** Click below to retrieve your Facebook pages.');
+    }
+    
     setOauthCompleted(true);
   };
 
