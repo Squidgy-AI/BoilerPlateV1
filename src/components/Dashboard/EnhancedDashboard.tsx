@@ -1888,26 +1888,70 @@ Let's begin with your Solar Business Setup! ☀️`;
                     <div
                       key={person.id}
                       onClick={() => person.type !== 'invitation' && handleSessionSelect(person.id)}
-                      className={`p-2 rounded mb-2 flex items-center ${
+                      className={`p-3 rounded-lg mb-2 flex items-center transition-all ${
                         person.type === 'invitation' 
-                          ? 'opacity-75' 
+                          ? person.status === 'pending' 
+                            ? 'bg-yellow-900/20 border-l-4 border-yellow-500' 
+                            : person.status === 'expired'
+                            ? 'bg-red-900/20 border-l-4 border-red-500'
+                            : 'bg-gray-800/30 border-l-4 border-gray-500'
                           : `cursor-pointer hover:bg-[#2D3B4F]/50 ${currentSessionId === person.id ? 'bg-[#2D3B4F]' : ''}`
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-full bg-gray-600 mr-2 flex items-center justify-center">
-                        <span className="text-sm">{person.full_name?.charAt(0) || 'U'}</span>
+                      <div className={`w-10 h-10 rounded-full mr-3 flex items-center justify-center ${
+                        person.type === 'invitation' 
+                          ? person.status === 'pending' 
+                            ? 'bg-yellow-600' 
+                            : person.status === 'expired'
+                            ? 'bg-red-600'
+                            : 'bg-gray-600'
+                          : person.avatar_url 
+                          ? '' 
+                          : 'bg-blue-600'
+                      }`}>
+                        {person.type === 'invitation' ? (
+                          <span className="text-white text-sm">
+                            {person.status === 'pending' ? '⏳' : 
+                             person.status === 'expired' ? '❌' : 
+                             person.status === 'accepted' ? '✅' : '📧'}
+                          </span>
+                        ) : person.avatar_url ? (
+                          <img 
+                            src={person.avatar_url} 
+                            alt={person.full_name} 
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        ) : (
+                          <span className="text-white text-sm font-medium">
+                            {person.full_name?.charAt(0) || 'U'}
+                          </span>
+                        )}
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm">{person.full_name}</p>
-                        <p className="text-xs text-gray-400">{person.email}</p>
-                        {person.type === 'invitation' && (
-                          <p className={`text-xs capitalize ${
-                            person.status === 'pending' ? 'text-orange-400' :
-                            person.status === 'accepted' ? 'text-green-400' :
-                            person.status === 'cancelled' ? 'text-red-400' :
-                            'text-gray-400'
-                          }`}>
-                            {person.status}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium text-white truncate">
+                            {person.full_name || person.email?.split('@')[0]}
+                          </p>
+                          {person.type === 'invitation' && (
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              person.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              person.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                              person.status === 'expired' ? 'bg-red-100 text-red-800' :
+                              person.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}>
+                              {person.status === 'pending' ? 'Pending' :
+                               person.status === 'accepted' ? 'Accepted' :
+                               person.status === 'expired' ? 'Expired' :
+                               person.status === 'cancelled' ? 'Cancelled' :
+                               person.status}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 truncate">{person.email}</p>
+                        {person.type === 'invitation' && person.created_at && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Sent {new Date(person.created_at).toLocaleDateString()}
                           </p>
                         )}
                       </div>
