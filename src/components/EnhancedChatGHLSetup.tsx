@@ -248,11 +248,18 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       // Generate random number for unique naming
       const randomNum = Math.floor(Math.random() * 1000);
       
+      // Get user_id from profiles table for Facebook automation
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        throw new Error('Failed to get user ID from profiles table');
+      }
+      
       // Use form data if available, otherwise use demo values
       const requestPayload = {
         company_id: "lp2p1q27DrdGta1qGDJd",
         snapshot_id: "bInwX5BtZM6oEepAsUwo",
         agency_token: "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe",
+        user_id: userIdResult.user_id,  // ✅ Add user_id for Facebook automation
         subaccount_name: formData.businessName || `DemoSolarBusiness_${randomNum}`,
         prospect_email: formData.businessEmail || `demo+${randomNum}@example.com`,
         prospect_first_name: formData.businessName?.split(' ')[0] || 'Demo',
@@ -447,11 +454,20 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
       : 'http://127.0.0.1:8010';
     
+    // Get user_id from profiles table for Facebook automation
+    const userIdResult = await getUserId();
+    if (!userIdResult.success || !userIdResult.user_id) {
+      addMessage('bot', '❌ Error: Failed to get user ID from profiles table');
+      setIsSubmittingForm(false);
+      return;
+    }
+    
     // Use the combined endpoint that creates BOTH sub-account AND user
     const requestPayload = {
       company_id: "lp2p1q27DrdGta1qGDJd",
       snapshot_id: "bInwX5BtZM6oEepAsUwo",  // SOL - Solar Assistant snapshot
       agency_token: "pit-e3d8d384-00cb-4744-8213-b1ab06ae71fe",
+      user_id: userIdResult.user_id,  // ✅ Add user_id for Facebook automation
       subaccount_name: formData.businessName,
       prospect_email: formData.businessEmail,
       prospect_first_name: formData.businessName.split(' ')[0] || 'Business',
