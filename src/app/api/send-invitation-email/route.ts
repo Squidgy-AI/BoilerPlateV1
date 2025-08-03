@@ -66,10 +66,12 @@ export async function POST(request: NextRequest) {
     try {
       // Check if user already exists in auth.users to set recipient_id
       let recipientId = null;
-      const { data: existingAuthUser } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+      const { data: existingAuthUser } = await supabaseAdmin.auth.admin.listUsers();
       
-      if (existingAuthUser?.user) {
-        recipientId = existingAuthUser.user.id;
+      // Find user with matching email
+      const matchingUser = existingAuthUser?.users?.find(user => user.email === email);
+      if (matchingUser) {
+        recipientId = matchingUser.id;
         console.log('Found existing auth user:', recipientId);
       }
 
@@ -99,7 +101,6 @@ export async function POST(request: NextRequest) {
       console.log('Invitation saved to database, attempting to send email...');
 
       // Use proper invite flow with admin.inviteUserByEmail
-      let emailMethod = 'admin_invite';
       try {
         console.log(`Sending invitation to ${email}`);
         
