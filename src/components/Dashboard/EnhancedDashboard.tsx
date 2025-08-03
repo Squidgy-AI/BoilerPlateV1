@@ -529,7 +529,36 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       
       console.log('📧 Fetched invitations:', invitedPeople);
       console.log('👤 Fetched connected people:', connectedPeople);
-      console.log('🖼️ Profile avatar URLs:', connectedPeople?.map(p => ({ name: p.full_name, avatar: p.profile_avatar_url })));
+      console.log('🖼️ Profile avatar URLs:', connectedPeople?.map(p => ({ 
+        id: p.id,
+        name: p.full_name, 
+        email: p.email,
+        avatar: p.profile_avatar_url,
+        hasAvatar: !!p.profile_avatar_url
+      })));
+      
+      // Debug the final combined data
+      const debugPeople = [
+        ...(connectedPeople || []),
+        ...allInvitations.map(invite => ({
+          id: `invite-${invite.token}`,
+          full_name: invite.recipient_email?.split('@')[0] || 'Invited User',
+          email: invite.recipient_email,
+          status: invite.status,
+          type: 'invitation',
+          created_at: invite.created_at,
+          expires_at: invite.expires_at,
+          token: invite.token,
+          profile_avatar_url: null // invitations don't have avatars
+        }))
+      ];
+      console.log('🎯 Final people data for UI:', debugPeople.map(p => ({
+        id: p.id,
+        name: p.full_name,
+        type: p.type || 'profile',
+        hasAvatar: !!p.profile_avatar_url,
+        avatar: p.profile_avatar_url
+      })));
       
       // Show all invitations with their status (pending, accepted, expired, etc.)
       const allInvitations = (invitedPeople || []);
@@ -1924,28 +1953,46 @@ Let's begin with your Solar Business Setup! ☀️`;
                              person.status === 'accepted' ? '✅' : 
                              person.status === 'cancelled' ? '❌' : '📧'}
                           </span>
-                        ) : person.profile_avatar_url ? (
-                          <img 
-                            src={person.profile_avatar_url} 
-                            alt={person.full_name} 
-                            className="w-full h-full object-cover rounded-full"
-                            onLoad={() => {
-                              console.log('✅ Image loaded successfully:', person.profile_avatar_url);
-                            }}
-                            onError={(e) => {
-                              console.error('❌ Image failed to load:', person.profile_avatar_url);
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const fallback = target.parentElement?.querySelector('.person-fallback') as HTMLElement;
-                              if (fallback) fallback.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div className="person-fallback w-full h-full bg-gray-600 flex items-center justify-center absolute inset-0" style={{ display: person.profile_avatar_url ? 'none' : 'flex' }}>
-                          <span className="text-white text-sm font-medium">
-                            {person.full_name?.charAt(0) || 'U'}
-                          </span>
-                        </div>
+                        ) : (
+                          <>
+                            {/* Debug: Always show what we're checking */}
+                            {console.log('🔍 Rendering person:', { 
+                              name: person.full_name, 
+                              type: person.type,
+                              hasAvatar: !!person.profile_avatar_url,
+                              avatarUrl: person.profile_avatar_url 
+                            })}
+                            
+                            {person.profile_avatar_url && person.type !== 'invitation' ? (
+                              <img 
+                                src={person.profile_avatar_url} 
+                                alt={person.full_name} 
+                                className="w-full h-full object-cover rounded-full absolute inset-0"
+                                onLoad={() => {
+                                  console.log('✅ Image loaded successfully for:', person.full_name, person.profile_avatar_url);
+                                }}
+                                onError={(e) => {
+                                  console.error('❌ Image failed to load for:', person.full_name, person.profile_avatar_url);
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const fallback = target.parentElement?.querySelector('.person-fallback') as HTMLElement;
+                                  if (fallback) {
+                                    fallback.style.display = 'flex';
+                                    console.log('👤 Showing fallback for:', person.full_name);
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            
+                            <div className={`person-fallback w-full h-full bg-gray-600 flex items-center justify-center absolute inset-0 ${
+                              person.profile_avatar_url && person.type !== 'invitation' ? 'hidden' : 'flex'
+                            }`}>
+                              <span className="text-white text-sm font-medium">
+                                {person.full_name?.charAt(0) || 'U'}
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
