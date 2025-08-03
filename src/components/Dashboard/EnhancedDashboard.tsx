@@ -529,6 +529,14 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       
       console.log('People data:', { profiles: connectedPeople?.length, invitations: invitedPeople?.length });
       
+      // Debug: Show actual profile URLs
+      if (connectedPeople && connectedPeople.length > 0) {
+        console.log('Profile URLs found:', connectedPeople.filter(p => p.profile_avatar_url).map(p => ({
+          name: p.full_name,
+          url: p.profile_avatar_url
+        })));
+      }
+      
       // Show all invitations with their status (pending, accepted, expired, etc.)
       const allInvitations = (invitedPeople || []);
       
@@ -1925,6 +1933,14 @@ Let's begin with your Solar Business Setup! ☀️`;
                             src={person.profile_avatar_url} 
                             alt={person.full_name} 
                             className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                            onLoad={() => console.log('✅ Image loaded:', person.profile_avatar_url)}
+                            onError={(e) => {
+                              console.error('❌ Image error:', person.profile_avatar_url);
+                              console.error('Error details:', e);
+                              // Hide image and show fallback
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
                           />
                         ) : (
                           <span className="text-white text-sm font-medium">
@@ -2512,6 +2528,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                           src={person.profile_avatar_url} 
                           alt={person.full_name} 
                           className="w-full h-full object-cover"
+                          crossOrigin="anonymous"
                           onLoad={() => {
                             console.log('✅ Group modal image loaded:', person.profile_avatar_url);
                           }}
