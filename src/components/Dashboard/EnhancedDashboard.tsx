@@ -511,11 +511,10 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       });
       
       // Get connected people from profiles table (includes profile_avatar_url)
+      // For now, let's just get ALL profiles to see what's available
       const { data: connectedPeople, error: connectError } = await supabase
         .from('profiles')
         .select('id, user_id, email, full_name, profile_avatar_url, role, created_at, company_id')
-        .eq('company_id', profile.company_id)
-        .neq('user_id', profile.user_id)  // Exclude current user
         .order('full_name');
         
       if (connectError) {
