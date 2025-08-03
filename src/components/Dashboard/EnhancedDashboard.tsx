@@ -517,7 +517,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       // Get invited people (sent by current user)
       const { data: invitedPeople, error: inviteError } = await supabase
         .from('invitations')
-        .select('recipient_email, status, created_at')
+        .select('token, recipient_email, status, created_at, expires_at')
         .eq('sender_id', profile.user_id)
         .order('created_at', { ascending: false });
         
@@ -525,19 +525,23 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         console.error('Error fetching invited people:', inviteError);
       }
       
-      // Only show pending invitations, not accepted ones (accepted users appear as normal users)
-      const pendingInvitations = (invitedPeople || []).filter(invite => invite.status === 'pending');
+      console.log('📧 Fetched invitations:', invitedPeople);
+      
+      // Show all invitations with their status (pending, accepted, expired, etc.)
+      const allInvitations = (invitedPeople || []);
       
       // Combine and format the data
       const allPeople = [
         ...(connectedPeople || []),
-        ...pendingInvitations.map(invite => ({
-          id: `invite-${invite.recipient_email}`,
-          full_name: invite.recipient_email,
+        ...allInvitations.map(invite => ({
+          id: `invite-${invite.token}`,
+          full_name: invite.recipient_email?.split('@')[0] || 'Invited User',
           email: invite.recipient_email,
           status: invite.status,
           type: 'invitation',
-          created_at: invite.created_at
+          created_at: invite.created_at,
+          expires_at: invite.expires_at,
+          token: invite.token
         }))
       ];
       
