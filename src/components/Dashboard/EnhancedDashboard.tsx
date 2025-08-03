@@ -504,10 +504,16 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     if (!profile) return;
     
     try {
+      console.log('Current user info:', { 
+        user_id: profile.user_id, 
+        company_id: profile.company_id,
+        email: profile.email 
+      });
+      
       // Get connected people from profiles table (includes profile_avatar_url)
       const { data: connectedPeople, error: connectError } = await supabase
         .from('profiles')
-        .select('id, user_id, email, full_name, profile_avatar_url, role, created_at')
+        .select('id, user_id, email, full_name, profile_avatar_url, role, created_at, company_id')
         .eq('company_id', profile.company_id)
         .neq('user_id', profile.user_id)  // Exclude current user
         .order('full_name');
@@ -515,6 +521,22 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       if (connectError) {
         console.error('Error fetching connected people:', connectError);
       }
+      
+      console.log('Query results:', {
+        connectedPeople: connectedPeople?.length || 0,
+        connectError: connectError?.message
+      });
+      
+      // Also check: How many total users are in this company?
+      const { data: allCompanyUsers, error: allUsersError } = await supabase
+        .from('profiles') 
+        .select('id, user_id, email, full_name, company_id')
+        .eq('company_id', profile.company_id);
+        
+      console.log('All users in company:', {
+        total: allCompanyUsers?.length || 0,
+        users: allCompanyUsers?.map(u => ({ name: u.full_name, email: u.email, user_id: u.user_id }))
+      });
       
       // Get invited people (sent by current user)
       const { data: invitedPeople, error: inviteError } = await supabase
