@@ -504,10 +504,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
     if (!profile) return;
     
     try {
-      // Get connected people
+      // Get connected people from profiles table (includes profile_avatar_url)
       const { data: connectedPeople, error: connectError } = await supabase
-        .from('user_connections')
-        .select('*')
+        .from('profiles')
+        .select('id, user_id, email, full_name, profile_avatar_url, role, created_at')
+        .eq('company_id', profile.company_id)
+        .neq('user_id', profile.user_id)  // Exclude current user
         .order('full_name');
         
       if (connectError) {
@@ -1920,16 +1922,29 @@ Let's begin with your Solar Business Setup! ☀️`;
                              person.status === 'accepted' ? '✅' : 
                              person.status === 'cancelled' ? '❌' : '📧'}
                           </span>
-                        ) : person.avatar_url ? (
-                          <img 
-                            src={person.avatar_url} 
-                            alt={person.full_name} 
-                            className="w-full h-full object-cover rounded-full"
-                          />
                         ) : (
-                          <span className="text-white text-sm font-medium">
-                            {person.full_name?.charAt(0) || 'U'}
-                          </span>
+                          <>
+                            {person.profile_avatar_url && (
+                              <img 
+                                src={person.profile_avatar_url} 
+                                alt={person.full_name} 
+                                className="w-full h-full object-cover rounded-full"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const fallback = target.parentElement?.querySelector('.avatar-fallback') as HTMLElement;
+                                  if (fallback) fallback.style.display = 'flex';
+                                }}
+                                onLoad={(e) => {
+                                  const fallback = (e.target as HTMLElement).parentElement?.querySelector('.avatar-fallback') as HTMLElement;
+                                  if (fallback) fallback.style.display = 'none';
+                                }}
+                              />
+                            )}
+                            <span className={`avatar-fallback text-white text-sm font-medium ${person.profile_avatar_url ? 'hidden' : 'flex'} items-center justify-center w-full h-full`}>
+                              {person.full_name?.charAt(0) || 'U'}
+                            </span>
+                          </>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1971,36 +1986,60 @@ Let's begin with your Solar Business Setup! ☀️`;
             )}
             
             {/* Agents List */}
-            {activeSection === 'agents' && agents.map(agent => (
-              <div
-                  key={agent.id}
-                  onClick={() => handleAgentSelect(agent)}
-                  className={`p-2 rounded mb-2 cursor-pointer flex items-center ${
-                    selectedAgent?.id === agent.id ? 'bg-[#2D3B4F]' : 'hover:bg-[#2D3B4F]/50'
-                  }`}
-                >
-                <div className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 border-gray-600">
-                  {agent.id === 'PersonalAssistant' ? (
-                    <img 
-                      src="/seth.JPG" 
-                      alt="Personal Assistant Bot" 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : agent.id === 'SOLAgent' ? (
-                    <img 
-                      src="/avatars/lead-gen-specialist.jpg" 
-                      alt="Solar Sales Specialist" 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-blue-600 flex items-center justify-center">
-                      <Bot size={16} className="text-white" />
+            {activeSection === 'agents' && (
+              <div>
+                {agents.length > 0 ? (
+                  agents.map(agent => (
+                    <div
+                      key={agent.id}
+                      onClick={() => handleAgentSelect(agent)}
+                      className={`p-3 rounded-lg mb-2 cursor-pointer flex items-center transition-all ${
+                        selectedAgent?.id === agent.id ? 'bg-[#2D3B4F]' : 'hover:bg-[#2D3B4F]/50'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full mr-3 overflow-hidden border-2 border-blue-500">
+                        {agent.id === 'PersonalAssistant' ? (
+                          <img 
+                            src="/seth.JPG" 
+                            alt="Personal Assistant Bot" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const fallback = target.parentElement?.querySelector('.agent-fallback') as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : agent.id === 'SOLAgent' ? (
+                          <img 
+                            src="/avatars/lead-gen-specialist.jpg" 
+                            alt="Solar Sales Specialist" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const fallback = target.parentElement?.querySelector('.agent-fallback') as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="agent-fallback w-full h-full bg-blue-600 flex items-center justify-center" style={{ display: agent.id === 'PersonalAssistant' || agent.id === 'SOLAgent' ? 'none' : 'flex' }}>
+                          <Bot size={16} className="text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{agent.name}</p>
+                        <p className="text-xs text-gray-400 truncate">{agent.description || 'AI Assistant'}</p>
+                      </div>
                     </div>
-                  )}
-                </div>
-                <span className="text-sm">{agent.name}</span>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-400 py-4">
+                    No agents available
+                  </div>
+                )}
               </div>
-            ))}
+            )}
             
             {/* Groups List */}
             {activeSection === 'groups' && (
