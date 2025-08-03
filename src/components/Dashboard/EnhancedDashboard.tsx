@@ -1906,16 +1906,16 @@ Let's begin with your Solar Business Setup! ☀️`;
                           : `cursor-pointer hover:bg-[#2D3B4F]/50 ${currentSessionId === person.id ? 'bg-[#2D3B4F]' : ''}`
                       }`}
                     >
-                      <div className={`w-10 h-10 rounded-full mr-3 flex items-center justify-center ${
+                      <div className={`w-10 h-10 rounded-full mr-3 flex items-center justify-center relative overflow-hidden ${
                         person.type === 'invitation' 
                           ? person.status === 'pending' 
                             ? 'bg-yellow-600' 
                             : person.status === 'expired'
                             ? 'bg-red-600'
                             : 'bg-gray-600'
-                          : person.avatar_url 
+                          : person.profile_avatar_url 
                           ? '' 
-                          : 'bg-blue-600'
+                          : 'bg-gray-600'
                       }`}>
                         {person.type === 'invitation' ? (
                           <span className="text-white text-sm">
@@ -1929,7 +1929,11 @@ Let's begin with your Solar Business Setup! ☀️`;
                             src={person.profile_avatar_url} 
                             alt={person.full_name} 
                             className="w-full h-full object-cover rounded-full"
+                            onLoad={() => {
+                              console.log('✅ Image loaded successfully:', person.profile_avatar_url);
+                            }}
                             onError={(e) => {
+                              console.error('❌ Image failed to load:', person.profile_avatar_url);
                               const target = e.target as HTMLImageElement;
                               target.style.display = 'none';
                               const fallback = target.parentElement?.querySelector('.person-fallback') as HTMLElement;
@@ -1937,7 +1941,7 @@ Let's begin with your Solar Business Setup! ☀️`;
                             }}
                           />
                         ) : null}
-                        <div className="person-fallback w-full h-full bg-gray-600 flex items-center justify-center" style={{ display: person.profile_avatar_url ? 'none' : 'flex' }}>
+                        <div className="person-fallback w-full h-full bg-gray-600 flex items-center justify-center absolute inset-0" style={{ display: person.profile_avatar_url ? 'none' : 'flex' }}>
                           <span className="text-white text-sm font-medium">
                             {person.full_name?.charAt(0) || 'U'}
                           </span>
@@ -2523,7 +2527,11 @@ Let's begin with your Solar Business Setup! ☀️`;
                           src={person.profile_avatar_url} 
                           alt={person.full_name} 
                           className="w-full h-full object-cover"
+                          onLoad={() => {
+                            console.log('✅ Group modal image loaded:', person.profile_avatar_url);
+                          }}
                           onError={(e) => {
+                            console.error('❌ Group modal image failed:', person.profile_avatar_url);
                             const target = e.target as HTMLImageElement;
                             target.style.display = 'none';
                             const fallback = target.parentElement?.querySelector('.person-group-fallback') as HTMLElement;
