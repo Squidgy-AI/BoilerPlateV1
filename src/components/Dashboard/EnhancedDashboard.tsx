@@ -1998,10 +1998,10 @@ Let's begin with your Solar Business Setup! ☀️`;
                       }`}
                     >
                       <div className="w-10 h-10 rounded-full mr-3 overflow-hidden border-2 border-blue-500">
-                        {agent.avatar && (
+                        {agent.id === 'PersonalAssistant' ? (
                           <img 
-                            src={agent.avatar} 
-                            alt={agent.name} 
+                            src="/seth.JPG" 
+                            alt="Personal Assistant Bot" 
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
@@ -2010,8 +2010,20 @@ Let's begin with your Solar Business Setup! ☀️`;
                               if (fallback) fallback.style.display = 'flex';
                             }}
                           />
-                        )}
-                        <div className="agent-fallback w-full h-full bg-blue-600 flex items-center justify-center" style={{ display: agent.avatar ? 'none' : 'flex' }}>
+                        ) : agent.id === 'SOLAgent' ? (
+                          <img 
+                            src="/avatars/lead-gen-specialist.jpg" 
+                            alt="Solar Sales Specialist" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const fallback = target.parentElement?.querySelector('.agent-fallback') as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="agent-fallback w-full h-full bg-blue-600 flex items-center justify-center" style={{ display: agent.id === 'PersonalAssistant' || agent.id === 'SOLAgent' ? 'none' : 'flex' }}>
                           <Bot size={16} className="text-white" />
                         </div>
                       </div>
@@ -2541,10 +2553,10 @@ Let's begin with your Solar Business Setup! ☀️`;
                       className="mr-3"
                     />
                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-3 overflow-hidden border border-blue-400">
-                      {agent.avatar && (
+                      {agent.id === 'PersonalAssistant' ? (
                         <img 
-                          src={agent.avatar}
-                          alt={agent.name}
+                          src="/seth.JPG"
+                          alt="Personal Assistant Bot"
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
@@ -2553,8 +2565,20 @@ Let's begin with your Solar Business Setup! ☀️`;
                             if (fallback) fallback.style.display = 'flex';
                           }}
                         />
-                      )}
-                      <div className="agent-group-fallback w-full h-full bg-blue-600 flex items-center justify-center" style={{ display: agent.avatar ? 'none' : 'flex' }}>
+                      ) : agent.id === 'SOLAgent' ? (
+                        <img 
+                          src="/avatars/lead-gen-specialist.jpg"
+                          alt="Solar Sales Specialist"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fallback = target.parentElement?.querySelector('.agent-group-fallback') as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className="agent-group-fallback w-full h-full bg-blue-600 flex items-center justify-center" style={{ display: agent.id === 'PersonalAssistant' || agent.id === 'SOLAgent' ? 'none' : 'flex' }}>
                         <Bot size={12} className="text-white" />
                       </div>
                     </div>
