@@ -528,6 +528,8 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       }
       
       console.log('📧 Fetched invitations:', invitedPeople);
+      console.log('👤 Fetched connected people:', connectedPeople);
+      console.log('🖼️ Profile avatar URLs:', connectedPeople?.map(p => ({ name: p.full_name, avatar: p.profile_avatar_url })));
       
       // Show all invitations with their status (pending, accepted, expired, etc.)
       const allInvitations = (invitedPeople || []);
@@ -1922,30 +1924,24 @@ Let's begin with your Solar Business Setup! ☀️`;
                              person.status === 'accepted' ? '✅' : 
                              person.status === 'cancelled' ? '❌' : '📧'}
                           </span>
-                        ) : (
-                          <>
-                            {person.profile_avatar_url && (
-                              <img 
-                                src={person.profile_avatar_url} 
-                                alt={person.full_name} 
-                                className="w-full h-full object-cover rounded-full"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  const fallback = target.parentElement?.querySelector('.avatar-fallback') as HTMLElement;
-                                  if (fallback) fallback.style.display = 'flex';
-                                }}
-                                onLoad={(e) => {
-                                  const fallback = (e.target as HTMLElement).parentElement?.querySelector('.avatar-fallback') as HTMLElement;
-                                  if (fallback) fallback.style.display = 'none';
-                                }}
-                              />
-                            )}
-                            <span className={`avatar-fallback text-white text-sm font-medium ${person.profile_avatar_url ? 'hidden' : 'flex'} items-center justify-center w-full h-full`}>
-                              {person.full_name?.charAt(0) || 'U'}
-                            </span>
-                          </>
-                        )}
+                        ) : person.profile_avatar_url ? (
+                          <img 
+                            src={person.profile_avatar_url} 
+                            alt={person.full_name} 
+                            className="w-full h-full object-cover rounded-full"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const fallback = target.parentElement?.querySelector('.person-fallback') as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="person-fallback w-full h-full bg-gray-600 flex items-center justify-center" style={{ display: person.profile_avatar_url ? 'none' : 'flex' }}>
+                          <span className="text-white text-sm font-medium">
+                            {person.full_name?.charAt(0) || 'U'}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -2519,12 +2515,30 @@ Let's begin with your Solar Business Setup! ☀️`;
                       type="checkbox" 
                       checked={selectedMembers.includes(person.id)}
                       onChange={() => {}}
-                      className="mr-2"
+                      className="mr-3"
                     />
-                    <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center mr-2">
-                      <span className="text-xs">{person.full_name?.charAt(0) || 'U'}</span>
+                    <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center mr-3 overflow-hidden border border-gray-400">
+                      {person.profile_avatar_url ? (
+                        <img 
+                          src={person.profile_avatar_url} 
+                          alt={person.full_name} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fallback = target.parentElement?.querySelector('.person-group-fallback') as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className="person-group-fallback w-full h-full bg-gray-600 flex items-center justify-center" style={{ display: person.profile_avatar_url ? 'none' : 'flex' }}>
+                        <span className="text-white text-xs font-medium">{person.full_name?.charAt(0) || 'U'}</span>
+                      </div>
                     </div>
-                    <span className="text-sm">{person.full_name}</span>
+                    <div className="flex-1">
+                      <span className="text-sm font-medium text-white">{person.full_name}</span>
+                      <p className="text-xs text-gray-400 truncate">{person.email}</p>
+                    </div>
                   </div>
                 ))}
               </div>
