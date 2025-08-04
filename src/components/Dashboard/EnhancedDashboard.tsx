@@ -517,19 +517,19 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         return;
       }
       
-      // Step 2: Extract recipient_ids (only for accepted invitations that have recipient_id)
-      const recipientIds = invitations
-        ?.filter(inv => inv.recipient_id && inv.status === 'accepted')
-        .map(inv => inv.recipient_id) || [];
+      // Step 2: Get all accepted invitation emails (both with and without recipient_id)
+      const acceptedEmails = invitations
+        ?.filter(inv => inv.status === 'accepted')
+        .map(inv => inv.recipient_email) || [];
       
       let connectedPeople = [];
       
-      // Step 3: If we have recipient_ids, get their profile details
-      if (recipientIds.length > 0) {
+      // Step 3: Get profile details for accepted invitation recipients by email
+      if (acceptedEmails.length > 0) {
         const { data: profiles, error: profileError } = await supabase
           .from('profiles')
           .select('user_id, email, full_name, profile_avatar_url, role, created_at, company_id')
-          .in('user_id', recipientIds)
+          .in('email', acceptedEmails)
           .order('full_name');
           
         if (profileError) {
@@ -549,8 +549,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       
       // Step 4: Format all invitations (both accepted and pending/expired)
       const formattedInvitations = invitations?.map(invite => {
-        const matchingProfile = invite.recipient_id ? 
-          connectedPeople.find(p => p.user_id === invite.recipient_id) : null;
+        const matchingProfile = connectedPeople.find(p => p.email === invite.recipient_email);
           
         const formatted = {
           id: `invite-${invite.token}`,
