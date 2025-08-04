@@ -130,8 +130,35 @@ export class AuthService {
         needsEmailConfirmation: !authData.session
       });
 
-      // Profile will be created by database trigger
-      // Other records (business_profiles, agent) will be created after email confirmation
+      // Create profile immediately after user creation
+      try {
+        console.log('Creating profile for user:', authData.user.email);
+        
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: uuidv4(),
+            user_id: authData.user.id,
+            email: authData.user.email,
+            full_name: userData.fullName.trim(),
+            role: 'member',
+            email_confirmed: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          // Don't fail signup for profile creation errors
+        } else {
+          console.log('Profile created successfully:', profile);
+        }
+      } catch (profileCreationError) {
+        console.error('Error creating profile:', profileCreationError);
+        // Don't fail signup for profile creation errors
+      }
       
       return {
         user: authData.user,
