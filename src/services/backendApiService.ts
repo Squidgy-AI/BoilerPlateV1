@@ -14,6 +14,37 @@ const BACKEND_URL = getBackendUrl();
 console.log('🔧 Backend API Service configured with URL:', BACKEND_URL);
 console.log('🔧 Environment check - NEXT_PUBLIC_API_BASE:', process.env.NEXT_PUBLIC_API_BASE);
 
+// Default timeout and retry configuration
+const DEFAULT_TIMEOUT = 15000; // 15 seconds
+const DEFAULT_RETRY_DELAY = 1000; // 1 second
+
+// Create AbortController with timeout
+const createTimeoutController = (timeoutMs: number = DEFAULT_TIMEOUT) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { controller, timeoutId };
+};
+
+// Enhanced fetch with timeout and retry logic
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeoutMs: number = DEFAULT_TIMEOUT) => {
+  const { controller, timeoutId } = createTimeoutController(timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+};
+
 export interface BackendAgent {
   firm_user_id: string;
   agent_id: string;
@@ -48,12 +79,12 @@ export const getUserAgentsFromBackend = async (userId: string): Promise<BackendA
   try {
     console.log('🔍 Getting user agents from backend for user:', userId);
     
-    const response = await fetch(`${BACKEND_URL}/api/agents/setup/${userId}`, {
+    const response = await fetchWithTimeout(`${BACKEND_URL}/api/agents/setup/${userId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-    });
+    }, 10000); // 10 second timeout for GET requests
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -85,12 +116,12 @@ export const getAgentSetupFromBackend = async (userId: string, agentId: string, 
       url += `?setup_type=${encodeURIComponent(setupType)}`;
     }
     
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-    });
+    }, 10000); // 10 second timeout for GET requests
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -117,13 +148,13 @@ export const createOrUpdateAgentSetup = async (request: AgentSetupRequest): Prom
   try {
     console.log('🔄 Creating/updating agent setup via backend:', request);
     
-    const response = await fetch(`${BACKEND_URL}/api/agents/setup`, {
+    const response = await fetchWithTimeout(`${BACKEND_URL}/api/agents/setup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(request),
-    });
+    }, 15000); // 15 second timeout for POST requests
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -150,13 +181,13 @@ export const updateAgentStatusViaBackend = async (request: AgentStatusRequest): 
   try {
     console.log('🔄 Updating agent status via backend:', request);
     
-    const response = await fetch(`${BACKEND_URL}/api/agents/status`, {
+    const response = await fetchWithTimeout(`${BACKEND_URL}/api/agents/status`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(request),
-    });
+    }, 15000); // 15 second timeout for POST requests
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -183,12 +214,12 @@ export const deleteAgentSetupViaBackend = async (userId: string, agentId: string
   try {
     console.log('🗑️ Deleting agent setup via backend:', { userId, agentId });
     
-    const response = await fetch(`${BACKEND_URL}/api/agents/setup/${userId}/${agentId}`, {
+    const response = await fetchWithTimeout(`${BACKEND_URL}/api/agents/setup/${userId}/${agentId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
       },
-    });
+    }, 10000); // 10 second timeout for DELETE requests
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
