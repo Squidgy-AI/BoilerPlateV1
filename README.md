@@ -1,3 +1,4 @@
+## make chnages here for redeploy
 # Squidgy Frontend
  
 This is the frontend for the Squidgy application, a collaborative agent platform for business teams.
