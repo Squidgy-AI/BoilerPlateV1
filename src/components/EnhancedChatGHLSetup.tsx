@@ -456,7 +456,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     
     const backendUrl = process.env.NODE_ENV === 'production' 
       ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
-      : 'http://127.0.0.1:8010';
+      : 'http://127.0.0.1:8000';
     
     // Get user_id from profiles table for Facebook automation
     const userIdResult = await getUserId();
