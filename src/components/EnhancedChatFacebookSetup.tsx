@@ -83,7 +83,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
           .select('setup_json')
           .eq('firm_user_id', userIdResult.user_id)
           .eq('agent_id', 'SOLAgent')
-          .eq('setup_type', 'FacebookSetup')
+          .eq('setup_type', 'FacebookIntegration')
           .single();
 
         if (error) {
@@ -501,7 +501,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         firm_user_id: userIdResult.user_id,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
-        setup_type: 'FacebookSetup',
+        setup_type: 'FacebookIntegration',
         setup_json: config,
         is_enabled: true,
         session_id: sessionId && sessionId.includes('_') ? null : sessionId,
@@ -647,12 +647,12 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
             
             <div className="max-h-48 overflow-y-auto space-y-2 border border-gray-200 rounded-lg p-3">
               {facebookPages.map((page, index) => (
-                <label key={page.facebookPageId || index} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                <label key={page.page_id || page.facebookPageId || index} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={selectedPageIds.includes(page.facebookPageId || page.id)}
+                    checked={selectedPageIds.includes(page.page_id || page.facebookPageId || page.id)}
                     onChange={(e) => {
-                      const pageId = page.facebookPageId || page.id;
+                      const pageId = page.page_id || page.facebookPageId || page.id;
                       if (e.target.checked) {
                         setSelectedPageIds([...selectedPageIds, pageId]);
                       } else {
@@ -663,9 +663,9 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
                   />
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">
-                      {page.facebookPageName || page.name || `Page ${index + 1}`}
+                      {page.page_name || page.facebookPageName || page.name || `Page ${index + 1}`}
                     </p>
-                    {page.isInstagramAvailable && (
+                    {(page.instagram_available || page.isInstagramAvailable) && (
                       <p className="text-xs text-gray-500">Instagram available</p>
                     )}
                   </div>
