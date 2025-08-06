@@ -53,6 +53,8 @@ interface LogoState {
   userApprovedFavicon: boolean | null;
   uploadedLogoUrl: string | null;
   showLogoUpload: boolean;
+  newCapturedLogoUrl: string | null;  // New logo captured but not yet approved
+  showReplaceConfirmation: boolean;   // Show replace confirmation UI
 }
 
 interface FormErrors {
@@ -105,7 +107,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     faviconStatus: 'not_found',
     userApprovedFavicon: null,
     uploadedLogoUrl: null,
-    showLogoUpload: false
+    showLogoUpload: false,
+    newCapturedLogoUrl: null,
+    showReplaceConfirmation: false
   });
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -578,20 +582,39 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     }
   };
 
+  // Track processed URLs to prevent duplicate API calls
+  const [processedUrls, setProcessedUrls] = useState<Set<string>>(new Set());
+  const [faviconTimeout, setFaviconTimeout] = useState<NodeJS.Timeout | null>(null);
+
   const handleInputChange = (field: keyof GHLFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (formErrors[field]) {
       setFormErrors(prev => ({ ...prev, [field]: '' }));
     }
-    
-    // Auto-capture favicon when website URL is entered
-    if (field === 'website' && value && value.startsWith('http')) {
-      captureFavicon(value);
+  };
+
+  const handleCaptureFaviconClick = () => {
+    const websiteUrl = formData.website;
+    if (!websiteUrl || !websiteUrl.startsWith('http')) {
+      addMessage('bot', '⚠️ Please enter a valid website URL (starting with http:// or https://) first.');
+      return;
     }
+    
+    // Always allow manual capture - user might want to refresh/update the logo
+    captureFavicon(websiteUrl);
+    setProcessedUrls(prev => new Set([...prev, websiteUrl]));
   };
 
   const captureFavicon = async (websiteUrl: string) => {
-    setLogoState(prev => ({ ...prev, faviconStatus: 'loading' }));
+    console.log(`🔍 Capturing favicon and screenshot for: ${websiteUrl}`);
+    
+    // Reset logo state to force refresh
+    setLogoState(prev => ({
+      ...prev,
+      faviconUrl: null,
+      faviconStatus: 'loading',
+      userApprovedFavicon: null
+    }));
     
     try {
       const userIdResult = await getUserId();
@@ -603,6 +626,9 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
         : 'http://localhost:8000';
 
+      // Add timestamp to prevent caching issues
+      const timestamp = Date.now();
+
       // Capture both favicon and screenshot in parallel
       const [faviconResponse, screenshotResponse] = await Promise.all([
         fetch(`${backendUrl}/api/website/favicon`, {
@@ -613,7 +639,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           body: JSON.stringify({
             url: websiteUrl,
             session_id: sessionId,
-            user_id: userIdResult.user_id  // Add user_id for database storage
+            user_id: userIdResult.user_id,
+            timestamp: timestamp  // Add timestamp to ensure fresh request
           })
         }),
         fetch(`${backendUrl}/api/website/screenshot`, {
@@ -624,7 +651,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
           body: JSON.stringify({
             url: websiteUrl,
             session_id: sessionId,
-            user_id: userIdResult.user_id  // Add user_id for database storage
+            user_id: userIdResult.user_id,
+            timestamp: timestamp  // Add timestamp to ensure fresh request
           })
         })
       ]);
@@ -634,18 +662,43 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         screenshotResponse.json()
       ]);
       
+      console.log('Favicon result:', faviconResult);
+      
       if (faviconResult.status === 'success' && faviconResult.favicon_url) {
-        setLogoState(prev => ({
-          ...prev,
-          faviconUrl: faviconResult.favicon_url,
-          faviconStatus: 'found'
-        }));
-        addMessage('bot', '🎨 Found your website logo! Please check if this looks good for your business.');
+        // Add timestamp to favicon URL to force browser refresh
+        const faviconUrlWithTimestamp = `${faviconResult.favicon_url}?t=${timestamp}`;
+        
+        // Check if we already have a logo (either favicon or uploaded)
+        const hasExistingLogo = logoState.faviconUrl || logoState.uploadedLogoUrl;
+        
+        if (hasExistingLogo) {
+          // Show new logo below current one and ask for confirmation
+          setLogoState(prev => ({
+            ...prev,
+            newCapturedLogoUrl: faviconUrlWithTimestamp,
+            showReplaceConfirmation: true,
+            faviconStatus: 'found'
+          }));
+          addMessage('bot', '🎨 Found a new logo from your website! Please review it below and decide if you want to replace your current logo.');
+        } else {
+          // No existing logo, use the new one directly
+          setLogoState(prev => ({
+            ...prev,
+            faviconUrl: faviconUrlWithTimestamp,
+            faviconStatus: 'found',
+            userApprovedFavicon: null,
+            newCapturedLogoUrl: null,
+            showReplaceConfirmation: false
+          }));
+          addMessage('bot', '🎨 Found your website logo! Please check if this looks good for your business.');
+        }
       } else {
         setLogoState(prev => ({
           ...prev,
           faviconStatus: 'not_found',
-          showLogoUpload: true
+          showLogoUpload: true,
+          newCapturedLogoUrl: null,
+          showReplaceConfirmation: false
         }));
         addMessage('bot', '📷 Could not find a logo on your website. You can upload your business logo below.');
       }
@@ -653,6 +706,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       console.error('Error capturing favicon:', error);
       setLogoState(prev => ({
         ...prev,
+        faviconUrl: null,
         faviconStatus: 'error',
         showLogoUpload: true
       }));
@@ -671,6 +725,29 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       addMessage('bot', '✅ Great! We\'ll use your website logo.');
     } else {
       addMessage('bot', '📁 Please upload your business logo below.');
+    }
+  };
+
+  const handleLogoReplacement = (replace: boolean) => {
+    if (replace) {
+      // Replace current logo with the newly captured one
+      setLogoState(prev => ({
+        ...prev,
+        faviconUrl: prev.newCapturedLogoUrl,
+        uploadedLogoUrl: null, // Clear uploaded logo if replacing with favicon
+        userApprovedFavicon: null,
+        newCapturedLogoUrl: null,
+        showReplaceConfirmation: false
+      }));
+      addMessage('bot', '✅ Logo updated! Your new website logo is now being used.');
+    } else {
+      // Keep current logo, discard the newly captured one
+      setLogoState(prev => ({
+        ...prev,
+        newCapturedLogoUrl: null,
+        showReplaceConfirmation: false
+      }));
+      addMessage('bot', '👍 Keeping your current logo. The new one has been discarded.');
     }
   };
 
@@ -978,15 +1055,42 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Website (Optional)</label>
-                <input
-                  type="url"
-                  value={formData.website}
-                  onChange={(e) => handleInputChange('website', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
-                  placeholder="Enter your website URL"
-                />
+                <div className="space-y-2">
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => handleInputChange('website', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900"
+                    placeholder="Enter your website URL"
+                  />
+                  {formData.website && formData.website.startsWith('http') && (
+                    <button
+                      type="button"
+                      onClick={handleCaptureFaviconClick}
+                      disabled={logoState.faviconStatus === 'loading'}
+                      className="w-full flex items-center justify-center space-x-2 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {logoState.faviconStatus === 'loading' ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Capturing Logo & Screenshot...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>Capture Logo & Screenshot</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
-
+              
               {/* Business Logo Section */}
               <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">Business Logo</h4>
@@ -1036,6 +1140,53 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
                           >
                             ❌ No, upload different
                           </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Show newly captured logo for replacement confirmation */}
+                    {logoState.showReplaceConfirmation && logoState.newCapturedLogoUrl && (
+                      <div className="space-y-3 p-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                        <h5 className="text-sm font-medium text-blue-800">New Logo Found</h5>
+                        
+                        {/* New Logo Display */}
+                        <div className="flex items-center space-x-4 p-3 bg-white border rounded-lg">
+                          <img 
+                            src={logoState.newCapturedLogoUrl} 
+                            alt="New captured logo" 
+                            className="w-16 h-16 object-contain border rounded-lg bg-gray-50 p-2"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-800">New Website Logo</p>
+                            <p className="text-xs text-gray-600">Recently captured from your website</p>
+                          </div>
+                          <div className="text-blue-600">
+                            <AlertCircle className="w-5 h-5" />
+                          </div>
+                        </div>
+                        
+                        {/* Replacement confirmation */}
+                        <div className="space-y-2">
+                          <p className="text-sm text-gray-700 font-medium">Do you want to replace your current logo with this new one?</p>
+                          <div className="flex space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => handleLogoReplacement(true)}
+                              className="px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                            >
+                              ✅ Yes, replace current logo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleLogoReplacement(false)}
+                              className="px-4 py-2 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 transition-colors"
+                            >
+                              ❌ No, keep current logo
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
