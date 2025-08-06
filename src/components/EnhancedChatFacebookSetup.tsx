@@ -83,7 +83,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
           .select('setup_json')
           .eq('firm_user_id', userIdResult.user_id)
           .eq('agent_id', 'SOLAgent')
-          .eq('setup_type', 'FacebookSetup')
+          .eq('setup_type', 'FacebookIntegration')
           .single();
 
         if (error) {
@@ -501,7 +501,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         firm_user_id: userIdResult.user_id,
         agent_id: 'SOLAgent',
         agent_name: 'Solar Sales Specialist',
-        setup_type: 'FacebookSetup',
+        setup_type: 'FacebookIntegration',
         setup_json: config,
         is_enabled: true,
         session_id: sessionId && sessionId.includes('_') ? null : sessionId,
