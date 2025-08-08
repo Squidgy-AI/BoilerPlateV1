@@ -42,3 +42,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+Code/squidgy-frontend/.next/*
+Code/testing files/__pycache__
+Code/testing files/node_modules
+Code/testing files/heygen_sessions.log
+

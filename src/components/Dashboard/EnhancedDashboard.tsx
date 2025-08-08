@@ -250,11 +250,12 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       // Initialize PersonalAssistant (always available)
       await initializePersonalAssistant();
       
-      // Load all agents and enabled agents
-      const [allUserAgents, enabledAgents] = await Promise.all([
-        getUserAgents(),
-        getEnabledAgents()
-      ]);
+      // Load all agents once and filter locally for enabled agents
+      console.log('🔄 Loading agents from database (single call)...');
+      const allUserAgents = await getUserAgents();
+      const enabledAgents = allUserAgents.filter(agent => agent.enabled);
+      
+      console.log('✅ Agent loading optimized - single API call made');
       
       console.log('🔍 Agent loading debug:');
       console.log('Current user:', profile?.user_id);

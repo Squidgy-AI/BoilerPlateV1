@@ -22,6 +22,51 @@ export interface Agent {
   updated_at?: string;
 }
 
+// Global request deduplication and caching
+let userAgentsCache: Agent[] | null = null;
+let userAgentsCacheExpiry: number = 0;
+let pendingUserAgentsRequest: Promise<Agent[]> | null = null;
+let requestCounter = 0;
+const CACHE_DURATION = 30000; // 30 seconds
+const REQUEST_DEBOUNCE_TIME = 100; // 100ms debounce
+
+// Track active requests to prevent duplicates
+const activeRequests = new Set<string>();
+
+// Track initialization requests to prevent duplicates (session-aware)
+let personalAssistantInitializing = false;
+let personalAssistantInitialized = false;
+let currentUserId: string | null = null;
+
+// Debounce helper for request deduplication
+const debounceRequest = (key: string, fn: () => Promise<any>, delay: number = REQUEST_DEBOUNCE_TIME): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    if (activeRequests.has(key)) {
+      console.log(`🚫 Request ${key} already active, skipping duplicate`);
+      // Wait for the active request to complete
+      const checkInterval = setInterval(() => {
+        if (!activeRequests.has(key)) {
+          clearInterval(checkInterval);
+          resolve(userAgentsCache || []);
+        }
+      }, 10);
+      return;
+    }
+    
+    activeRequests.add(key);
+    setTimeout(async () => {
+      try {
+        const result = await fn();
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      } finally {
+        activeRequests.delete(key);
+      }
+    }, delay);
+  });
+};
+
 // Default agent configurations
 const DEFAULT_AGENTS = [
   {
@@ -39,62 +84,115 @@ const DEFAULT_AGENTS = [
 ];
 
 /**
- * Get all agents for the current user via backend API
+ * Get all agents for the current user via backend API with enhanced deduplication and caching
  */
 export const getUserAgents = async (): Promise<Agent[]> => {
+  const requestId = ++requestCounter;
+  const requestKey = 'getUserAgents';
+  
+  console.log(`🔍 getUserAgents called (request #${requestId})`);
+  
   try {
-    const userIdResult = await getUserId();
-    if (!userIdResult.success || !userIdResult.user_id) {
-      console.error('Failed to get user ID:', userIdResult.error);
-      return [];
+    // Check if we have a valid cache
+    const now = Date.now();
+    if (userAgentsCache && now < userAgentsCacheExpiry) {
+      console.log(`🎯 getUserAgents #${requestId}: Returning cached data`);
+      return userAgentsCache;
     }
 
-    console.log('🔍 getUserAgents: Fetching from backend for user:', userIdResult.user_id);
-
-    // Get all setup records from backend API
-    const backendAgents = await getUserAgentsFromBackend(userIdResult.user_id);
-    
-    console.log('📊 Total backend records:', backendAgents.length);
-
-    // FILTER: Only include actual agents with setup_type = 'agent_config'
-    // Exclude setup data records like 'SolarSetup', 'CalendarSetup', 'NotificationSetup'
-    const agentRecords = backendAgents.filter((record: any) => {
-      const hasSetupType = record.setup_type === 'agent_config';
-      console.log(`🔍 Record ${record.agent_id}: setup_type=${record.setup_type}, filtered=${hasSetupType ? 'INCLUDE' : 'EXCLUDE'}`);
-      return hasSetupType;
+    // Use debounced request to prevent duplicates
+    return await debounceRequest(requestKey, async () => {
+      console.log(`🚀 getUserAgents #${requestId}: Making API call`);
+      
+      // Double-check cache after debounce delay
+      const nowAfterDelay = Date.now();
+      if (userAgentsCache && nowAfterDelay < userAgentsCacheExpiry) {
+        console.log(`🎯 getUserAgents #${requestId}: Cache populated during debounce`);
+        return userAgentsCache;
+      }
+      
+      const result = await fetchUserAgentsFromBackend();
+      
+      // Cache the result
+      userAgentsCache = result;
+      userAgentsCacheExpiry = nowAfterDelay + CACHE_DURATION;
+      
+      console.log(`✅ getUserAgents #${requestId}: Cached new data for 30 seconds`);
+      return result;
     });
-
-    console.log('🎯 Filtered to actual agents only:', agentRecords.length);
-
-    // Map filtered backend records to Agent interface
-    const agents: Agent[] = agentRecords.map((record: BackendAgent) => {
-      const defaultAgent = DEFAULT_AGENTS.find(a => a.id === record.agent_id);
-      return {
-        id: record.agent_id,
-        name: record.agent_name,
-        avatar: defaultAgent?.avatar || 'Bot',
-        description: defaultAgent?.description || 'AI Assistant',
-        enabled: record.is_enabled,
-        setup_json: record.setup_json,
-        created_at: record.created_at,
-        updated_at: record.updated_at
-      };
-    });
-
-    console.log('✅ Successfully mapped agents:', agents.length);
-    return agents;
   } catch (error) {
-    console.error('Error in getUserAgents:', error);
+    console.error(`❌ getUserAgents #${requestId} error:`, error);
     return [];
   }
 };
 
 /**
+ * Internal function to fetch user agents from backend (extracted for deduplication)
+ */
+const fetchUserAgentsFromBackend = async (): Promise<Agent[]> => {
+  const userIdResult = await getUserId();
+  if (!userIdResult.success || !userIdResult.user_id) {
+    console.error('Failed to get user ID:', userIdResult.error);
+    return [];
+  }
+
+  console.log('🔍 fetchUserAgentsFromBackend: Fetching from backend for user:', userIdResult.user_id);
+
+  // Get all setup records from backend API
+  const backendAgents = await getUserAgentsFromBackend(userIdResult.user_id);
+  
+  console.log('📊 Total backend records:', backendAgents.length);
+
+  // FILTER: Only include actual agents with setup_type = 'agent_config'
+  // Exclude setup data records like 'SolarSetup', 'CalendarSetup', 'NotificationSetup'
+  const agentRecords = backendAgents.filter((record: any) => {
+    const hasSetupType = record.setup_type === 'agent_config';
+    console.log(`🔍 Record ${record.agent_id}: setup_type=${record.setup_type}, filtered=${hasSetupType ? 'INCLUDE' : 'EXCLUDE'}`);
+    return hasSetupType;
+  });
+
+  console.log('🎯 Filtered to actual agents only:', agentRecords.length);
+
+  // Map filtered backend records to Agent interface
+  const agents: Agent[] = agentRecords.map((record: BackendAgent) => {
+    const defaultAgent = DEFAULT_AGENTS.find(a => a.id === record.agent_id);
+    return {
+      id: record.agent_id,
+      name: record.agent_name,
+      avatar: defaultAgent?.avatar || 'Bot',
+      description: defaultAgent?.description || 'AI Assistant',
+      enabled: record.is_enabled,
+      setup_json: record.setup_json,
+      created_at: record.created_at,
+      updated_at: record.updated_at
+    };
+  });
+
+  console.log('✅ Successfully mapped agents:', agents.length);
+  return agents;
+};
+
+/**
  * Get only enabled agents for the current user
+ * Uses cached data from getUserAgents to avoid duplicate API calls
  */
 export const getEnabledAgents = async (): Promise<Agent[]> => {
+  const requestId = ++requestCounter;
+  console.log(`🔍 getEnabledAgents called (request #${requestId})`);
+  
+  // Check if we have valid cached data first
+  const now = Date.now();
+  if (userAgentsCache && now < userAgentsCacheExpiry) {
+    console.log(`🎯 getEnabledAgents #${requestId}: Using cached data for filtering`);
+    return userAgentsCache.filter(agent => agent.enabled);
+  }
+  
+  // If no cache, get all agents (this will use the debounced request system)
+  console.log(`🔄 getEnabledAgents #${requestId}: Calling getUserAgents for fresh data`);
   const allAgents = await getUserAgents();
-  return allAgents.filter(agent => agent.enabled);
+  const enabledAgents = allAgents.filter(agent => agent.enabled);
+  console.log(`✅ getEnabledAgents #${requestId}: Filtered ${enabledAgents.length} enabled from ${allAgents.length} total`);
+  return enabledAgents;
 };
 
 /**
@@ -261,23 +359,55 @@ export const getAgentSetup = async (agentId: string, setupType?: string): Promis
 };
 
 /**
- * Initialize PersonalAssistant for a user (always available)
+ * Initialize PersonalAssistant for a user (always available) with smart deduplication
  */
 export const initializePersonalAssistant = async (): Promise<boolean> => {
+  const requestId = ++requestCounter;
+  console.log(`🔍 initializePersonalAssistant called (request #${requestId})`);
+  
   try {
     const userIdResult = await getUserId();
     if (!userIdResult.success || !userIdResult.user_id) {
-      console.error('Failed to get user ID:', userIdResult.error);
+      console.error(`❌ initializePersonalAssistant #${requestId}: Failed to get user ID:`, userIdResult.error);
       return false;
     }
 
-    console.log('🔄 Initializing PersonalAssistant for user:', userIdResult.user_id);
+    // Reset initialization state if user changed
+    if (currentUserId !== userIdResult.user_id) {
+      console.log(`🔄 initializePersonalAssistant #${requestId}: New user detected, resetting initialization state`);
+      personalAssistantInitialized = false;
+      personalAssistantInitializing = false;
+      currentUserId = userIdResult.user_id;
+    }
+    
+    // Check if already initialized for this user
+    if (personalAssistantInitialized) {
+      console.log(`🎯 initializePersonalAssistant #${requestId}: Already initialized for this user, skipping`);
+      return true;
+    }
+    
+    // Check if currently initializing for this user
+    if (personalAssistantInitializing) {
+      console.log(`🔄 initializePersonalAssistant #${requestId}: Already initializing for this user, waiting...`);
+      // Wait for the current initialization to complete (max 10 seconds)
+      let waitTime = 0;
+      while (personalAssistantInitializing && waitTime < 10000) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        waitTime += 100;
+      }
+      return personalAssistantInitialized;
+    }
+    
+    personalAssistantInitializing = true;
+    console.log(`🚀 initializePersonalAssistant #${requestId}: Starting initialization for user:`, userIdResult.user_id);
 
     // Check if PersonalAssistant already exists
     const existingAgent = await getAgentSetupFromBackend(userIdResult.user_id, 'PersonalAssistant', 'agent_config');
     
     if (existingAgent) {
-      console.log('ℹ️ PersonalAssistant already exists - SKIPPING');
+      console.log(`ℹ️ initializePersonalAssistant #${requestId}: PersonalAssistant already exists - SKIPPING`);
+      personalAssistantInitialized = true;
+      personalAssistantInitializing = false;
       return true;
     }
     
@@ -295,14 +425,18 @@ export const initializePersonalAssistant = async (): Promise<boolean> => {
     });
     
     if (result) {
-      console.log('✅ PersonalAssistant initialized successfully');
+      console.log(`✅ initializePersonalAssistant #${requestId}: PersonalAssistant initialized successfully`);
+      personalAssistantInitialized = true;
+      personalAssistantInitializing = false;
       return true;
     } else {
-      console.error('❌ Failed to initialize PersonalAssistant');
+      console.error(`❌ initializePersonalAssistant #${requestId}: Failed to initialize PersonalAssistant`);
+      personalAssistantInitializing = false;
       return false;
     }
   } catch (error) {
-    console.error('Error initializing PersonalAssistant:', error);
+    console.error(`❌ initializePersonalAssistant #${requestId} error:`, error);
+    personalAssistantInitializing = false;
     return false;
   }
 };
