@@ -53,6 +53,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const [ghlCredentials, setGhlCredentials] = useState<{location_id: string, user_id: string, user_name: string, user_email: string, ghl_automation_email?: string, ghl_automation_password?: string} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  
+  // Check Facebook unlock status
+  const { status: facebookUnlockStatus } = useFacebookUnlockStatus(userId || undefined);
   
   // Store form data for each step to allow navigation
   const [formData, setFormData] = useState({
@@ -88,6 +92,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         setIsLoading(false);
         return;
       }
+      
+      // Set userId for Facebook unlock status hook
+      setUserId(userIdResult.user_id);
 
       console.log('🔍 Loading setup progress from database for user:', userIdResult.user_id);
 
@@ -163,7 +170,12 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       } else if (!notificationsCompleted) {
         setCurrentStage('notifications');
       } else if (!facebookCompleted) {
-        setCurrentStage('facebook');
+        // Only go to Facebook stage if it's unlocked
+        if (facebookUnlockStatus?.facebook_unlocked) {
+          setCurrentStage('facebook');
+        } else {
+          setCurrentStage('notifications'); // Stay on notifications if Facebook is locked
+        }
       } else {
         setCurrentStage('complete');
       }
@@ -394,7 +406,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       if (targetStage === 'solar' && progress.ghl_completed) return true;
       if (targetStage === 'calendar' && progress.solar_completed) return true;
       if (targetStage === 'notifications' && progress.calendar_completed) return true;
-      if (targetStage === 'facebook' && progress.notifications_completed) return true;
+      if (targetStage === 'facebook' && progress.notifications_completed) {
+        // Check if Facebook is unlocked
+        return facebookUnlockStatus?.facebook_unlocked || false;
+      }
     }
     
     return false;
@@ -553,10 +568,14 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         <button
           onClick={() => navigateToStep('facebook')}
           disabled={!canNavigateToStep('facebook')}
-          title={progress.facebook_completed ? "✅ Completed - Click to edit" : currentStage === 'facebook' ? "Current step" : "Not yet available"}
+          title={progress.facebook_completed ? "✅ Completed - Click to edit" : 
+                currentStage === 'facebook' ? "Current step" : 
+                !facebookUnlockStatus?.facebook_unlocked ? `🔒 Locked: ${facebookUnlockStatus?.message || 'Complete business setup to unlock'}` :
+                "Available to configure"}
           className={`relative flex flex-col items-center text-xs transition-all ${
             progress.facebook_completed ? 'text-green-600 hover:text-green-700' : 
             currentStage === 'facebook' ? 'text-blue-600' : 
+            facebookUnlockStatus?.facebook_unlocked ? 'text-blue-500' :
             'text-gray-400'
           } ${canNavigateToStep('facebook') ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed opacity-50'}`}
         >
@@ -565,8 +584,25 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
               <CheckCircle size={16} />
               <Edit3 size={8} className="absolute -top-1 -right-1 text-green-500 bg-white rounded-full" />
             </div>
-          ) : <Clock size={16} />}
+          ) : facebookUnlockStatus?.facebook_unlocked ? (
+            <div className="relative">
+              <Clock size={16} />
+              {facebookUnlockStatus.time_remaining && facebookUnlockStatus.time_remaining <= 10 && (
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              )}
+            </div>
+          ) : (
+            <div className="relative">
+              <Lock size={16} />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+            </div>
+          )}
           <span className="mt-1 font-medium">Facebook</span>
+          {facebookUnlockStatus?.facebook_unlocked && facebookUnlockStatus.time_remaining && (
+            <span className="text-xs text-orange-600 font-mono">
+              {facebookUnlockStatus.time_remaining}m
+            </span>
+          )}
         </button>
       </div>
       
@@ -585,6 +621,22 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           }}
         />
       </div>
+      
+      {/* Facebook Unlock Status Indicator */}
+      {(currentStage === 'facebook' || (currentStage === 'notifications' && progress.notifications_completed)) && (
+        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <FacebookUnlockTimer 
+            firmUserId={userId || undefined}
+            onUnlockStatusChange={(unlocked) => {
+              // Force re-render when unlock status changes
+              if (!unlocked && currentStage === 'facebook') {
+                // If Facebook gets locked while user is on Facebook step, go back to notifications
+                setCurrentStage('notifications');
+              }
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 
