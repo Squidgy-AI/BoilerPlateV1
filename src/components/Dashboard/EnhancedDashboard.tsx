@@ -1711,14 +1711,8 @@ Let's begin with your Solar Business Setup! ☀️`;
     console.log('🌞 Progressive Solar Sales Specialist setup completed');
     setShowSOLSetup(false);
     
-    // Add completion message to SOL Agent chat
-    if (selectedAgent?.id === 'SOLAgent') {
-      addMessage({
-        sender: 'agent',
-        text: '🎉 Perfect! Your solar business configuration is now complete. I\'m fully ready to help you with customer consultations, pricing calculations, and closing solar deals. You can always update these settings later. Let\'s start helping your customers go solar! ☀️',
-        timestamp: new Date().toISOString()
-      });
-    }
+    // Note: Completion message is already added by ProgressiveSOLSetup component
+    // No need to add duplicate message here
   };
 
   const handleProgressiveSetupSkip = () => {
