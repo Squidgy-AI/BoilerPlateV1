@@ -2,10 +2,12 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Facebook, ExternalLink, CheckCircle } from 'lucide-react';
+import { Facebook, ExternalLink, CheckCircle, Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
 import { getGHLCredentials } from '@/utils/getGHLCredentials';
+import FacebookUnlockTimer from './FacebookUnlockTimer';
+import { useFacebookUnlockStatus } from '@/hooks/useFacebookUnlockStatus';
 
 interface EnhancedChatFacebookSetupProps {
   onConfigurationComplete: (config: FacebookIntegrationConfig) => void;
@@ -49,6 +51,10 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   const [isSaving, setSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [facebookUnlocked, setFacebookUnlocked] = useState(false);
+  
+  // Check Facebook unlock status
+  const { status: unlockStatus } = useFacebookUnlockStatus(userId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [generatedOAuthUrl, setGeneratedOAuthUrl] = useState<string | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<'idle' | 'step1_oauth' | 'step2_getting_pages' | 'step3_selecting_pages' | 'completed'>('idle');
@@ -541,6 +547,90 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     );
   }
 
+  // Show locked state if Facebook is not unlocked
+  if (unlockStatus && !unlockStatus.facebook_unlocked) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center">
+              <Lock className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Facebook Integration</h3>
+              <p className="text-sm text-gray-500">Locked - Complete business setup first</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Locked Content */}
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center max-w-md">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Lock className="w-10 h-10 text-gray-400" />
+            </div>
+            
+            <h4 className="text-xl font-semibold text-gray-900 mb-4">
+              Facebook Integration Locked
+            </h4>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <FacebookUnlockTimer 
+                firmUserId={userId}
+                onUnlockStatusChange={setFacebookUnlocked}
+              />
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              {unlockStatus.message}
+            </p>
+            
+            {unlockStatus.reason === 'no_business_setup' && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left">
+                <h5 className="font-semibold text-yellow-800 mb-2">To unlock Facebook integration:</h5>
+                <ol className="list-decimal list-inside text-yellow-700 space-y-1 text-sm">
+                  <li>Complete your business setup form</li>
+                  <li>Wait for automation to complete</li>
+                  <li>Facebook integration will unlock for 55 minutes</li>
+                </ol>
+              </div>
+            )}
+            
+            {unlockStatus.reason === 'setup_not_completed' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                <h5 className="font-semibold text-blue-800 mb-2">Setup in Progress</h5>
+                <p className="text-blue-700 text-sm">
+                  Current status: <span className="font-mono font-semibold">{unlockStatus.setup_status}</span>
+                </p>
+                <p className="text-blue-600 text-xs mt-2">
+                  Please wait for the automation to complete. This may take a few minutes.
+                </p>
+              </div>
+            )}
+            
+            {unlockStatus.reason === 'unlock_expired' && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-left">
+                <h5 className="font-semibold text-red-800 mb-2">Access Window Expired</h5>
+                <p className="text-red-700 text-sm">
+                  The 55-minute Facebook integration window has expired. 
+                  Complete the business setup process again to unlock access.
+                </p>
+              </div>
+            )}
+            
+            <button
+              onClick={onSkip}
+              className="mt-6 px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Skip for Now
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col">
       {/* Header */}
@@ -552,6 +642,15 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Facebook Integration</h3>
             <p className="text-sm text-gray-500">3-step process to connect your Facebook pages</p>
+            {/* Add unlock timer when unlocked */}
+            {unlockStatus?.facebook_unlocked && (
+              <div className="mt-2">
+                <FacebookUnlockTimer 
+                  firmUserId={userId}
+                  onUnlockStatusChange={setFacebookUnlocked}
+                />
+              </div>
+            )}
           </div>
         </div>
         {/* Skip removed for mandatory setup */}
