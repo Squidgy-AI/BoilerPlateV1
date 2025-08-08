@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, ArrowRight, Edit3 } from 'lucide-react';
+import { CheckCircle, Clock, ArrowRight, Edit3, Lock } from 'lucide-react';
 import SolarChatConfig from './SolarChatConfig';
 import EnhancedChatCalendarSetup from './EnhancedChatCalendarSetup';
 import EnhancedChatNotificationSetup from './EnhancedChatNotificationSetup';
@@ -13,6 +13,8 @@ import { CalendarSetup as CalendarSetupType } from '@/config/calendarNotificatio
 import { NotificationPreferences as NotificationPrefsType } from '@/config/calendarNotificationConfig';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
+import { useFacebookUnlockStatus } from '@/hooks/useFacebookUnlockStatus';
+import FacebookUnlockTimer from './FacebookUnlockTimer';
 
 interface ProgressiveSOLSetupProps {
   onComplete: () => void;

@@ -30,7 +30,15 @@ export const useFacebookUnlockStatus = (firmUserId?: string): UseFacebookUnlockR
       setIsLoading(true);
       setError(null);
 
-      const userId = firmUserId || await getUserId();
+      let userId = firmUserId;
+      if (!userId) {
+        const userIdResult = await getUserId();
+        if (!userIdResult.success || !userIdResult.user_id) {
+          throw new Error('User ID not found');
+        }
+        userId = userIdResult.user_id;
+      }
+      
       if (!userId) {
         throw new Error('User ID not found');
       }
