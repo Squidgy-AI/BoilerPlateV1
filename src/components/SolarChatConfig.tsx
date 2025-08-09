@@ -12,7 +12,7 @@ import {
   saveSolarConfigAsync,
   formatParameterValue
 } from '@/config/solarBusinessConfig';
-import { getGHLCredentials } from '@/utils/getGHLCredentials';
+import { getGHLCredentialsWithFallback } from '@/utils/getGHLCredentialsWithFallback';
 
 interface SolarChatConfigProps {
   onComplete: (config: SolarBusinessConfig) => void;
@@ -71,7 +71,7 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
         // Get GHL credentials to include location_id
         let configWithLocation = { ...config };
         try {
-          const ghlResult = await getGHLCredentials();
+          const ghlResult = await getGHLCredentialsWithFallback();
           if (ghlResult.success && ghlResult.credentials) {
             configWithLocation.ghl_location_id = ghlResult.credentials.location_id;
           }

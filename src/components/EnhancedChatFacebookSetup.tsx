@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Facebook, ExternalLink, CheckCircle, Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
-import { getGHLCredentials } from '@/utils/getGHLCredentials';
+import { getGHLCredentialsWithFallback } from '@/utils/getGHLCredentialsWithFallback';
 import FacebookUnlockTimer from './FacebookUnlockTimer';
 import { useFacebookUnlockStatus } from '@/hooks/useFacebookUnlockStatus';
 
@@ -488,7 +488,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     };
 
     // Get GHL credentials to include in the record
-    const ghlResult = await getGHLCredentials();
+    const ghlResult = await getGHLCredentialsWithFallback();
     let ghl_location_id = null;
     let ghl_user_id = null;
     

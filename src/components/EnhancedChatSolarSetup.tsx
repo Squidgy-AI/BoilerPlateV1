@@ -6,7 +6,7 @@ import { Sun, DollarSign, MapPin, Check } from 'lucide-react';
 import { SolarBusinessConfig } from '@/config/solarBusinessConfig';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
-import { getGHLCredentials } from '@/utils/getGHLCredentials';
+import { getGHLCredentialsWithFallback } from '@/utils/getGHLCredentialsWithFallback';
 
 interface EnhancedChatSolarSetupProps {
   onConfigurationComplete: (config: SolarBusinessConfig) => void;
@@ -117,7 +117,7 @@ const EnhancedChatSolarSetup: React.FC<EnhancedChatSolarSetupProps> = ({
       console.log('🔧 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
       // Get GHL credentials to include in the record
-      const ghlResult = await getGHLCredentials();
+      const ghlResult = await getGHLCredentialsWithFallback();
       let ghl_location_id = null;
       let ghl_user_id = null;
       

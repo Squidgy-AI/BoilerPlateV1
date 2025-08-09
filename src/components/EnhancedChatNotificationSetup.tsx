@@ -6,7 +6,7 @@ import { Bell, Mail, MessageSquare, Phone, MessageCircle, Check } from 'lucide-r
 import { NotificationPreferences as NotificationPrefsType } from '@/config/calendarNotificationConfig';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
-import { getGHLCredentials } from '@/utils/getGHLCredentials';
+import { getGHLCredentialsWithFallback } from '@/utils/getGHLCredentialsWithFallback';
 
 interface EnhancedChatNotificationSetupProps {
   onComplete: (prefs: NotificationPrefsType) => void;
@@ -198,8 +198,8 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
       console.log('✅ Notification Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
       console.log('🔔 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
-      // Get GHL credentials to include in the record
-      const ghlResult = await getGHLCredentials();
+      // Get GHL credentials to include in the record (with fallback)
+      const ghlResult = await getGHLCredentialsWithFallback();
       let ghl_location_id = null;
       let ghl_user_id = null;
       
@@ -255,8 +255,8 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     try {
       setSaving(true);
       
-      // Get GHL credentials to include location_id in preferences
-      const ghlResult = await getGHLCredentials();
+      // Get GHL credentials to include location_id in preferences (with fallback)
+      const ghlResult = await getGHLCredentialsWithFallback();
       let ghl_location_id = null;
       
       if (ghlResult.success && ghlResult.credentials) {
@@ -280,7 +280,7 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
       
       // Get location_id even on error for consistent behavior
       try {
-        const ghlResult = await getGHLCredentials();
+        const ghlResult = await getGHLCredentialsWithFallback();
         const ghl_location_id = ghlResult.success && ghlResult.credentials 
           ? ghlResult.credentials.location_id 
           : null;

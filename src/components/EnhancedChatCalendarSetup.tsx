@@ -6,7 +6,7 @@ import { Calendar, Clock, Settings, ArrowRight, Check } from 'lucide-react';
 import { CalendarSetup as CalendarSetupType } from '@/config/calendarNotificationConfig';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/utils/getUserId';
-import { getGHLCredentials } from '@/utils/getGHLCredentials';
+import { getGHLCredentialsWithFallback } from '@/utils/getGHLCredentialsWithFallback';
 
 interface EnhancedChatCalendarSetupProps {
   onComplete: (setup: CalendarSetupType) => void;
@@ -145,8 +145,8 @@ const EnhancedChatCalendarSetup: React.FC<EnhancedChatCalendarSetupProps> = ({
       console.log('✅ Calendar Setup - Primary key validation passed:', { firm_user_id, agent_id, setup_type });
       console.log('📅 session_id:', sessionId && sessionId.includes('_') ? null : sessionId);
       
-      // Get GHL credentials to include in the record
-      const ghlResult = await getGHLCredentials();
+      // Get GHL credentials to include in the record (with fallback)
+      const ghlResult = await getGHLCredentialsWithFallback();
       let ghl_location_id = null;
       let ghl_user_id = null;
       
