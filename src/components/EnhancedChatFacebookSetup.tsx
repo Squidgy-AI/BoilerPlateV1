@@ -44,8 +44,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   onConfigurationComplete,
   onSkip,
   sessionId,
-  locationId, // Dynamic location_id from GHL setup
-  userId, // Dynamic user_id from GHL setup
+  locationId, // Dynamic location_id from GHL setup (optional - will fetch if missing)
+  userId, // Dynamic user_id from GHL setup (optional - will fetch if missing)
   ghlCredentials
 }) => {
   const [isSaving, setSaving] = useState(false);
@@ -53,8 +53,13 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [facebookUnlocked, setFacebookUnlocked] = useState(false);
   
-  // Check Facebook unlock status
-  const { status: unlockStatus } = useFacebookUnlockStatus(userId);
+  // Internal state for GHL credentials (fetched if not provided as props)
+  const [internalLocationId, setInternalLocationId] = useState<string>(locationId || '');
+  const [internalUserId, setInternalUserId] = useState<string>(userId || '');
+  const [internalGhlCredentials, setInternalGhlCredentials] = useState(ghlCredentials);
+  
+  // Check Facebook unlock status - use internal user ID
+  const { status: unlockStatus } = useFacebookUnlockStatus(internalUserId || userId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [generatedOAuthUrl, setGeneratedOAuthUrl] = useState<string | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<'idle' | 'step1_oauth' | 'step2_getting_pages' | 'step3_selecting_pages' | 'completed'>('idle');
@@ -67,6 +72,37 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch GHL credentials if not provided as props
+  useEffect(() => {
+    const fetchGHLCredentials = async () => {
+      // Skip if we already have both location and user ID
+      if (internalLocationId && internalUserId) {
+        return;
+      }
+
+      try {
+        console.log('🔍 Facebook setup: Fetching GHL credentials...');
+        const ghlResult = await getGHLCredentialsWithFallback();
+        
+        if (ghlResult.success && ghlResult.credentials) {
+          console.log('✅ Facebook setup: Got GHL credentials from fallback system');
+          setInternalLocationId(ghlResult.credentials.location_id);
+          setInternalUserId(ghlResult.credentials.user_id);
+          setInternalGhlCredentials({
+            email: ghlResult.credentials.ghl_automation_email || ghlResult.credentials.user_email,
+            password: ghlResult.credentials.ghl_automation_password || 'Not provided'
+          });
+        } else {
+          console.error('❌ Facebook setup: Failed to get GHL credentials:', ghlResult.error);
+        }
+      } catch (error) {
+        console.error('❌ Facebook setup: Error fetching GHL credentials:', error);
+      }
+    };
+
+    fetchGHLCredentials();
+  }, [internalLocationId, internalUserId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -127,7 +163,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
 
   useEffect(() => {
     // Initialize messages with dynamic values
-    if (locationId && userId && messages.length === 0 && !isLoading) {
+    if (internalLocationId && internalUserId && messages.length === 0 && !isLoading) {
       const initialMessages = [
         {
           id: '1',
@@ -148,14 +184,14 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         initialMessages.push({
           id: '2',
           sender: 'bot' as const,
-          message: `📍 **Using your GHL Account:**\n• Location ID: ${locationId}\n• User ID: ${userId}\n• Automation Email: ${ghlCredentials?.email || 'Not provided'}\n\n**Facebook Integration Steps:**\n**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy`,
+          message: `📍 **Using your GHL Account:**\n• Location ID: ${internalLocationId}\n• User ID: ${internalUserId}\n• Automation Email: ${internalGhlCredentials?.email || 'Not provided'}\n\n**Facebook Integration Steps:**\n**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy`,
           timestamp: new Date()
         });
       }
 
       setMessages(initialMessages);
     }
-  }, [locationId, userId, ghlCredentials, isLoading, existingFacebookConfig]);
+  }, [internalLocationId, internalUserId, internalGhlCredentials, isLoading, existingFacebookConfig]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -193,8 +229,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          locationId: locationId,
-          userId: userId
+          locationId: internalLocationId,
+          userId: internalUserId
         })
       });
 
@@ -212,8 +248,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
           redirect_uri: 'https://services.leadconnectorhq.com/integrations/oauth/finish',
           scope: buildEnhancedScope(result.params.scope),
           state: JSON.stringify({
-            locationId: locationId,
-            userId: userId,
+            locationId: internalLocationId,
+            userId: internalUserId,
             type: 'facebook',
             source: 'squidgy_step1'
           }),
@@ -478,8 +514,8 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
     }
 
     const config: FacebookIntegrationConfig = {
-      location_id: locationId,
-      user_id: userId,
+      location_id: internalLocationId,
+      user_id: internalUserId,
       oauth_url: generatedOAuthUrl || '',
       integration_status: 'connected',
       connected_at: new Date().toISOString(),
@@ -577,7 +613,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <FacebookUnlockTimer 
-                firmUserId={userId}
+                firmUserId={internalUserId}
                 onUnlockStatusChange={setFacebookUnlocked}
               />
             </div>
@@ -646,7 +682,7 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
             {unlockStatus?.facebook_unlocked && (
               <div className="mt-2">
                 <FacebookUnlockTimer 
-                  firmUserId={userId}
+                  firmUserId={internalUserId}
                   onUnlockStatusChange={setFacebookUnlocked}
                 />
               </div>
