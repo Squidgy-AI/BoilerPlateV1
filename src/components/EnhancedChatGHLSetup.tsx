@@ -66,20 +66,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
 }) => {
   const [isSaving, setSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      sender: 'bot',
-      message: 'Hi! Now I need to set up your business account. This will create your dedicated account and user credentials for managing your solar business.',
-      timestamp: new Date()
-    },
-    {
-      id: '2', 
-      sender: 'bot',
-      message: 'This process runs in the background and typically takes 30-60 seconds. Your location and user IDs will be used for all future integrations including Facebook, calendars, and customer management.',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [setupStatus, setSetupStatus] = useState<'idle' | 'creating' | 'completed' | 'using_existing'>('idle');
   const [ghlConfig, setGhlConfig] = useState<GHLSetupConfig | null>(null);
   
@@ -420,7 +407,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   };
 
   const handleCreateNewAccount = () => {
-    addMessage('bot', '📋 Please fill out the form below with your business information.');
+    // Skip the explanatory messages and show the form directly
     setShowInlineForm(true);
   };
 
