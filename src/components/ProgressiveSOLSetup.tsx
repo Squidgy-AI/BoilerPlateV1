@@ -291,7 +291,12 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       isFirstTimeCompletion
     );
     
-    setCurrentStage('calendar');
+    // Only auto-navigate to next step if this is a first-time completion (sequential flow)
+    if (isFirstTimeCompletion) {
+      setCurrentStage('calendar');
+    } else {
+      console.log('🌞 Solar updated (not first-time), staying on current step');
+    }
   };
 
   const handleCalendarComplete = async (setup: CalendarSetupType) => {
@@ -313,7 +318,12 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       isFirstTimeCompletion
     );
     
-    setCurrentStage('notifications');
+    // Only auto-navigate to next step if this is a first-time completion (sequential flow)
+    if (isFirstTimeCompletion) {
+      setCurrentStage('notifications');
+    } else {
+      console.log('📅 Calendar updated (not first-time), staying on current step');
+    }
   };
 
   const handleNotificationsComplete = async (prefs: NotificationPrefsType) => {
@@ -335,13 +345,20 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       isFirstTimeCompletion
     );
     
-    // Check if Facebook is unlocked before navigating
-    if (facebookUnlockStatus?.facebook_unlocked) {
-      setCurrentStage('facebook');
+    // Only auto-navigate to Facebook if this is a first-time completion (sequential flow)
+    // If user manually navigated to notifications step, don't force them to Facebook
+    if (isFirstTimeCompletion) {
+      // Check if Facebook is unlocked before navigating
+      if (facebookUnlockStatus?.facebook_unlocked) {
+        setCurrentStage('facebook');
+      } else {
+        // Show modal that user needs to wait for Facebook unlock
+        setShowFacebookWaitModal(true);
+        console.log('📝 Facebook not unlocked yet, showing wait modal');
+      }
     } else {
-      // Show modal that user needs to wait for Facebook unlock
-      setShowFacebookWaitModal(true);
-      console.log('📝 Facebook not unlocked yet, showing wait modal');
+      console.log('📝 Notifications updated (not first-time), staying on current step');
+      // For edits/updates, stay on the current step - don't force navigation
     }
   };
 
@@ -374,7 +391,12 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       isFirstTimeCompletion
     );
     
-    setCurrentStage('solar');
+    // Only auto-navigate to next step if this is a first-time completion (sequential flow)
+    if (isFirstTimeCompletion) {
+      setCurrentStage('solar');
+    } else {
+      console.log('🏢 GHL updated (not first-time), staying on current step');
+    }
   };
 
   const handleFacebookComplete = async (config: any) => {
