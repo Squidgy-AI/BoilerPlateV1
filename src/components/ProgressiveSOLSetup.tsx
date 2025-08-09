@@ -85,17 +85,31 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   }, [currentStage, ghlCredentials, isLoading]);
 
   // Auto-navigate to Facebook when it becomes unlocked (but not during manual navigation)
+  // Only auto-navigate if user hasn't manually navigated recently
   useEffect(() => {
     if (facebookUnlockStatus?.facebook_unlocked && 
         currentStage === 'notifications' && 
         progress.notifications_completed && 
         !progress.facebook_completed &&
         !isManualNavigation) {
-      console.log('🔓 Facebook unlocked! Auto-navigating to Facebook step...');
-      setShowFacebookWaitModal(false); // Close modal if open
-      setCurrentStage('facebook');
+      
+      // Additional check: only auto-navigate if we're in sequential completion flow
+      // Don't auto-navigate if user is actively using the notifications step
+      const timeSinceNotificationCompletion = progress.notifications_completed_at 
+        ? Date.now() - new Date(progress.notifications_completed_at).getTime()
+        : Infinity;
+      
+      // Only auto-navigate if notifications were completed recently (within 5 seconds)
+      // This indicates we're in a sequential flow, not manual navigation
+      if (timeSinceNotificationCompletion < 5000) {
+        console.log('🔓 Facebook unlocked! Auto-navigating to Facebook step...');
+        setShowFacebookWaitModal(false); // Close modal if open
+        setCurrentStage('facebook');
+      } else {
+        console.log('🔓 Facebook unlocked but notifications completed too long ago - not auto-navigating');
+      }
     }
-  }, [facebookUnlockStatus?.facebook_unlocked, currentStage, progress.notifications_completed, progress.facebook_completed, isManualNavigation]);
+  }, [facebookUnlockStatus?.facebook_unlocked, currentStage, progress.notifications_completed, progress.facebook_completed, progress.notifications_completed_at, isManualNavigation]);
 
   const loadSetupProgress = async () => {
     try {
@@ -467,10 +481,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       }
       setCurrentStage(targetStage);
       
-      // Clear manual navigation flag after a short delay
+      // Clear manual navigation flag after a longer delay to prevent race conditions
       setTimeout(() => {
         setIsManualNavigation(false);
-      }, 1000);
+      }, 3000);
     }
   };
 
