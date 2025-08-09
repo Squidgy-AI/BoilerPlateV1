@@ -86,8 +86,16 @@ export default function InvitePage() {
         return;
       }
 
-      if (data.status !== 'pending') {
-        setError('This invitation has already been used');
+      // Handle different invitation statuses appropriately
+      if (data.status === 'accepted') {
+        // Invitation was already accepted - redirect to login
+        router.push('/auth?message=invitation_already_accepted&email=' + encodeURIComponent(data.recipient_email));
+        return;
+      } else if (data.status === 'declined') {
+        setError('This invitation was declined');
+        return;
+      } else if (data.status !== 'pending') {
+        setError('This invitation is no longer valid');
         return;
       }
 
@@ -190,7 +198,7 @@ export default function InvitePage() {
         }
       }
 
-      router.push('/auth?invitation=accepted');
+      router.push('/auth?message=invitation_accepted&email=' + encodeURIComponent(invitation.recipient_email));
     } catch (err) {
       console.error('Error accepting invitation:', err);
       setError('Failed to accept invitation');
@@ -235,15 +243,32 @@ export default function InvitePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Invitation Error</h1>
+          <div className={`text-5xl mb-4 ${error.includes('expired') ? 'text-orange-500' : error.includes('declined') ? 'text-red-500' : 'text-yellow-500'}`}>
+            {error.includes('expired') ? '⏰' : error.includes('declined') ? '❌' : '⚠️'}
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            {error.includes('expired') ? 'Invitation Expired' : error.includes('declined') ? 'Invitation Declined' : 'Invitation Error'}
+          </h1>
           <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={() => router.push('/')}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Go to Home
-          </button>
+          {error.includes('expired') && (
+            <p className="text-sm text-gray-500 mb-4">
+              Please contact the person who invited you to send a new invitation.
+            </p>
+          )}
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push('/auth')}
+              className="w-full bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Sign In
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="w-full bg-gray-100 text-gray-600 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Go to Home
+            </button>
+          </div>
         </div>
       </div>
     );

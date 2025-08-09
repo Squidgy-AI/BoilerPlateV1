@@ -28,6 +28,23 @@ const EnhancedLoginForm: React.FC = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const invitedByParam = urlParams.get('invited_by');
       const tokenParam = urlParams.get('invitation_token');
+      const messageParam = urlParams.get('message');
+      const emailParam = urlParams.get('email');
+
+      // Handle invitation messages
+      if (messageParam === 'invitation_already_accepted') {
+        setMessage('This invitation was already accepted. Please sign in with your account.');
+        if (emailParam) {
+          setEmail(decodeURIComponent(emailParam));
+        }
+        return; // Skip the invitation token processing
+      } else if (messageParam === 'invitation_accepted') {
+        setMessage('🎉 Invitation accepted successfully! Welcome to Squidgy. Please sign in to continue.');
+        if (emailParam) {
+          setEmail(decodeURIComponent(emailParam));
+        }
+        return; // Skip the invitation token processing
+      }
       
       if (invitedByParam) {
         setInvitedBy(decodeURIComponent(invitedByParam));
