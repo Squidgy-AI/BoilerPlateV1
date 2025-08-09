@@ -12,6 +12,7 @@ import {
   saveSolarConfigAsync,
   formatParameterValue
 } from '@/config/solarBusinessConfig';
+import { getGHLCredentials } from '@/utils/getGHLCredentials';
 
 interface SolarChatConfigProps {
   onComplete: (config: SolarBusinessConfig) => void;
@@ -66,8 +67,19 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
       });
       
       setIsCompleted(true);
-      setTimeout(() => {
-        onComplete(config);
+      setTimeout(async () => {
+        // Get GHL credentials to include location_id
+        let configWithLocation = { ...config };
+        try {
+          const ghlResult = await getGHLCredentials();
+          if (ghlResult.success && ghlResult.credentials) {
+            configWithLocation.ghl_location_id = ghlResult.credentials.location_id;
+          }
+        } catch (error) {
+          console.warn('Could not get GHL credentials for solar config:', error);
+        }
+        
+        onComplete(configWithLocation);
       }, 2000); // Show completion message for 2 seconds
     } else {
       setCurrentQuestionIndex(prev => prev + 1);

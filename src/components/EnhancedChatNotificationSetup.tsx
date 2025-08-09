@@ -258,16 +258,20 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
       // Save to database
       await saveToDatabase(prefs, sessionId);
       
+      // Add ghl_location_id to preferences before completing
+      const prefsWithLocation = { ...prefs, ghl_location_id };
+      
       // Save to localStorage as backup
-      localStorage.setItem('notification_preferences', JSON.stringify(prefs));
+      localStorage.setItem('notification_preferences', JSON.stringify(prefsWithLocation));
       
       setSaving(false);
-      onComplete(prefs);
+      onComplete(prefsWithLocation);
     } catch (error) {
       console.error('Failed to complete notification setup:', error);
       setSaving(false);
-      // Still call onComplete to not block the user
-      onComplete(prefs);
+      // Still call onComplete to not block the user, but include location_id if available
+      const prefsWithLocation = { ...prefs, ghl_location_id };
+      onComplete(prefsWithLocation);
     }
   };
 

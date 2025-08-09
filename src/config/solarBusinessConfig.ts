@@ -28,6 +28,7 @@ export interface SolarBusinessConfig {
   typicalPanelCount: number;
   maxRoofSegments: number;
   solarIncentivePercent: number;
+  ghl_location_id?: string;
 }
 
 export const SOLAR_BUSINESS_PARAMETERS: SolarBusinessParameter[] = [

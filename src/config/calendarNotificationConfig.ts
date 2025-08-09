@@ -29,6 +29,9 @@ export interface CalendarSetup {
   // Policies
   confirmation_message: string;
   cancellation_policy: string;
+  
+  // GHL Location ID
+  ghl_location_id?: string;
 }
 
 export interface BusinessHours {
@@ -102,6 +105,9 @@ export interface NotificationPreferences {
   notification_confirmations?: boolean;
   notification_reminders?: boolean;
   notification_cancellations?: boolean;
+  
+  // GHL Location ID
+  ghl_location_id?: string;
 }
 
 // Default calendar setup
