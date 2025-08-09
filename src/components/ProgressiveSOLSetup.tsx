@@ -334,12 +334,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       isFirstTimeCompletion
     );
     
-    // Only auto-navigate to next step if this is a first-time completion (sequential flow)
-    if (isFirstTimeCompletion) {
-      setCurrentStage('notifications');
-    } else {
-      console.log('📅 Calendar updated (not first-time), staying on current step');
-    }
+    // Always navigate to next step when "Complete Setup" is clicked
+    // This ensures the button works intuitively for users
+    console.log('📅 Calendar Complete Setup clicked - navigating to notifications');
+    setCurrentStage('notifications');
   };
 
   const handleNotificationsComplete = async (prefs: NotificationPrefsType) => {
@@ -361,20 +359,15 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       isFirstTimeCompletion
     );
     
-    // Only auto-navigate to Facebook if this is a first-time completion (sequential flow)
-    // If user manually navigated to notifications step, don't force them to Facebook
-    if (isFirstTimeCompletion) {
-      // Check if Facebook is unlocked before navigating
-      if (facebookUnlockStatus?.facebook_unlocked) {
-        setCurrentStage('facebook');
-      } else {
-        // Show modal that user needs to wait for Facebook unlock
-        setShowFacebookWaitModal(true);
-        console.log('📝 Facebook not unlocked yet, showing wait modal');
-      }
+    // Always navigate to next step when "Complete Setup" is clicked
+    // Check if Facebook is unlocked before navigating
+    if (facebookUnlockStatus?.facebook_unlocked) {
+      console.log('🔔 Notifications Complete Setup clicked - navigating to Facebook');
+      setCurrentStage('facebook');
     } else {
-      console.log('📝 Notifications updated (not first-time), staying on current step');
-      // For edits/updates, stay on the current step - don't force navigation
+      // Show modal that user needs to wait for Facebook unlock
+      setShowFacebookWaitModal(true);
+      console.log('📝 Facebook not unlocked yet, showing wait modal');
     }
   };
 
