@@ -893,38 +893,40 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         {/* Skip removed for mandatory setup */}
       </div>
 
-      {/* Chat Messages */}
-      <div 
-        ref={chatContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
-        style={{ maxHeight: '400px' }}
-      >
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+      {/* Chat Messages - Hidden when form is shown */}
+      {!showInlineForm && (
+        <div 
+          ref={chatContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-4"
+          style={{ maxHeight: '400px' }}
+        >
+          {messages.map((message) => (
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                message.sender === 'user'
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-gray-100 text-gray-900'
-              } ${message.isAction ? 'border-l-4 border-orange-400' : ''}`}
+              key={message.id}
+              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <p className="text-sm whitespace-pre-line">{message.message}</p>
-              <p className="text-xs mt-1 opacity-70">
-                {message.timestamp.toLocaleTimeString()}
-              </p>
+              <div
+                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                  message.sender === 'user'
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-gray-100 text-gray-900'
+                } ${message.isAction ? 'border-l-4 border-orange-400' : ''}`}
+              >
+                <p className="text-sm whitespace-pre-line">{message.message}</p>
+                <p className="text-xs mt-1 opacity-70">
+                  {message.timestamp.toLocaleTimeString()}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+      )}
 
 
-      {/* Inline GHL Form */}
+      {/* Business Setup Form - Takes full content area when shown */}
       {showInlineForm && (
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex-1 p-6 overflow-y-auto">
           <form onSubmit={(e) => { e.preventDefault(); createGHLWithFormData(); }} className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
               <div>
@@ -1155,25 +1157,26 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               <button
                 type="button"
                 onClick={() => setShowInlineForm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Cancel
+                Back
               </button>
               <button
                 type="submit"
                 disabled={isSubmittingForm}
                 className="flex-1 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmittingForm ? 'Processing...' : 'Next'}
+                {isSubmittingForm ? 'Creating Account...' : 'Create Business Account'}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="p-4 border-t border-gray-200 space-y-3">
-        {setupStatus === 'idle' && !showInlineForm && (
+      {/* Action Buttons - Hidden when form is shown */}
+      {!showInlineForm && (
+        <div className="p-4 border-t border-gray-200 space-y-3">
+          {setupStatus === 'idle' && (
           <div className="space-y-2">
             <button
               onClick={useExistingCredentials}
@@ -1234,7 +1237,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         )}
 
         {/* Skip removed for mandatory setup */}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
