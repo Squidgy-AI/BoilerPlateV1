@@ -82,6 +82,17 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     }
   }, [currentStage, ghlCredentials, isLoading]);
 
+  // Auto-navigate to Facebook when it becomes unlocked
+  useEffect(() => {
+    if (facebookUnlockStatus?.facebook_unlocked && 
+        currentStage === 'notifications' && 
+        progress.notifications_completed && 
+        !progress.facebook_completed) {
+      console.log('🔓 Facebook unlocked! Auto-navigating to Facebook step...');
+      setCurrentStage('facebook');
+    }
+  }, [facebookUnlockStatus?.facebook_unlocked, currentStage, progress.notifications_completed, progress.facebook_completed]);
+
   const loadSetupProgress = async () => {
     try {
       setIsLoading(true);
@@ -322,7 +333,13 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       isFirstTimeCompletion
     );
     
-    setCurrentStage('facebook');
+    // Check if Facebook is unlocked before navigating
+    if (facebookUnlockStatus?.facebook_unlocked) {
+      setCurrentStage('facebook');
+    } else {
+      console.log('📝 Facebook not unlocked yet, staying on notifications step');
+      // Facebook will auto-unlock when ready, and the unlock hook will trigger navigation
+    }
   };
 
   const handleGHLComplete = async (config: any) => {
