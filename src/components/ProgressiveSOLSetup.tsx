@@ -56,6 +56,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [showFacebookWaitModal, setShowFacebookWaitModal] = useState(false);
   
   // Check Facebook unlock status
   const { status: facebookUnlockStatus } = useFacebookUnlockStatus(userId || undefined);
@@ -89,6 +90,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         progress.notifications_completed && 
         !progress.facebook_completed) {
       console.log('🔓 Facebook unlocked! Auto-navigating to Facebook step...');
+      setShowFacebookWaitModal(false); // Close modal if open
       setCurrentStage('facebook');
     }
   }, [facebookUnlockStatus?.facebook_unlocked, currentStage, progress.notifications_completed, progress.facebook_completed]);
@@ -337,8 +339,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     if (facebookUnlockStatus?.facebook_unlocked) {
       setCurrentStage('facebook');
     } else {
-      console.log('📝 Facebook not unlocked yet, staying on notifications step');
-      // Facebook will auto-unlock when ready, and the unlock hook will trigger navigation
+      // Show modal that user needs to wait for Facebook unlock
+      setShowFacebookWaitModal(true);
+      console.log('📝 Facebook not unlocked yet, showing wait modal');
     }
   };
 
@@ -763,6 +766,37 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           }}
           existingData={formData.facebook}
         />
+      )}
+
+      {/* Facebook Wait Modal */}
+      {showFacebookWaitModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
+            <div className="text-center">
+              <div className="text-orange-500 text-4xl mb-4">🔒</div>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Facebook Integration Locked</h2>
+              <p className="text-gray-600 mb-4">
+                Please wait {facebookUnlockStatus?.time_remaining ? Math.ceil(facebookUnlockStatus.time_remaining) : 'a few'} more minutes for Facebook integration to unlock.
+              </p>
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4 text-left">
+                <p className="text-sm text-blue-700">
+                  <strong>Why is this locked?</strong><br/>
+                  Facebook integration unlocks automatically after completing your business setup to ensure all configurations are properly synchronized.
+                </p>
+              </div>
+              <div className="flex items-center justify-center text-sm text-gray-500 mb-4">
+                <Clock className="w-4 h-4 mr-1" />
+                Time remaining: {facebookUnlockStatus?.time_remaining ? Math.ceil(facebookUnlockStatus.time_remaining) : 'a few'} minutes
+              </div>
+              <button
+                onClick={() => setShowFacebookWaitModal(false)}
+                className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Got it, I'll wait
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
