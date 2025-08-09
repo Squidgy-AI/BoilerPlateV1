@@ -131,8 +131,13 @@ create index IF not exists idx_agent_setup_ghl_credentials
   on public.squidgy_agent_business_setup using btree (ghl_location_id, ghl_user_id) TABLESPACE pg_default;
 
 -- ============================================================================
--- USERS FORGOT PASSWORD TABLE (Existing)
+-- USERS FORGOT PASSWORD TABLE (LEGACY - UNUSED)
 -- ============================================================================
+-- NOTE: This table is no longer used. The application now uses Supabase's 
+-- built-in password reset functionality via supabase.auth.resetPasswordForEmail()
+-- Commenting out to avoid confusion but keeping for reference.
+
+/*
 create table public.users_forgot_password (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES profiles(user_id) ON DELETE CASCADE,
@@ -153,6 +158,7 @@ create index IF not exists idx_forgot_password_user
 
 create index IF not exists idx_forgot_password_email 
   on public.users_forgot_password using btree (email) TABLESPACE pg_default;
+*/
 
 -- ============================================================================
 -- BUSINESS PROFILES TABLE (RESTORED)
@@ -246,6 +252,10 @@ CREATE POLICY "Users can update own agent setups" ON public.squidgy_agent_busine
 -- NO RLS on business_profiles (as requested)
 -- business_profiles table has no Row Level Security policies
 
+-- LEGACY: RLS policies for users_forgot_password (UNUSED - COMMENTED OUT)
+-- NOTE: These policies are no longer needed since we use Supabase's built-in auth
+
+/*
 -- Enable RLS on forgot password
 ALTER TABLE public.users_forgot_password ENABLE ROW LEVEL SECURITY;
 
@@ -259,6 +269,7 @@ CREATE POLICY "Users can view own password reset requests" ON public.users_forgo
       SELECT user_id FROM public.profiles WHERE id = auth.uid()
     )
   );
+*/
 
 -- ============================================================================
 -- EXAMPLE DATA INSERTION QUERIES
