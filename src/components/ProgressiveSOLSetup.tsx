@@ -432,30 +432,24 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   };
 
   const canNavigateToStep = (targetStage: SetupStage): boolean => {
-    // Can always navigate to completed steps
-    if (targetStage === 'solar' && progress.solar_completed) return true;
+    // Can always navigate to current step
+    if (targetStage === currentStage) return true;
+    
+    // Can always navigate to completed steps  
     if (targetStage === 'ghl' && progress.ghl_completed) return true;
+    if (targetStage === 'solar' && progress.solar_completed) return true;
     if (targetStage === 'calendar' && progress.calendar_completed) return true;
     if (targetStage === 'notifications' && progress.notifications_completed) return true;
     if (targetStage === 'facebook' && progress.facebook_completed) return true;
     
-    // Can navigate to current step
-    if (targetStage === currentStage) return true;
-    
-    // Can navigate to next step only if current step requirements are met
-    const stageOrder = ['ghl', 'solar', 'calendar', 'notifications', 'facebook'];
-    const currentIndex = stageOrder.indexOf(currentStage);
-    const targetIndex = stageOrder.indexOf(targetStage);
-    
-    // Allow navigation to the next step if it's just one step ahead and prerequisites are met
-    if (targetIndex === currentIndex + 1) {
-      if (targetStage === 'solar' && progress.ghl_completed) return true;
-      if (targetStage === 'calendar' && progress.solar_completed) return true;
-      if (targetStage === 'notifications' && progress.calendar_completed) return true;
-      if (targetStage === 'facebook' && progress.notifications_completed) {
-        // Check if Facebook is unlocked
-        return facebookUnlockStatus?.facebook_unlocked || false;
-      }
+    // Can navigate to steps that have prerequisites met (even if not completed yet)
+    if (targetStage === 'ghl') return true; // Always available (first step)
+    if (targetStage === 'solar' && progress.ghl_completed) return true;
+    if (targetStage === 'calendar' && progress.solar_completed) return true;
+    if (targetStage === 'notifications' && progress.calendar_completed) return true;
+    if (targetStage === 'facebook' && progress.notifications_completed) {
+      // Check if Facebook is unlocked
+      return facebookUnlockStatus?.facebook_unlocked || false;
     }
     
     return false;
