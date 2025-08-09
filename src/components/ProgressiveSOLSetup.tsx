@@ -57,6 +57,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const [hasError, setHasError] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [showFacebookWaitModal, setShowFacebookWaitModal] = useState(false);
+  const [isManualNavigation, setIsManualNavigation] = useState(false);
   
   // Check Facebook unlock status
   const { status: facebookUnlockStatus } = useFacebookUnlockStatus(userId || undefined);
@@ -83,17 +84,18 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     }
   }, [currentStage, ghlCredentials, isLoading]);
 
-  // Auto-navigate to Facebook when it becomes unlocked
+  // Auto-navigate to Facebook when it becomes unlocked (but not during manual navigation)
   useEffect(() => {
     if (facebookUnlockStatus?.facebook_unlocked && 
         currentStage === 'notifications' && 
         progress.notifications_completed && 
-        !progress.facebook_completed) {
+        !progress.facebook_completed &&
+        !isManualNavigation) {
       console.log('🔓 Facebook unlocked! Auto-navigating to Facebook step...');
       setShowFacebookWaitModal(false); // Close modal if open
       setCurrentStage('facebook');
     }
-  }, [facebookUnlockStatus?.facebook_unlocked, currentStage, progress.notifications_completed, progress.facebook_completed]);
+  }, [facebookUnlockStatus?.facebook_unlocked, currentStage, progress.notifications_completed, progress.facebook_completed, isManualNavigation]);
 
   const loadSetupProgress = async () => {
     try {
@@ -461,12 +463,20 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
 
   const navigateToStep = async (targetStage: SetupStage) => {
     if (canNavigateToStep(targetStage)) {
+      // Set manual navigation flag to prevent auto-navigation conflicts
+      setIsManualNavigation(true);
+      
       // If navigating to Facebook and GHL credentials are missing, load them from database
       if (targetStage === 'facebook' && !ghlCredentials) {
         console.log('🔄 Facebook navigation: Loading missing GHL credentials...');
         await loadGHLCredentialsFromDatabase();
       }
       setCurrentStage(targetStage);
+      
+      // Clear manual navigation flag after a short delay
+      setTimeout(() => {
+        setIsManualNavigation(false);
+      }, 1000);
     }
   };
 
