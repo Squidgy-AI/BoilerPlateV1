@@ -1178,6 +1178,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         <div className="p-4 border-t border-gray-200 space-y-3">
           {setupStatus === 'idle' && (
           <div className="space-y-2">
+            {/* Demo credentials button commented out per user request
             <button
               onClick={useExistingCredentials}
               className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
@@ -1186,6 +1187,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
               <span>Use Working Demo Credentials</span>
             </button>
             <p className="text-center text-xs text-gray-500">or</p>
+            */}
             <button
               onClick={handleCreateNewAccount}
               className="w-full flex items-center justify-center space-x-2 bg-orange-500 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors"
