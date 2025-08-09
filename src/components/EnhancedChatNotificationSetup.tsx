@@ -255,6 +255,14 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     try {
       setSaving(true);
       
+      // Get GHL credentials to include location_id in preferences
+      const ghlResult = await getGHLCredentials();
+      let ghl_location_id = null;
+      
+      if (ghlResult.success && ghlResult.credentials) {
+        ghl_location_id = ghlResult.credentials.location_id;
+      }
+      
       // Save to database
       await saveToDatabase(prefs, sessionId);
       
@@ -269,9 +277,19 @@ const EnhancedChatNotificationSetup: React.FC<EnhancedChatNotificationSetupProps
     } catch (error) {
       console.error('Failed to complete notification setup:', error);
       setSaving(false);
-      // Still call onComplete to not block the user, but include location_id if available
-      const prefsWithLocation = { ...prefs, ghl_location_id };
-      onComplete(prefsWithLocation);
+      
+      // Get location_id even on error for consistent behavior
+      try {
+        const ghlResult = await getGHLCredentials();
+        const ghl_location_id = ghlResult.success && ghlResult.credentials 
+          ? ghlResult.credentials.location_id 
+          : null;
+        const prefsWithLocation = { ...prefs, ghl_location_id };
+        onComplete(prefsWithLocation);
+      } catch {
+        // Fallback without location_id
+        onComplete(prefs);
+      }
     }
   };
 
