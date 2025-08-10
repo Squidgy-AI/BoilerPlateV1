@@ -1564,7 +1564,7 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
         .from('groups')
         .insert({
           name: newGroupName,
-          created_by: profile.user_id
+          created_by: profile.id
         })
         .select()
         .single();
