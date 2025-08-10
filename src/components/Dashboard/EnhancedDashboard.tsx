@@ -688,15 +688,20 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
           const currentAgentName = selectedAgent?.agent_name || selectedAgent?.id;
           
           // Check if the response contains agent enabling request
-          const solAgentEnablePattern = /(enable|activate).*(SOL Agent|Solar)/i;
+          const solAgentEnablePattern = /(enabl|activat|proceed.*enabl).*(SOL Agent|Solar|sol agent)/i;
+          console.log('🔍 Checking for SOL Agent enable pattern in response:', agentResponse);
+          console.log('🔍 Pattern test result:', solAgentEnablePattern.test(agentResponse));
+          
           if (solAgentEnablePattern.test(agentResponse)) {
-            console.log('🤖 SOL Agent enable request detected');
+            console.log('🤖 SOL Agent enable request detected in response!');
             setShowEnableAgentPrompt({
               show: true,
               agentId: 'SOLAgent',
               agentName: 'SOL Agent'
             });
             setChatDisabled(true);
+          } else {
+            console.log('❌ SOL Agent enable pattern not found in response');
           }
           
           console.log('🔄 Agent response processing:', {
