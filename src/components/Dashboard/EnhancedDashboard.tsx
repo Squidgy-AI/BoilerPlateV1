@@ -920,10 +920,18 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       if (selectedAgent?.id === agent.id) {
         console.log(`🔄 Already on agent ${agent.id}, skipping switch`);
         
-        // Special case: If SOL Agent is already selected, ensure setup is shown
+        // Special case: If SOL Agent is already selected, check completion before showing setup
         if (agent.id === 'SOLAgent') {
-          console.log('🌞 SOL Agent already selected, ensuring setup is shown...');
-          setShowSOLSetup(true);
+          console.log('🌞 SOL Agent already selected, checking completion status...');
+          const isSetupCompleted = await checkSOLSetupCompletion();
+          
+          if (isSetupCompleted) {
+            console.log('✅ SOL Agent setup already completed, not showing setup');
+            setShowSOLSetup(false);
+          } else {
+            console.log('🔧 SOL Agent setup not completed, showing setup UI');
+            setShowSOLSetup(true);
+          }
         }
         return;
       }
@@ -1056,17 +1064,25 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
       }
       */
       
-      // For SOL Agent, check if setup is incomplete and show ProgressiveSOLSetup
+      // For SOL Agent, check if setup is already completed before showing setup
       if (agent.id === 'SOLAgent') {
-        console.log('🌞 SOL Agent selected, checking setup status...');
-        console.log('🔧 Setting showSOLSetup to true');
-        setShowSOLSetup(true);
+        console.log('🌞 SOL Agent selected, checking if setup is already completed...');
         
-        // Also ensure we have a valid session for the setup
-        if (!currentSessionId) {
-          console.log('🔧 No current session, creating one for SOL Agent...');
-          const newSessionId = `sol_session_${Date.now()}`;
-          setCurrentSessionId(newSessionId);
+        const isSetupCompleted = await checkSOLSetupCompletion();
+        
+        if (isSetupCompleted) {
+          console.log('✅ SOL Agent setup already completed, hiding setup UI');
+          setShowSOLSetup(false);
+        } else {
+          console.log('🔧 SOL Agent setup not completed, showing setup UI');
+          setShowSOLSetup(true);
+          
+          // Also ensure we have a valid session for the setup
+          if (!currentSessionId) {
+            console.log('🔧 No current session, creating one for SOL Agent...');
+            const newSessionId = `sol_session_${Date.now()}`;
+            setCurrentSessionId(newSessionId);
+          }
         }
       } else {
         console.log('🔧 Setting showSOLSetup to false for agent:', agent.id);
@@ -1619,10 +1635,18 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
             console.log('🔄 Auto-switching to SOL Agent tab...');
             await handleAgentSelect(solAgent);
             
-            // Ensure setup is shown after agent selection
-            setTimeout(() => {
-              console.log('🔧 Setting showSOLSetup to true after agent selection');
-              setShowSOLSetup(true);
+            // Check setup completion before showing after agent selection
+            setTimeout(async () => {
+              console.log('🔧 Checking setup completion after agent enabling...');
+              const isSetupCompleted = await checkSOLSetupCompletion();
+              
+              if (isSetupCompleted) {
+                console.log('✅ SOL Agent setup already completed, not showing setup after enable');
+                setShowSOLSetup(false);
+              } else {
+                console.log('🔧 SOL Agent setup not completed, showing setup UI after enable');
+                setShowSOLSetup(true);
+              }
             }, 500);
           } else {
             console.error('❌ SOL Agent not found in enabled agents list');
@@ -1717,11 +1741,72 @@ Let's begin with your Solar Business Setup! ☀️`;
     });
   };
   
-  // Solar agent setup function removed - now using simple enable/disable approach
+  // Check if SOL Agent setup is already completed
+  const checkSOLSetupCompletion = async (): Promise<boolean> => {
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('squidgy_agent_business_setup')
+        .select('setup_json')
+        .eq('firm_user_id', userIdResult.user_id)
+        .eq('agent_id', 'SOLAgent')
+        .eq('setup_type', 'SetupCompleted')
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('❌ Error checking setup completion:', error);
+        return false;
+      }
+
+      const isCompleted = data?.setup_json?.all_steps_completed === true;
+      console.log('🔍 SOL Agent setup completion status:', isCompleted);
+      return isCompleted;
+    } catch (error) {
+      console.error('❌ Failed to check setup completion:', error);
+      return false;
+    }
+  };
 
   // Handle progressive setup completion
-  const handleProgressiveSetupComplete = () => {
+  const handleProgressiveSetupComplete = async () => {
     console.log('🌞 Progressive Solar Sales Specialist setup completed');
+    
+    try {
+      // Save completion status to database to prevent reappearing on refresh
+      const userIdResult = await getUserId();
+      if (userIdResult.success && userIdResult.user_id) {
+        const { data, error } = await supabase
+          .from('squidgy_agent_business_setup')
+          .upsert({
+            firm_user_id: userIdResult.user_id,
+            agent_id: 'SOLAgent',
+            agent_name: 'Solar Sales Specialist', 
+            setup_type: 'SetupCompleted',
+            setup_json: {
+              completed_at: new Date().toISOString(),
+              all_steps_completed: true
+            },
+            is_enabled: true,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'firm_user_id,agent_id,setup_type'
+          })
+          .select();
+
+        if (error) {
+          console.error('❌ Error saving setup completion status:', error);
+        } else {
+          console.log('✅ Setup completion status saved to database:', data);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to save setup completion:', error);
+    }
+    
     setShowSOLSetup(false);
     
     // Note: Completion message is already added by ProgressiveSOLSetup component
