@@ -60,7 +60,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
   const [isManualNavigation, setIsManualNavigation] = useState(false);
   
   // Check Facebook unlock status
-  const { status: facebookUnlockStatus } = useFacebookUnlockStatus(userId || undefined);
+  const { status: facebookUnlockStatus, refetch: refetchFacebookStatus } = useFacebookUnlockStatus(userId || undefined);
   
   // Store form data for each step to allow navigation
   const [formData, setFormData] = useState({
@@ -93,23 +93,27 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         !progress.facebook_completed &&
         !isManualNavigation) {
       
-      // Additional check: only auto-navigate if we're in sequential completion flow
-      // Don't auto-navigate if user is actively using the notifications step
+      // Auto-navigate to Facebook when it becomes unlocked in these scenarios:
+      // 1. Recent completion (within 5 seconds) - sequential flow
+      // 2. User is waiting (modal is open) - Facebook just unlocked
       const timeSinceNotificationCompletion = progress.notifications_completed_at 
         ? Date.now() - new Date(progress.notifications_completed_at).getTime()
         : Infinity;
       
-      // Only auto-navigate if notifications were completed recently (within 5 seconds)
-      // This indicates we're in a sequential flow, not manual navigation
-      if (timeSinceNotificationCompletion < 5000) {
+      const shouldAutoNavigate = 
+        timeSinceNotificationCompletion < 5000 || // Sequential flow
+        showFacebookWaitModal; // User is waiting for Facebook to unlock
+      
+      if (shouldAutoNavigate) {
         console.log('🔓 Facebook unlocked! Auto-navigating to Facebook step...');
-        setShowFacebookWaitModal(false); // Close modal if open
+        console.log('🔓 Reason:', timeSinceNotificationCompletion < 5000 ? 'Sequential flow' : 'User was waiting');
+        setShowFacebookWaitModal(false); // Close wait modal if open
         setCurrentStage('facebook');
       } else {
-        console.log('🔓 Facebook unlocked but notifications completed too long ago - not auto-navigating');
+        console.log('🔓 Facebook unlocked but not auto-navigating (user may be editing notifications)');
       }
     }
-  }, [facebookUnlockStatus?.facebook_unlocked, currentStage, progress.notifications_completed, progress.facebook_completed, progress.notifications_completed_at, isManualNavigation]);
+  }, [facebookUnlockStatus?.facebook_unlocked, currentStage, progress.notifications_completed, progress.facebook_completed, progress.notifications_completed_at, isManualNavigation, showFacebookWaitModal]);
 
   const loadSetupProgress = async () => {
     try {
@@ -400,6 +404,16 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       isFirstTimeCompletion
     );
     
+    // Trigger Facebook unlock status refresh after GHL completion 
+    // (backend automation may take a moment to complete and unlock Facebook)
+    if (isFirstTimeCompletion) {
+      console.log('🔄 GHL setup completed - will check Facebook unlock status shortly...');
+      setTimeout(() => {
+        console.log('🔍 Refreshing Facebook unlock status after GHL completion...');
+        refetchFacebookStatus();
+      }, 10000); // Check after 10 seconds to allow backend automation to complete
+    }
+
     // Only auto-navigate to next step if this is a first-time completion (sequential flow)
     if (isFirstTimeCompletion) {
       setCurrentStage('solar');

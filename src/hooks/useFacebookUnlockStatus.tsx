@@ -71,12 +71,23 @@ export const useFacebookUnlockStatus = (firmUserId?: string): UseFacebookUnlockR
     fetchStatus();
   }, [firmUserId]);
 
-  // Auto-refresh every minute to update timer
+  // Auto-refresh to detect unlock status changes and update timer
   useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
     if (status?.facebook_unlocked && status.time_remaining && status.time_remaining > 0) {
-      const interval = setInterval(fetchStatus, 60000); // Refresh every minute
-      return () => clearInterval(interval);
+      // If unlocked, refresh every minute to update timer
+      interval = setInterval(fetchStatus, 60000);
+    } else if (status && !status.facebook_unlocked && status.reason === 'setup_not_completed') {
+      // If locked due to incomplete setup, check more frequently (every 30 seconds)
+      // This enables real-time unlock detection when setup completes
+      console.log('🔄 Facebook locked - checking every 30 seconds for setup completion...');
+      interval = setInterval(fetchStatus, 30000);
     }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [status]);
 
   return {
