@@ -688,20 +688,28 @@ const [agentUpdateTrigger, setAgentUpdateTrigger] = useState(0);
           const currentAgentName = selectedAgent?.agent_name || selectedAgent?.id;
           
           // Check if the response contains agent enabling request
-          const solAgentEnablePattern = /(enabl|activat|proceed.*enabl).*(SOL Agent|Solar|sol agent)/i;
-          console.log('🔍 Checking for SOL Agent enable pattern in response:', agentResponse);
+          // More aggressive pattern to catch various phrasings
+          const solAgentEnablePattern = /(enabl|activat|proceed.*enabl|would.*like.*proceed|assist.*further).*(SOL Agent|Solar|sol agent)/i;
+          console.log('🔍 === SOL AGENT ENABLE DETECTION DEBUG ===');
+          console.log('🔍 Agent response text:', JSON.stringify(agentResponse));
+          console.log('🔍 Pattern being tested:', solAgentEnablePattern);
           console.log('🔍 Pattern test result:', solAgentEnablePattern.test(agentResponse));
+          console.log('🔍 Current showEnableAgentPrompt state:', showEnableAgentPrompt);
           
           if (solAgentEnablePattern.test(agentResponse)) {
-            console.log('🤖 SOL Agent enable request detected in response!');
-            setShowEnableAgentPrompt({
+            console.log('🎉 SOL Agent enable request DETECTED! Setting prompt to show...');
+            const newPromptState = {
               show: true,
               agentId: 'SOLAgent',
               agentName: 'SOL Agent'
-            });
+            };
+            console.log('🎉 Setting showEnableAgentPrompt to:', newPromptState);
+            setShowEnableAgentPrompt(newPromptState);
             setChatDisabled(true);
+            console.log('🎉 Chat disabled, prompt should now be visible');
           } else {
-            console.log('❌ SOL Agent enable pattern not found in response');
+            console.log('❌ SOL Agent enable pattern NOT found in response');
+            console.log('❌ Response does not contain the required keywords');
           }
           
           console.log('🔄 Agent response processing:', {
@@ -2397,8 +2405,10 @@ Let's begin with your Solar Business Setup! ☀️`;
                     )}
                     
                     {/* Show Enable Agent Prompt */}
+                    {console.log('🔍 RENDER: showEnableAgentPrompt state:', showEnableAgentPrompt)}
                     {showEnableAgentPrompt.show && (
                       <div className="mb-4">
+                        {console.log('🎉 RENDER: EnableAgentPrompt is being rendered!')}
                         <EnableAgentPrompt
                           agentName={showEnableAgentPrompt.agentName}
                           agentId={showEnableAgentPrompt.agentId}
