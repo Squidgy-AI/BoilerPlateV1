@@ -292,8 +292,8 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     }
   };
 
-  const handleSolarComplete = async (config: SolarBusinessConfig) => {
-    console.log('🌞 Solar setup completed');
+  const handleSolarComplete = async (config: SolarBusinessConfig, shouldContinue?: boolean) => {
+    console.log('🌞 Solar setup completed', shouldContinue ? '(user clicked continue)' : '');
     
     // Check if this is first-time completion or an edit
     const isFirstTimeCompletion = !progress.solar_completed;
@@ -311,8 +311,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       isFirstTimeCompletion
     );
     
-    // Only auto-navigate to next step if this is a first-time completion (sequential flow)
-    if (isFirstTimeCompletion) {
+    // Navigate to calendar if:
+    // 1. It's a first-time completion (sequential flow), OR
+    // 2. User explicitly clicked "Continue to Calendar Setup" button
+    if (isFirstTimeCompletion || shouldContinue) {
       setCurrentStage('calendar');
     } else {
       console.log('🌞 Solar updated (not first-time), staying on current step');

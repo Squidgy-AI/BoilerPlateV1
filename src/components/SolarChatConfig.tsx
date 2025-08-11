@@ -15,7 +15,7 @@ import {
 import { getGHLCredentialsWithFallback } from '@/utils/getGHLCredentialsWithFallback';
 
 interface SolarChatConfigProps {
-  onComplete: (config: SolarBusinessConfig) => void;
+  onComplete: (config: SolarBusinessConfig, shouldContinue?: boolean) => void;
   onSkip: () => void; // Keep for backward compatibility
   existingData?: SolarBusinessConfig | null;
 }
@@ -67,20 +67,7 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
       });
       
       setIsCompleted(true);
-      setTimeout(async () => {
-        // Get GHL credentials to include location_id
-        let configWithLocation = { ...config };
-        try {
-          const ghlResult = await getGHLCredentialsWithFallback();
-          if (ghlResult.success && ghlResult.credentials) {
-            configWithLocation.ghl_location_id = ghlResult.credentials.location_id;
-          }
-        } catch (error) {
-          console.warn('Could not get GHL credentials for solar config:', error);
-        }
-        
-        onComplete(configWithLocation);
-      }, 2000); // Show completion message for 2 seconds
+      // Don't auto-complete anymore - wait for user to click Continue
     } else {
       setCurrentQuestionIndex(prev => prev + 1);
     }
@@ -155,17 +142,36 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
             <Check className="text-white" size={32} />
           </div>
           <h3 className="text-2xl font-bold text-green-800 mb-2">
-            🎉 Setup Complete!
+            🎉 Solar Setup Complete!
           </h3>
           <p className="text-green-700 text-lg">
-            Thanks for filling out your solar business configuration! 
-            SOL Agent has been set up successfully and saved to the database.
+            Perfect! Your solar business configuration is all set. 
+            SOL Agent is now ready to provide accurate solar solutions.
           </p>
           <div className="mt-4 text-green-600">
-            ✅ Configuration saved to database<br/>
-            ✅ SOL Agent enabled and added to your agents tab<br/>
-            🌞⚡ You can now get accurate pricing, financing options, and savings calculations!
+            ✅ Solar pricing and products configured<br/>
+            ✅ SOL Agent activated in your workspace<br/>
+            🌞⚡ Ready to calculate savings and generate proposals!
           </div>
+          <button
+            onClick={async () => {
+              // Get GHL credentials to include location_id
+              let configWithLocation = { ...config };
+              try {
+                const ghlResult = await getGHLCredentialsWithFallback();
+                if (ghlResult.success && ghlResult.credentials) {
+                  configWithLocation.ghl_location_id = ghlResult.credentials.location_id;
+                }
+              } catch (error) {
+                console.warn('Could not get GHL credentials for solar config:', error);
+              }
+              
+              onComplete(configWithLocation, true); // Pass true to indicate user wants to continue
+            }}
+            className="mt-6 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+          >
+            Continue to Calendar Setup
+          </button>
         </div>
       </div>
     );
