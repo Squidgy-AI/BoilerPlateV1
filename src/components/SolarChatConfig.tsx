@@ -150,7 +150,6 @@ const SolarChatConfig: React.FC<SolarChatConfigProps> = ({
           </p>
           <div className="mt-4 text-green-600">
             ✅ Solar pricing and products configured<br/>
-            ✅ SOL Agent activated in your workspace<br/>
             🌞⚡ Ready to calculate savings and generate proposals!
           </div>
           <button
