@@ -941,7 +941,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       }
 
       addMessage('bot', '💾 Configuration saved successfully!');
-      addMessage('bot', '🎯 Ready to proceed with Facebook integration...');
+      addMessage('bot', '☀️ Great! Now let\'s set up your solar business details...');
 
       onConfigurationComplete(ghlConfig);
 
