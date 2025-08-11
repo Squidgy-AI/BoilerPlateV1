@@ -375,8 +375,8 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     }
   };
 
-  const handleGHLComplete = async (config: any) => {
-    console.log('🏢 GHL setup completed');
+  const handleGHLComplete = async (config: any, shouldContinue?: boolean) => {
+    console.log('🏢 GHL setup completed', shouldContinue ? '(user clicked continue)' : '');
     
     // Check if this is first-time completion or an edit
     const isFirstTimeCompletion = !progress.ghl_completed;
@@ -414,8 +414,10 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       }, 100000); // Check after 100 seconds (1.5+ minutes) to allow backend automation to complete
     }
 
-    // Only auto-navigate to next step if this is a first-time completion (sequential flow)
-    if (isFirstTimeCompletion) {
+    // Navigate to solar if:
+    // 1. It's a first-time completion (sequential flow), OR
+    // 2. User explicitly clicked "Continue to Solar Setup" button
+    if (isFirstTimeCompletion || shouldContinue) {
       setCurrentStage('solar');
     } else {
       console.log('🏢 GHL updated (not first-time), staying on current step');

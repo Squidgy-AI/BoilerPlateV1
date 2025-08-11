@@ -8,7 +8,7 @@ import { getUserId } from '@/utils/getUserId';
 import { getGHLCredentials } from '@/constants/ghlCredentials';
 
 interface EnhancedChatGHLSetupProps {
-  onConfigurationComplete: (config: GHLSetupConfig) => void;
+  onConfigurationComplete: (config: GHLSetupConfig, shouldContinue?: boolean) => void;
   onSkip: () => void;
   sessionId?: string;
 }
@@ -943,7 +943,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       addMessage('bot', '💾 Configuration saved successfully!');
       addMessage('bot', '☀️ Great! Now let\'s set up your solar business details...');
 
-      onConfigurationComplete(ghlConfig);
+      // Pass true to indicate user wants to continue to next step
+      onConfigurationComplete(ghlConfig, true);
 
     } catch (error: any) {
       console.error('Error saving GHL setup:', error);
