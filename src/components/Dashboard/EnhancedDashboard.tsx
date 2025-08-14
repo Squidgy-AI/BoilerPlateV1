@@ -1749,12 +1749,14 @@ Let's begin with your Solar Business Setup! ☀️`;
         return false;
       }
 
+      // Check if at least Solar setup exists (mandatory)
       const { data, error } = await supabase
         .from('squidgy_agent_business_setup')
-        .select('setup_json')
+        .select('setup_type')
         .eq('firm_user_id', userIdResult.user_id)
         .eq('agent_id', 'SOLAgent')
-        .eq('setup_type', 'SetupCompleted')
+        .eq('setup_type', 'SolarBusiness')
+        .eq('is_enabled', true)
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -1762,7 +1764,7 @@ Let's begin with your Solar Business Setup! ☀️`;
         return false;
       }
 
-      const isCompleted = data?.setup_json?.all_steps_completed === true;
+      const isCompleted = !!data;
       console.log('🔍 SOL Agent setup completion status:', isCompleted);
       return isCompleted;
     } catch (error) {
@@ -1776,35 +1778,14 @@ Let's begin with your Solar Business Setup! ☀️`;
     console.log('🌞 Progressive Solar Sales Specialist setup completed');
     
     try {
-      // Save completion status to database to prevent reappearing on refresh
+      // No need to save a separate completion record
+      // The existence of SolarBusiness setup indicates completion
       const userIdResult = await getUserId();
       if (userIdResult.success && userIdResult.user_id) {
-        const { data, error } = await supabase
-          .from('squidgy_agent_business_setup')
-          .upsert({
-            firm_user_id: userIdResult.user_id,
-            agent_id: 'SOLAgent',
-            agent_name: 'Solar Sales Specialist', 
-            setup_type: 'SetupCompleted',
-            setup_json: {
-              completed_at: new Date().toISOString(),
-              all_steps_completed: true
-            },
-            is_enabled: true,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'firm_user_id,agent_id,setup_type'
-          })
-          .select();
-
-        if (error) {
-          console.error('❌ Error saving setup completion status:', error);
-        } else {
-          console.log('✅ Setup completion status saved to database:', data);
-        }
+        console.log('✅ SOL Agent setup is complete (SolarBusiness record exists)');
       }
     } catch (error) {
-      console.error('❌ Failed to save setup completion:', error);
+      console.error('❌ Failed to handle setup completion:', error);
     }
     
     setShowSOLSetup(false);
