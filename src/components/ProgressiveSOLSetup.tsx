@@ -847,12 +847,27 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
                 <Clock className="w-4 h-4 mr-1" />
                 Time remaining: {facebookUnlockStatus?.time_remaining ? Math.ceil(facebookUnlockStatus.time_remaining) : 'a few'} minutes
               </div>
-              <button
-                onClick={() => setShowFacebookWaitModal(false)}
-                className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                Got it, I'll wait
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setShowFacebookWaitModal(false)}
+                  className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  Got it, I'll wait
+                </button>
+                <button
+                  onClick={() => {
+                    setShowFacebookWaitModal(false);
+                    console.log('📘 Facebook setup skipped from wait modal');
+                    setCurrentStage('complete');
+                    setTimeout(() => {
+                      onComplete();
+                    }, 1000);
+                  }}
+                  className="w-full text-gray-500 hover:text-gray-700 text-sm underline transition-colors"
+                >
+                  Skip Facebook Setup
+                </button>
+              </div>
             </div>
           </div>
         </div>
