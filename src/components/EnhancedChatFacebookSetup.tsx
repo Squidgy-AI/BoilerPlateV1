@@ -756,27 +756,47 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
               <CheckCircle className="w-4 h-4" />
               <span>I Completed Facebook OAuth ✓</span>
             </button>
+            
+            <div className="pt-2 border-t border-gray-200">
+              <button
+                onClick={onSkip}
+                className="w-full text-gray-500 hover:text-gray-700 text-sm underline transition-colors"
+              >
+                Skip Facebook Setup
+              </button>
+            </div>
           </div>
         )}
 
         {/* STEP 2: Get Facebook Pages */}
         {oauthCompleted && integrationStatus !== 'step3_selecting_pages' && integrationStatus !== 'completed' && (
-          <button
-            onClick={startStep2GetPages}
-            disabled={integrationStatus === 'step2_getting_pages'}
-            className="w-full flex items-center justify-center space-x-2 bg-orange-500 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
-          >
-            {integrationStatus === 'step2_getting_pages' ? (
-              <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-            ) : (
-              <Facebook className="w-4 h-4" />
-            )}
-            <span>
-              {integrationStatus === 'step2_getting_pages' 
-                ? 'Getting Pages...' 
-                : 'Step 2: Get Facebook Pages'}
-            </span>
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={startStep2GetPages}
+              disabled={integrationStatus === 'step2_getting_pages'}
+              className="w-full flex items-center justify-center space-x-2 bg-orange-500 text-white py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+            >
+              {integrationStatus === 'step2_getting_pages' ? (
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+              ) : (
+                <Facebook className="w-4 h-4" />
+              )}
+              <span>
+                {integrationStatus === 'step2_getting_pages' 
+                  ? 'Getting Pages...' 
+                  : 'Step 2: Get Facebook Pages'}
+              </span>
+            </button>
+            
+            <div className="pt-2 border-t border-gray-200">
+              <button
+                onClick={onSkip}
+                className="w-full text-gray-500 hover:text-gray-700 text-sm underline transition-colors"
+              >
+                Skip Facebook Setup
+              </button>
+            </div>
+          </div>
         )}
 
         {/* STEP 3: Page Selection */}
