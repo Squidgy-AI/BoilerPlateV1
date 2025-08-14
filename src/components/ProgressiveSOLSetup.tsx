@@ -814,21 +814,8 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       {currentStage === 'facebook' && (
         <EnhancedChatFacebookSetup
           onConfigurationComplete={handleFacebookComplete}
-          onSkip={async () => {
+          onSkip={() => {
             console.log('📘 Facebook setup skipped by user');
-            console.log('📘 Session ID:', sessionId);
-            
-            try {
-              // Add skip message to chat
-              await addCompletionMessageToChat(
-                'facebook_skip',
-                '📘 **Facebook Integration Skipped**\n\n✅ **Your Solar Sales Specialist is now ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\n*Note: Facebook integration was skipped. You can set it up later from settings if needed.*\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.',
-                true
-              );
-              console.log('✅ Skip message added to chat successfully');
-            } catch (error) {
-              console.error('❌ Error adding skip message to chat:', error);
-            }
             
             // Go directly to completion when Facebook is skipped
             setCurrentStage('complete');
@@ -876,22 +863,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
                   Got it, I'll wait
                 </button>
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     setShowFacebookWaitModal(false);
                     console.log('📘 Facebook setup skipped from wait modal');
-                    console.log('📘 Session ID:', sessionId);
-                    
-                    try {
-                      // Add skip message to chat
-                      await addCompletionMessageToChat(
-                        'facebook_skip',
-                        '📘 **Facebook Integration Skipped**\n\n✅ **Your Solar Sales Specialist is now ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\n*Note: Facebook integration was skipped. You can set it up later from settings if needed.*\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.',
-                        true
-                      );
-                      console.log('✅ Skip message added to chat successfully from modal');
-                    } catch (error) {
-                      console.error('❌ Error adding skip message to chat from modal:', error);
-                    }
                     
                     setCurrentStage('complete');
                     setTimeout(() => {
