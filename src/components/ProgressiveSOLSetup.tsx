@@ -807,7 +807,15 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       {currentStage === 'facebook' && (
         <EnhancedChatFacebookSetup
           onConfigurationComplete={handleFacebookComplete}
-          onSkip={() => {}} // Dummy function - skip disabled
+          onSkip={() => {
+            console.log('📘 Facebook setup skipped by user');
+            // Go directly to completion when Facebook is skipped
+            setCurrentStage('complete');
+            // Complete the overall setup after a brief delay
+            setTimeout(() => {
+              onComplete();
+            }, 1000);
+          }}
           sessionId={sessionId}
           locationId={ghlCredentials?.location_id}
           userId={ghlCredentials?.user_id}

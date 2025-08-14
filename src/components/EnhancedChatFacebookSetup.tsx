@@ -689,7 +689,6 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
             )}
           </div>
         </div>
-        {/* Skip removed for mandatory setup */}
       </div>
 
       {/* Chat Messages */}
@@ -833,7 +832,17 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
           </div>
         )}
 
-        {/* Skip removed for mandatory setup */}
+        {/* Skip button - always visible except when completed */}
+        {integrationStatus !== 'completed' && (
+          <div className="text-center pt-2">
+            <button
+              onClick={onSkip}
+              className="text-gray-500 hover:text-gray-700 text-sm underline transition-colors"
+            >
+              Skip Facebook Setup and Continue
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
