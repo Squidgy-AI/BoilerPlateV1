@@ -655,12 +655,17 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
               </div>
             )}
             
-            <button
-              onClick={onSkip}
-              className="mt-6 px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Skip for Now
-            </button>
+            <div className="mt-6 space-y-2">
+              <button
+                onClick={onSkip}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Skip Facebook Setup
+              </button>
+              <p className="text-xs text-gray-500">
+                You can set up Facebook integration later from settings
+              </p>
+            </div>
           </div>
         </div>
       </div>
