@@ -280,6 +280,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         .rpc('safe_insert_chat_history', {
           p_session_id: sessionId,
           p_user_id: userIdResult.user_id,
+          p_agent_id: 'SOLAgent',
           p_sender: 'agent',
           p_message: message,
           p_timestamp: new Date().toISOString()
