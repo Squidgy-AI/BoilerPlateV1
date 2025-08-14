@@ -807,8 +807,16 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
       {currentStage === 'facebook' && (
         <EnhancedChatFacebookSetup
           onConfigurationComplete={handleFacebookComplete}
-          onSkip={() => {
+          onSkip={async () => {
             console.log('📘 Facebook setup skipped by user');
+            
+            // Add skip message to chat
+            await addCompletionMessageToChat(
+              'facebook_skip',
+              '📘 **Facebook Integration Skipped**\n\n✅ **Your Solar Sales Specialist is now ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\n*Note: Facebook integration was skipped. You can set it up later from settings if needed.*\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.',
+              true
+            );
+            
             // Go directly to completion when Facebook is skipped
             setCurrentStage('complete');
             // Complete the overall setup after a brief delay
@@ -855,9 +863,17 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
                   Got it, I'll wait
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setShowFacebookWaitModal(false);
                     console.log('📘 Facebook setup skipped from wait modal');
+                    
+                    // Add skip message to chat
+                    await addCompletionMessageToChat(
+                      'facebook_skip',
+                      '📘 **Facebook Integration Skipped**\n\n✅ **Your Solar Sales Specialist is now ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\n*Note: Facebook integration was skipped. You can set it up later from settings if needed.*\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.',
+                      true
+                    );
+                    
                     setCurrentStage('complete');
                     setTimeout(() => {
                       onComplete();
