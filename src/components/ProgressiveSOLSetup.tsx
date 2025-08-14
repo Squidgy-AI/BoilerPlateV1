@@ -258,6 +258,9 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
 
   const addCompletionMessageToChat = async (stage: string, message: string, isFirstTimeCompletion = true) => {
     try {
+      console.log(`📝 Attempting to add ${stage} message to chat...`);
+      console.log(`📝 Session ID in function: ${sessionId}`);
+      
       // Only add chat message on first-time completion, not on edits
       if (!isFirstTimeCompletion) {
         console.log(`⚠️ Skipping chat message for ${stage} - this is an edit, not first-time completion`);
@@ -269,6 +272,8 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
         console.error('Failed to get user ID:', userIdResult.error);
         return;
       }
+      
+      console.log(`📝 User ID: ${userIdResult.user_id}`);
 
       // Use safe insert function to prevent duplicates
       const { data, error } = await supabase
@@ -282,6 +287,7 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
 
       if (error) {
         console.error('Error adding completion message to chat:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
       } else if (data) {
         console.log(`✅ Added ${stage} completion message to chat history (ID: ${data})`);
       } else {
@@ -809,13 +815,19 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
           onConfigurationComplete={handleFacebookComplete}
           onSkip={async () => {
             console.log('📘 Facebook setup skipped by user');
+            console.log('📘 Session ID:', sessionId);
             
-            // Add skip message to chat
-            await addCompletionMessageToChat(
-              'facebook_skip',
-              '📘 **Facebook Integration Skipped**\n\n✅ **Your Solar Sales Specialist is now ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\n*Note: Facebook integration was skipped. You can set it up later from settings if needed.*\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.',
-              true
-            );
+            try {
+              // Add skip message to chat
+              await addCompletionMessageToChat(
+                'facebook_skip',
+                '📘 **Facebook Integration Skipped**\n\n✅ **Your Solar Sales Specialist is now ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\n*Note: Facebook integration was skipped. You can set it up later from settings if needed.*\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.',
+                true
+              );
+              console.log('✅ Skip message added to chat successfully');
+            } catch (error) {
+              console.error('❌ Error adding skip message to chat:', error);
+            }
             
             // Go directly to completion when Facebook is skipped
             setCurrentStage('complete');
@@ -866,13 +878,19 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
                   onClick={async () => {
                     setShowFacebookWaitModal(false);
                     console.log('📘 Facebook setup skipped from wait modal');
+                    console.log('📘 Session ID:', sessionId);
                     
-                    // Add skip message to chat
-                    await addCompletionMessageToChat(
-                      'facebook_skip',
-                      '📘 **Facebook Integration Skipped**\n\n✅ **Your Solar Sales Specialist is now ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\n*Note: Facebook integration was skipped. You can set it up later from settings if needed.*\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.',
-                      true
-                    );
+                    try {
+                      // Add skip message to chat
+                      await addCompletionMessageToChat(
+                        'facebook_skip',
+                        '📘 **Facebook Integration Skipped**\n\n✅ **Your Solar Sales Specialist is now ready to help your customers!**\n\nI can now:\n• Provide accurate solar quotes and calculations\n• Schedule appointments with customers\n• Send notifications via your preferred channels\n• Answer questions about solar energy and financing\n\n*Note: Facebook integration was skipped. You can set it up later from settings if needed.*\n\nYour setup is complete! Feel free to ask me anything about solar energy or try saying "schedule a consultation" to test the booking system.',
+                        true
+                      );
+                      console.log('✅ Skip message added to chat successfully from modal');
+                    } catch (error) {
+                      console.error('❌ Error adding skip message to chat from modal:', error);
+                    }
                     
                     setCurrentStage('complete');
                     setTimeout(() => {
