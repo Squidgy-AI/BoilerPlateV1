@@ -373,15 +373,13 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     );
     
     // Always navigate to next step when "Complete Setup" is clicked
-    // Check if Facebook is unlocked before navigating
-    if (facebookUnlockStatus?.facebook_unlocked) {
-      console.log('🔔 Notifications Complete Setup clicked - navigating to Facebook');
-      setCurrentStage('facebook');
-    } else {
-      // Show modal that user needs to wait for Facebook unlock
-      setShowFacebookWaitModal(true);
-      console.log('📝 Facebook not unlocked yet, showing wait modal');
-    }
+    // Refresh page to ensure Facebook unlock status is updated
+    console.log('🔄 Refreshing page to update Facebook unlock status...');
+    
+    // Add a small delay to allow the completion message to be saved
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
 
   const handleGHLComplete = async (config: any, shouldContinue?: boolean) => {
