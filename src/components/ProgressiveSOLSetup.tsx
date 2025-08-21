@@ -375,22 +375,29 @@ const ProgressiveSOLSetup: React.FC<ProgressiveSOLSetupProps> = ({
     // Always navigate to next step when "Complete Setup" is clicked
     // First refresh the Facebook unlock status, then check
     console.log('🔄 Refreshing Facebook unlock status...');
+    console.log('📝 Current Facebook status before refresh:', facebookUnlockStatus);
+    
     await refetchFacebookStatus();
     
-    // Add a small delay to allow status refresh
-    setTimeout(async () => {
-      // Re-check Facebook unlock status after refresh
-      const updatedStatus = await refetchFacebookStatus();
+    // Add a small delay to allow status refresh and state update
+    setTimeout(() => {
+      // Check Facebook unlock status after refresh (using the state, not the return value)
+      console.log('📝 Facebook status after refresh:', facebookUnlockStatus);
       
-      if (updatedStatus?.facebook_unlocked) {
+      if (facebookUnlockStatus?.facebook_unlocked) {
         console.log('🔔 Notifications Complete Setup clicked - Facebook is unlocked, navigating to Facebook');
         setCurrentStage('facebook');
       } else {
         // Show modal that user needs to wait for Facebook unlock
         setShowFacebookWaitModal(true);
         console.log('📝 Facebook not unlocked yet after refresh, showing wait modal');
+        console.log('📝 Facebook unlock details:', {
+          unlocked: facebookUnlockStatus?.facebook_unlocked,
+          time_remaining: facebookUnlockStatus?.time_remaining,
+          reason: facebookUnlockStatus?.reason
+        });
       }
-    }, 500);
+    }, 1500);
   };
 
   const handleGHLComplete = async (config: any, shouldContinue?: boolean) => {
