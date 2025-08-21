@@ -139,16 +139,16 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         }
 
         if (data?.setup_json) {
-          console.log('✅ Loading existing Facebook setup:', data.setup_json);
+          console.log('✅ Found existing Facebook setup - loading data but not marking as completed');
           const config = data.setup_json as FacebookIntegrationConfig;
           setExistingFacebookConfig(config);
-          setIntegrationStatus('completed');
-          setOauthCompleted(true);
+          // Don't automatically mark as completed - let user go through setup again
+          // Just preload the data if they want to use it
           if (config.facebook_pages) {
-            setFacebookPages(config.facebook_pages);
+            console.log(`📄 Found ${config.facebook_pages.length} previously connected pages`);
           }
           if (config.selected_page_ids) {
-            setSelectedPageIds(config.selected_page_ids);
+            console.log(`✓ Found ${config.selected_page_ids.length} previously selected pages`);
           }
         }
       } catch (error) {
@@ -173,21 +173,13 @@ const EnhancedChatFacebookSetup: React.FC<EnhancedChatFacebookSetupProps> = ({
         }
       ];
 
-      if (existingFacebookConfig) {
-        initialMessages.push({
-          id: '2',
-          sender: 'bot' as const,
-          message: `✅ **Found existing Facebook integration!**\n• Status: ${existingFacebookConfig.integration_status}\n• Connected Pages: ${existingFacebookConfig.facebook_pages?.length || 0}\n• Selected Pages: ${existingFacebookConfig.selected_page_ids?.length || 0}`,
-          timestamp: new Date()
-        });
-      } else {
-        initialMessages.push({
-          id: '2',
-          sender: 'bot' as const,
-          message: `📍 **Using your GHL Account:**\n• Location ID: ${internalLocationId}\n• User ID: ${internalUserId}\n• Automation Email: ${internalGhlCredentials?.email || 'Not provided'}\n\n**Facebook Integration Steps:**\n**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy`,
-          timestamp: new Date()
-        });
-      }
+      // Always show the setup steps, regardless of existing config
+      initialMessages.push({
+        id: '2',
+        sender: 'bot' as const,
+        message: `📍 **Using your GHL Account:**\n• Location ID: ${internalLocationId}\n• User ID: ${internalUserId}\n• Automation Email: ${internalGhlCredentials?.email || 'Not provided'}\n\n**Facebook Integration Steps:**\n**Step 1:** Connect your Facebook account via OAuth\n**Step 2:** Get your Facebook pages using automation\n**Step 3:** Select which pages to connect to Squidgy`,
+        timestamp: new Date()
+      });
 
       setMessages(initialMessages);
     }
