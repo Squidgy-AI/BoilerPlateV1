@@ -87,6 +87,7 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
   });
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   
   // Logo handling state
   const [logoState, setLogoState] = useState<LogoState>({
@@ -270,13 +271,19 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       };
 
       // Call backend API to create sub-account and user
-      const response = await fetch(`${backendUrl}/api/ghl/create-subaccount-and-user`, {
+      // COMMENTED OUT: Use Auto-Extract feature instead
+      /* const response = await fetch(`${backendUrl}/api/ghl/create-subaccount-and-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestPayload)
-      });
+      }); */
+      
+      // Skip to use manual form or auto-extract feature
+      addMessage('bot', '📝 Please use the manual form below or Auto-Extract feature for account creation.');
+      setShowInlineForm(true);
+      return;
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -477,6 +484,8 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
       disable_contact_timezone: false
     };
     
+    // COMMENTED OUT: Use manual form or auto-extract feature instead
+    /*
     try {
       addMessage('bot', '🏢 Creating sub-account...');
       
@@ -567,6 +576,12 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
     } finally {
       setIsSubmittingForm(false);
     }
+    */
+    
+    // Direct users to use manual form or auto-extract instead
+    addMessage('bot', '📝 Please use the manual form below or click "Auto-Extract from Website" to create your GHL account.');
+    setShowInlineForm(true);
+    setIsSubmittingForm(false);
   };
 
   const [processedUrls, setProcessedUrls] = useState<Set<string>>(new Set());
@@ -734,6 +749,62 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
         showReplaceConfirmation: false
       }));
       addMessage('bot', '👍 Keeping your current logo. The new one has been discarded.');
+    }
+  };
+
+  const handleAutoExtractFromWebsite = async () => {
+    if (!formData.website) {
+      addMessage('bot', '❌ Please enter a website URL first.');
+      return;
+    }
+
+    setIsExtracting(true);
+    addMessage('user', 'Auto-Extract Business Info & Create Account');
+    addMessage('bot', '🔍 Extracting business information from your website using AI...');
+    addMessage('bot', '⚡ This will automatically create your GHL account in the background!');
+
+    try {
+      const userIdResult = await getUserId();
+      if (!userIdResult.success || !userIdResult.user_id) {
+        throw new Error('Failed to get user ID from profiles table');
+      }
+
+      const backendUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://squidgy-back-919bc0659e35.herokuapp.com'
+        : 'http://localhost:8000';
+
+      const response = await fetch(`${backendUrl}/api/ghl/extract-and-create-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          website_url: formData.website,
+          user_id: userIdResult.user_id
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        addMessage('bot', '✅ Website extraction started successfully!');
+        addMessage('bot', '🤖 AI is now analyzing your website and extracting business details...');
+        addMessage('bot', '⚙️ Your GHL account will be created automatically in the background.');
+        addMessage('bot', '📧 You\'ll receive updates as the process completes. You can continue with other setup steps.');
+        
+        // Close the form since the process is now automated
+        setShowInlineForm(false);
+        setSetupStatus('creating');
+        
+      } else {
+        throw new Error(result.message || 'Failed to start website extraction');
+      }
+
+    } catch (error) {
+      console.error('Error starting auto-extraction:', error);
+      addMessage('bot', `❌ Error starting auto-extraction: ${error.message}`);
+    } finally {
+      setIsExtracting(false);
     }
   };
 
@@ -1073,6 +1144,32 @@ const EnhancedChatGHLSetup: React.FC<EnhancedChatGHLSetupProps> = ({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                           <span>Capture Logo & Screenshot</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  
+                  {formData.website && formData.website.startsWith('http') && (
+                    <button
+                      type="button"
+                      onClick={handleAutoExtractFromWebsite}
+                      disabled={isExtracting}
+                      className="w-full flex items-center justify-center space-x-2 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isExtracting ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Auto-Extracting Info...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          <span>Auto-Extract Business Info & Create Account</span>
                         </>
                       )}
                     </button>
